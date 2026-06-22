@@ -8,7 +8,7 @@ import { formatCurrency } from "@/lib/format";
 
 export function ItemForm() {
   const [costPrice, setCostPrice] = useState<number>(0);
-  const [profitMargin, setProfitMargin] = useState<number>(30); // Default 30%
+  const [profitMargin, setProfitMargin] = useState<number>(35); // Default 35%
   const [isPending, setIsPending] = useState(false);
 
   const calculatedPriceCents = Math.round((costPrice * 100) * (1 + profitMargin / 100));
@@ -85,7 +85,7 @@ export function ItemForm() {
                   placeholder="0.00" 
                   className="w-full pl-4 pr-12 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition text-left dir-ltr font-mono"
                 />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">SAR</div>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">ILS</div>
               </div>
             </div>
 

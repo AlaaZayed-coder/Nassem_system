@@ -12,7 +12,7 @@ type ItemPricingFormProps = {
 
 export function ItemPricingForm({ item }: ItemPricingFormProps) {
   const [costPrice, setCostPrice] = useState((item.cost_price_cents || 0) / 100);
-  const [profitMargin, setProfitMargin] = useState(item.profit_margin_percent || 0);
+  const [profitMargin, setProfitMargin] = useState(item.profit_margin_percent || 35);
   const [finalPrice, setFinalPrice] = useState((item.final_selling_price_cents || 0) / 100);
 
   // Auto-calculate final price when cost or profit margin changes
@@ -56,7 +56,7 @@ export function ItemPricingForm({ item }: ItemPricingFormProps) {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-100">
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-bold text-slate-700">التكلفة (دينار)</label>
+            <label className="text-sm font-bold text-slate-700">التكلفة (شيقل)</label>
             <input
               type="number"
               name="cost_price"

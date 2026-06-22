@@ -1,7 +1,7 @@
 export function formatCurrency(cents: number | null | undefined): string {
   if (cents == null) return "—";
-  return new Intl.NumberFormat("ar-SA", {
+  return new Intl.NumberFormat("ar-PS", {
     style: "currency",
-    currency: "SAR",
+    currency: "ILS",
   }).format(cents / 100);
 }
