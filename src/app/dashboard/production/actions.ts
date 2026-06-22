@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { addProductionItem } from "@/lib/production-data";
+import { addProductionItem, updateProductionItem } from "@/lib/production-data";
 
 export async function createItemAction(formData: FormData) {
   const item_code = formData.get("item_code") as string;
@@ -45,8 +45,6 @@ export async function updateItemPricingAction(formData: FormData) {
     pricing_status: "مسعّر",
     updated_at: new Date().toISOString()
   };
-
-  const { updateProductionItem } = await import("@/lib/production-data");
 
   try {
     await updateProductionItem(item_code, updates);

@@ -54,8 +54,12 @@ export function ItemsTable({ items }: { items: Item[] }) {
     formData.append("profit_margin", editMargin.toString());
 
     startTransition(async () => {
-      await updateItemPricingAction(formData);
-      setEditingRowId(null);
+      try {
+        await updateItemPricingAction(formData);
+        setEditingRowId(null);
+      } catch (err: any) {
+        alert("فشل في حفظ السعر: " + err.message);
+      }
     });
   };
 
