@@ -1,0 +1,66 @@
+/* Cairo font — offline */
+@font-face {
+  font-family: 'Cairo';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/cairo-arabic.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+FB50-FDFF, U+FE70-FEFC;
+}
+@font-face {
+  font-family: 'Cairo';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/cairo-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5;
+}
+@font-face {
+  font-family: 'Cairo';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/cairo-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+FEFF;
+}
+
+:root {
+  /* Typography */
+  --font-sans: 'Cairo', Arial, sans-serif;
+  --font-mono: 'Courier New', monospace;
+
+  /* Brand */
+  --brand: #1D9E75;
+  --brand-dark: #14795a;
+
+  /* Backgrounds */
+  --color-background-primary: #FFFFFF;
+  --color-background-secondary: #F7F6F2;
+
+  /* Borders */
+  --color-border-primary: #C8C4BA;
+  --color-border-secondary: #DDD8CC;
+  --color-border-tertiary: #E8E4DC;
+
+  /* Text */
+  --color-text-primary: #2C2C2A;
+  --color-text-secondary: #5F5E5A;
+  --color-text-tertiary: #888780;
+
+  /* Radii */
+  --border-radius-sm: 4px;
+  --border-radius-md: 7px;
+  --border-radius-lg: 10px;
+
+  /* Status colours (bg / text) */
+  --status-approved-bg: #EAF3DE;
+  --status-approved-text: #27500A;
+  --status-working-bg: #E6F1FB;
+  --status-working-text: #0C447C;
+  --status-review-bg: #FAEEDA;
+  --status-review-text: #633806;
+  --status-unpriced-bg: #F1EFE8;
+  --status-unpriced-text: #444441;
+  --status-postponed-bg: #EEEDFE;
+  --status-postponed-text: #3C3489;
+}
