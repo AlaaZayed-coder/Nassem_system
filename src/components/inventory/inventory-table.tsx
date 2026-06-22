@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Warehouse, InventoryItem } from "@/lib/inventory-data";
 import { formatCurrency } from "@/lib/format";
-import { Package, ArrowRightLeft, Plus, Minus, Search, X, Check, Calculator } from "lucide-react";
+import { Package, ArrowRightLeft, Plus, Minus, Search, X, Check, Calculator, Filter } from "lucide-react";
 import { submitStockMovementAction, submitStockTransferAction } from "@/app/dashboard/inventory/actions";
 
 type InventoryTableProps = {
@@ -13,14 +13,25 @@ type InventoryTableProps = {
 
 export function InventoryTable({ warehouses, items }: InventoryTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [warehouseFilter, setWarehouseFilter] = useState<string>("ALL"); // "ALL", or warehouse.id
   const [activeModal, setActiveModal] = useState<"MOVEMENT" | "TRANSFER" | null>(null);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
 
-  const filteredItems = items.filter(
-    (item) =>
-      item.approved_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.item_code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Smart Filter Logic
+  const filteredItems = items.filter((item) => {
+    // 1. Search filter
+    const matchesSearch = item.approved_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          item.item_code.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchesSearch) return false;
+
+    // 2. Warehouse filter
+    if (warehouseFilter !== "ALL") {
+      const qtyInSelectedWarehouse = item.inventory[warehouseFilter] || 0;
+      if (qtyInSelectedWarehouse <= 0) return false; // Only show items that exist in the selected warehouse
+    }
+
+    return true;
+  });
 
   const openMovement = (item: InventoryItem) => {
     setSelectedItem(item);
@@ -39,16 +50,34 @@ export function InventoryTable({ warehouses, items }: InventoryTableProps) {
 
   return (
     <div className="space-y-6" dir="rtl">
-      {/* Search Bar */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-3">
-        <Search className="h-5 w-5 text-slate-400" />
-        <input
-          type="text"
-          placeholder="ابحث برمز الصنف أو اسمه..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 outline-none text-slate-700 placeholder:text-slate-400 bg-transparent"
-        />
+      {/* Search and Filter Bar */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
+        <div className="flex-1 flex items-center gap-3 w-full bg-slate-50 p-3 rounded-xl border border-slate-100 focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-100 transition">
+          <Search className="h-5 w-5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="ابحث برمز الصنف أو اسمه..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="flex-1 outline-none text-slate-700 placeholder:text-slate-400 bg-transparent"
+          />
+        </div>
+
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-2 px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl">
+            <Filter className="h-4 w-4 text-slate-500" />
+            <select 
+              className="bg-transparent outline-none text-sm font-bold text-slate-700 min-w-[150px]"
+              value={warehouseFilter}
+              onChange={(e) => setWarehouseFilter(e.target.value)}
+            >
+              <option value="ALL">جميع المستودعات</option>
+              {warehouses.map(w => (
+                <option key={w.id} value={w.id}>متوفر في: {w.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Main Table */}
@@ -63,7 +92,7 @@ export function InventoryTable({ warehouses, items }: InventoryTableProps) {
               {warehouses.map((w) => (
                 <th key={w.id} className="p-4 text-center bg-indigo-50/50">
                   <div className="flex flex-col items-center gap-1">
-                    <span className="text-indigo-800">{w.name}</span>
+                    <span className="text-indigo-800 whitespace-nowrap">{w.name}</span>
                   </div>
                 </th>
               ))}
@@ -112,14 +141,14 @@ export function InventoryTable({ warehouses, items }: InventoryTableProps) {
                     <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => openMovement(item)}
-                        className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg transition"
+                        className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg transition shadow-sm"
                         title="إدخال/إخراج"
                       >
                         <Calculator className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => openTransfer(item)}
-                        className="p-2 bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white rounded-lg transition"
+                        className="p-2 bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white rounded-lg transition shadow-sm"
                         title="نقل بين المستودعات"
                       >
                         <ArrowRightLeft className="h-4 w-4" />
@@ -132,7 +161,16 @@ export function InventoryTable({ warehouses, items }: InventoryTableProps) {
             {filteredItems.length === 0 && (
               <tr>
                 <td colSpan={7 + warehouses.length} className="p-8 text-center text-slate-400">
-                  لا يوجد أصناف تطابق بحثك.
+                  لا توجد أصناف متوفرة بناءً على الفلتر الحالي.
+                </td>
+              </tr>
+            )}
+            
+            {/* Show an alert if warehouses are empty, this helps the user debug! */}
+            {warehouses.length === 0 && (
+              <tr>
+                <td colSpan={6} className="p-8 text-center text-rose-500 font-bold bg-rose-50">
+                  ⚠️ لا يوجد مستودعات في قاعدة البيانات أو أن صلاحيات القراءة (RLS) تمنع الوصول إليها. يرجى تنفيذ أمر SQL لفتح الصلاحيات.
                 </td>
               </tr>
             )}
@@ -193,7 +231,7 @@ function MovementModal({ item, warehouses, onClose }: { item: InventoryItem; war
             <label className="text-sm font-bold text-slate-700">المستودع</label>
             <select name="warehouse_id" required className="p-3 rounded-xl border border-slate-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition">
               {warehouses.map(w => (
-                <option key={w.id} value={w.id}>{w.name}</option>
+                <option key={w.id} value={w.id}>{w.name} (متوفر: {item.inventory[w.id] || 0})</option>
               ))}
             </select>
           </div>
