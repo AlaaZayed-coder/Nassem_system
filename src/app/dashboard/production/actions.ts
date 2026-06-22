@@ -56,5 +56,4 @@ export async function updateItemPricingAction(formData: FormData) {
   }
 
   revalidatePath("/dashboard/production/items");
-  redirect("/dashboard/production/items");
 }

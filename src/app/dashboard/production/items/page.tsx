@@ -3,6 +3,8 @@ import { getProductionItems } from "@/lib/production-data";
 import { ItemsTable } from "@/components/production/items-table";
 import Link from "next/link";
 
+export const dynamic = 'force-dynamic';
+
 export default async function ProductionItemsPage() {
   const items = await getProductionItems();
 
