@@ -8,7 +8,7 @@ export async function exportItemsToExcel() {
   try {
     const { data: items, error } = await supabase
       .from("erp_items")
-      .select("item_code, approved_name, cost_price_cents, final_selling_price_cents, category_id, is_active")
+      .select("item_code, approved_name, cost_price_cents, final_selling_price_cents, is_active")
       .order("item_code", { ascending: true });
 
     if (error) {
