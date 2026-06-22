@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateItemDetailsAction } from "@/app/dashboard/production/actions";
+import { updateItemDetailsAction } from "@/app/dashboard/inventory/items/actions";
 import { Save, AlertCircle } from "lucide-react";
 
 type Category = {

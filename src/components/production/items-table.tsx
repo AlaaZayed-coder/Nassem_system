@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Search, Package, ArrowUpRight, Edit2, X, Check } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import Link from "next/link";
-import { updateItemPricingAction } from "@/app/dashboard/production/actions";
+import { updateItemPricingAction } from "@/app/dashboard/inventory/items/actions";
 
 type Item = {
   item_code: string;
@@ -202,7 +202,7 @@ export function ItemsTable({ items }: { items: Item[] }) {
                             <Edit2 className="h-4 w-4" />
                           </button>
                           <Link
-                            href={`/dashboard/production/items/${item.item_code}`}
+                            href={`/dashboard/inventory/items/${item.item_code}`}
                             className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-slate-400 bg-slate-50 hover:text-indigo-600 hover:bg-indigo-50 transition"
                             title="فتح التفاصيل"
                           >

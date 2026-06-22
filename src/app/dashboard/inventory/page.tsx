@@ -1,6 +1,7 @@
 import { getWarehouses, getInventorySummary } from "@/lib/inventory-data";
 import { InventoryTable } from "@/components/inventory/inventory-table";
-import { Boxes, Store } from "lucide-react";
+import { Boxes, Store, Package, LayoutDashboard } from "lucide-react";
+import Link from "next/link";
 import { formatCurrency } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -52,8 +53,36 @@ export default async function InventoryPage() {
           </div>
         </div>
       </div>
+      {/* Navigation Cards for Items and Categories */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Link href="/dashboard/inventory/items" className="group p-6 bg-white rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-indigo-200 transition-all cursor-pointer flex flex-col items-start gap-4">
+          <div className="p-4 bg-indigo-50 rounded-2xl group-hover:scale-110 transition-transform">
+            <Package className="w-8 h-8 text-indigo-600" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800">الأصناف والتسعير</h2>
+            <p className="text-slate-500 mt-1">إضافة الأصناف، التسعير، ومراجعة التكلفة الخاصة بالمخزون.</p>
+          </div>
+        </Link>
 
-      <InventoryTable warehouses={warehouses} items={items} />
+        <Link href="/dashboard/inventory/categories" className="group p-6 bg-white rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-sky-200 transition-all cursor-pointer flex flex-col items-start gap-4">
+          <div className="p-4 bg-sky-50 rounded-2xl group-hover:scale-110 transition-transform">
+            <LayoutDashboard className="w-8 h-8 text-sky-600" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800">إدارة التصنيفات</h2>
+            <p className="text-slate-500 mt-1">ترتيب هيكلية الأقسام، التصنيفات الرئيسية والفرعية للأصناف.</p>
+          </div>
+        </Link>
+      </div>
+
+      <div className="pt-4 border-t border-slate-100">
+        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+          <Store className="h-6 w-6 text-slate-400" />
+          المخزون الكلي والنقل
+        </h2>
+        <InventoryTable warehouses={warehouses} items={items} />
+      </div>
     </div>
   );
 }

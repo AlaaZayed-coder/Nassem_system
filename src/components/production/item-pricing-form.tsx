@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { updateItemPricingAction } from "@/app/dashboard/production/actions";
+import { updateItemPricingAction } from "@/app/dashboard/inventory/items/actions";
 import { Save, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/format";
@@ -107,7 +107,7 @@ export function ItemPricingForm({ item }: ItemPricingFormProps) {
           </button>
           
           <Link
-            href="/dashboard/production/items"
+            href="/dashboard/inventory/items"
             className="flex items-center gap-2 px-8 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition"
           >
             إلغاء والعودة

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Plus, Edit2, Trash2, Folder, Layers, AlertCircle } from "lucide-react";
-import { createCategoryAction, updateCategoryAction, deleteCategoryAction } from "@/app/dashboard/production/categories/actions";
+import { createCategoryAction, updateCategoryAction, deleteCategoryAction } from "@/app/dashboard/inventory/categories/actions";
 
 type Category = {
   id: string;

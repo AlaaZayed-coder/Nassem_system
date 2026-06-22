@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createItemAction } from "@/app/dashboard/production/actions";
+import { createItemAction } from "@/app/dashboard/inventory/items/actions";
 import { Calculator, PackagePlus, Save, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/format";
@@ -22,7 +22,7 @@ export function ItemForm() {
           </div>
           <h2 className="text-xl font-bold text-slate-800">إضافة صنف جديد (تسعير)</h2>
         </div>
-        <Link href="/dashboard/production/items" className="text-sm font-bold text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 transition">
+        <Link href="/dashboard/inventory/items" className="text-sm font-bold text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 transition">
           <ArrowRight className="h-4 w-4" /> رجوع للقائمة
         </Link>
       </div>
