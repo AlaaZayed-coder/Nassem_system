@@ -3,14 +3,21 @@ import { supabase } from "./supabase";
 export async function getProductionItems() {
   const { data, error } = await supabase
     .from("erp_items")
-    .select("*, erp_categories(name)")
+    .select("*, erp_categories!erp_items_sub_category_id_fkey(name)")
     .order("created_at", { ascending: false });
 
   if (error) {
     console.error("Error fetching production items:", error);
     return [];
   }
-  return data || [];
+  
+  // Transform the response to match the expected format in UI
+  const formattedData = data?.map(item => ({
+    ...item,
+    erp_categories: item.erp_categories || null
+  })) || [];
+
+  return formattedData;
 }
 
 export async function addProductionItem(itemData: any) {
