@@ -1,5 +1,7 @@
+"use client";
+
 import { useState, useTransition } from "react";
-import { Search, Package, ArrowUpRight, Edit2, Save, X, Check } from "lucide-react";
+import { Search, Package, ArrowUpRight, Edit2, X, Check } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import Link from "next/link";
 import { updateItemPricingAction } from "@/app/dashboard/production/actions";
@@ -238,6 +240,9 @@ export function ItemsTable({ items }: { items: Item[] }) {
             className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold disabled:opacity-50"
           >
             التالي
+          </button>
+        </div>
+      )}
     </div>
   );
 }
