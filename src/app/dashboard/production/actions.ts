@@ -55,3 +55,29 @@ export async function updateItemPricingAction(formData: FormData) {
 
   revalidatePath("/dashboard/production/items");
 }
+
+export async function updateItemDetailsAction(formData: FormData) {
+  const item_code = formData.get("item_code") as string;
+  const approved_name = formData.get("approved_name") as string;
+  const main_category_id = formData.get("main_category_id") as string | null;
+  const sub_category_id = formData.get("sub_category_id") as string | null;
+  const pricing_status = formData.get("pricing_status") as string;
+
+  const updates = {
+    approved_name,
+    main_category_id: main_category_id || null,
+    sub_category_id: sub_category_id || null,
+    pricing_status,
+    updated_at: new Date().toISOString()
+  };
+
+  try {
+    await updateProductionItem(item_code, updates);
+  } catch (error) {
+    console.error("Failed to update item details:", error);
+    throw new Error("فشل تحديث بيانات الصنف");
+  }
+
+  revalidatePath("/dashboard/production/items");
+  revalidatePath(`/dashboard/production/items/${encodeURIComponent(item_code)}`);
+}

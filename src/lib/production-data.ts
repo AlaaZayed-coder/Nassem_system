@@ -109,3 +109,55 @@ export async function updateProductionItem(code: string, updates: any) {
   }
   return data;
 }
+
+export async function getCategories() {
+  const { data, error } = await supabase
+    .from("erp_categories")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching categories:", error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function addCategory(categoryData: any) {
+  const { data, error } = await supabase
+    .from("erp_categories")
+    .insert(categoryData)
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+  return data;
+}
+
+export async function updateCategory(id: string, updates: any) {
+  const { data, error } = await supabase
+    .from("erp_categories")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+  return data;
+}
+
+export async function deleteCategory(id: string) {
+  const { error } = await supabase
+    .from("erp_categories")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    throw error;
+  }
+  return true;
+}
