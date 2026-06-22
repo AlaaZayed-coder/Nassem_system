@@ -31,10 +31,8 @@ export async function changeMachineStatusAction(machineId: string, status: strin
     await updateMachineStatus(machineId, status);
     revalidatePath("/dashboard/maintenance");
     revalidatePath("/dashboard/maintenance/machines");
-    return { success: true };
   } catch (error) {
     console.error("Failed to update status:", error);
-    return { success: false };
   }
 }
 
