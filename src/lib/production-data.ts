@@ -11,6 +11,7 @@ export async function getProductionItems() {
       .from("erp_items")
       .select("*, erp_categories!erp_items_sub_category_id_fkey(name)")
       .order("created_at", { ascending: false })
+      .order("item_code", { ascending: true })
       .range(from, from + limit - 1);
 
     if (error) {
