@@ -15,7 +15,8 @@ export async function exportItemsToExcel() {
   }
 
   // Format data for Excel
-  const excelData = items.map((item) => ({
+  const safeItems = items || [];
+  const excelData = safeItems.map((item) => ({
     "رمز الصنف (Item Code)": item.item_code,
     "اسم الصنف (Name)": item.approved_name || "",
     "سعر التكلفة (Cost Price)": (item.cost_price_cents / 100).toFixed(2),
@@ -26,10 +27,10 @@ export async function exportItemsToExcel() {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "الأصناف والأسعار");
 
-  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+  const base64 = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
   
   // Return base64 string so client can download it
-  return Buffer.from(buffer).toString("base64");
+  return base64;
 }
 
 export async function importItemsFromExcel(formData: FormData) {
@@ -38,9 +39,8 @@ export async function importItemsFromExcel(formData: FormData) {
     if (!file) throw new Error("لم يتم إرفاق أي ملف");
 
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
 
-    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const workbook = XLSX.read(bytes, { type: "array" });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
 
