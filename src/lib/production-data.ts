@@ -79,3 +79,32 @@ export async function updateProductionOrderStatus(orderId: string, status: strin
   }
   return data;
 }
+
+export async function getItemByCode(code: string) {
+  const { data, error } = await supabase
+    .from("erp_items")
+    .select("*, erp_categories!erp_items_sub_category_id_fkey(name)")
+    .eq("item_code", code)
+    .single();
+
+  if (error) {
+    console.error("Error fetching item:", error);
+    return null;
+  }
+  return data;
+}
+
+export async function updateProductionItem(code: string, updates: any) {
+  const { data, error } = await supabase
+    .from("erp_items")
+    .update(updates)
+    .eq("item_code", code)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating item:", error);
+    throw error;
+  }
+  return data;
+}
