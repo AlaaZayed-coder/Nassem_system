@@ -12,7 +12,14 @@ export function ExcelManager() {
   const handleExport = async () => {
     try {
       setIsExporting(true);
-      const base64 = await exportItemsToExcel();
+      const result = await exportItemsToExcel();
+      
+      if (!result.success || !result.data) {
+        alert("حدث خطأ أثناء التصدير: " + (result.error || "خطأ غير معروف"));
+        return;
+      }
+
+      const base64 = result.data;
       
       // Convert base64 to Blob
       const byteCharacters = atob(base64);
@@ -33,7 +40,7 @@ export function ExcelManager() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      alert("حدث خطأ أثناء التصدير.");
+      alert("حدث خطأ أثناء التصدير. يرجى المحاولة مرة أخرى.");
       console.error(err);
     } finally {
       setIsExporting(false);

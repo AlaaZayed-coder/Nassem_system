@@ -5,32 +5,36 @@ import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
 
 export async function exportItemsToExcel() {
-  const { data: items, error } = await supabase
-    .from("erp_items")
-    .select("item_code, approved_name, cost_price_cents, final_selling_price_cents, category_id, is_active")
-    .order("item_code", { ascending: true });
+  try {
+    const { data: items, error } = await supabase
+      .from("erp_items")
+      .select("item_code, approved_name, cost_price_cents, final_selling_price_cents, category_id, is_active")
+      .order("item_code", { ascending: true });
 
-  if (error) {
-    throw new Error(error.message);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Format data for Excel
+    const safeItems = items || [];
+    const excelData = safeItems.map((item) => ({
+      "رمز الصنف (Item Code)": item.item_code,
+      "اسم الصنف (Name)": item.approved_name || "",
+      "سعر التكلفة (Cost Price)": (item.cost_price_cents / 100).toFixed(2),
+      "سعر البيع (Selling Price)": (item.final_selling_price_cents / 100).toFixed(2),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "الأصناف والأسعار");
+
+    const base64 = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
+    
+    return { success: true, data: base64 };
+  } catch (err: any) {
+    console.error("Export error inside Server Action:", err);
+    return { success: false, error: err.message || "Unknown error during export" };
   }
-
-  // Format data for Excel
-  const safeItems = items || [];
-  const excelData = safeItems.map((item) => ({
-    "رمز الصنف (Item Code)": item.item_code,
-    "اسم الصنف (Name)": item.approved_name || "",
-    "سعر التكلفة (Cost Price)": (item.cost_price_cents / 100).toFixed(2),
-    "سعر البيع (Selling Price)": (item.final_selling_price_cents / 100).toFixed(2),
-  }));
-
-  const worksheet = XLSX.utils.json_to_sheet(excelData);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "الأصناف والأسعار");
-
-  const base64 = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
-  
-  // Return base64 string so client can download it
-  return base64;
 }
 
 export async function importItemsFromExcel(formData: FormData) {
