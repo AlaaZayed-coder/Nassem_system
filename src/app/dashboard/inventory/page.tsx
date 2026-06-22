@@ -3,6 +3,7 @@ import { InventoryTable } from "@/components/inventory/inventory-table";
 import { Boxes, Store, Package, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/format";
+import { ExcelManager } from "@/components/inventory/excel-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -26,12 +27,17 @@ export default async function InventoryPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto flex flex-col gap-8" dir="rtl">
-      <div>
-        <h1 className="text-4xl font-extrabold text-slate-800 tracking-tight flex items-center gap-3">
-          <Boxes className="h-10 w-10 text-indigo-600" />
-          إدارة المخزون
-        </h1>
-        <p className="text-slate-500 mt-2 text-lg">تحكم في المستودعات وحركة الأصناف ومراقبة المخزون.</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-4xl font-extrabold text-slate-800 tracking-tight flex items-center gap-3">
+            <Boxes className="h-10 w-10 text-indigo-600" />
+            إدارة المخزون
+          </h1>
+          <p className="text-slate-500 mt-2 text-lg">تحكم في المستودعات وحركة الأصناف ومراقبة المخزون.</p>
+        </div>
+        <div className="hidden md:block">
+          <ExcelManager />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

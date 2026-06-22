@@ -1,7 +1,8 @@
-import { PackageSearch, Plus } from "lucide-react";
+import { Package, Plus } from "lucide-react";
 import { getProductionItems } from "@/lib/production-data";
 import { ItemsTable } from "@/components/production/items-table";
 import Link from "next/link";
+import { ExcelManager } from "@/components/inventory/excel-manager";
 
 export const dynamic = 'force-dynamic';
 
@@ -12,10 +13,11 @@ export default async function ProductionItemsPage() {
     <div className="p-8 max-w-7xl mx-auto flex flex-col gap-6" dir="rtl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <PackageSearch className="h-8 w-8 text-indigo-600" />
+          <Package className="h-8 w-8 text-indigo-600" />
           <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">إدارة الأصناف والتسعير</h1>
         </div>
         <div className="flex items-center gap-2">
+          <ExcelManager />
           <Link
             href="/dashboard/inventory"
             className="inline-flex items-center gap-2 rounded-xl bg-sky-100 px-4 py-2 text-sm font-bold text-sky-700 shadow-sm hover:bg-sky-200 transition"
