@@ -17,24 +17,47 @@ type Item = {
 
 export function ItemsTable({ items }: { items: Item[] }) {
   const [query, setQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
 
-  const filtered = items.filter((item) =>
-    (item.original_name || "").includes(query) || (item.item_code || "").includes(query)
-  );
+  const categories = Array.from(new Set(items.map((i) => i.erp_categories?.name).filter(Boolean))) as string[];
+
+  const filtered = items.filter((item) => {
+    const matchesQuery = (item.original_name || "").includes(query) || (item.item_code || "").includes(query);
+    const matchesCategory = selectedCategory ? item.erp_categories?.name === selectedCategory : true;
+    return matchesQuery && matchesCategory;
+  });
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedItems = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="flex flex-col w-full">
-      <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
+      <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row items-center gap-4">
+        <div className="relative flex-1 w-full md:max-w-md">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); setCurrentPage(1); }}
             placeholder="ابحث برمز أو اسم الصنف..."
             className="w-full pl-4 pr-10 py-2 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm"
             dir="rtl"
           />
+        </div>
+        <select
+          value={selectedCategory}
+          onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1); }}
+          className="w-full md:w-auto px-4 py-2 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm bg-white"
+        >
+          <option value="">كل التصنيفات</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
+        <div className="text-sm font-bold text-slate-500 bg-slate-200 px-3 py-1.5 rounded-lg">
+          العدد: {filtered.length} صنف
         </div>
       </div>
 
@@ -52,8 +75,8 @@ export function ItemsTable({ items }: { items: Item[] }) {
             </tr>
           </thead>
           <tbody>
-            {filtered.length > 0 ? (
-              filtered.map((item) => (
+            {paginatedItems.length > 0 ? (
+              paginatedItems.map((item) => (
                 <tr key={item.item_code} className="border-b border-slate-100 hover:bg-slate-50 transition">
                   <td className="p-4 font-mono text-sm text-slate-500">{item.item_code}</td>
                   <td className="p-4 font-medium text-slate-800">
@@ -100,6 +123,28 @@ export function ItemsTable({ items }: { items: Item[] }) {
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between" dir="ltr">
+          <button
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(c => Math.max(1, c - 1))}
+            className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold disabled:opacity-50"
+          >
+            السابق
+          </button>
+          <span className="text-sm font-bold text-slate-500">
+            صفحة {currentPage} من {totalPages}
+          </span>
+          <button
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage(c => Math.min(totalPages, c + 1))}
+            className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold disabled:opacity-50"
+          >
+            التالي
+          </button>
+        </div>
+      )}
     </div>
   );
 }
