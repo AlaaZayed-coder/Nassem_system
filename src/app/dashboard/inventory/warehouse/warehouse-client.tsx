@@ -452,7 +452,7 @@ function StocktakeTab({ warehouses, items }: { warehouses: Warehouse[]; items: I
       </div>
 
       <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginBottom: 8 }}>
-        أدخل الكمية الفعلية في خانة "الجرد" — اتركها فارغة إن لم تتغير
+        أدخل الكمية الفعلية في خانة &quot;الجرد&quot; — اتركها فارغة إن لم تتغير
       </div>
 
       {/* Table */}

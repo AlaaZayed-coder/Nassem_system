@@ -7,7 +7,7 @@ import { saveItemFullAction, approveItemAction, lockItemAction, unlockItemAction
 import { getPriceHistory } from "@/lib/audit-data";
 import {
   ArrowRight, Lock, Unlock, CheckCircle, Send,
-  ChevronDown, ChevronUp, History, ChevronLeft, Tag, Calculator, AlertCircle, Save
+  ChevronDown, ChevronUp, ChevronRight, History, ChevronLeft, Tag, Calculator, AlertCircle, Save
 } from "lucide-react";
 import Link from "next/link";
 
