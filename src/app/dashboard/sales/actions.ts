@@ -88,7 +88,6 @@ export async function updateOpportunityStatusAction(orderId: string, newStatus: 
   // AUTOMATION: If status changed to 'معتمد' (Approved)
   if (newStatus === "معتمد" && order.status !== "معتمد") {
     // 1. Create a dummy production order to kick off factory process
-    // In a real scenario we would iterate over erp_sales_order_lines
     await supabase.from("erp_production_orders").insert([{
       sales_order_id: order.id,
       item_code: "NS-101", // Default/Dummy item for now
@@ -98,13 +97,22 @@ export async function updateOpportunityStatusAction(orderId: string, newStatus: 
       notes: "تم الإنشاء آلياً من قسم المبيعات"
     }]);
 
-    // 2. Send Telegram Welcome Message
-    const customer = order.erp_customers as any;
-    if (customer && customer.telegram_chat_id) {
-      await sendTelegramMessage(
-        customer.telegram_chat_id, 
-        `أهلاً بك أستاذ ${customer.name}،\nتم اعتماد طلبك بنجاح وهو الآن في مرحلة التحضير والإنتاج. سنقوم بإبلاغك بأي تحديثات قريباً!\n\nرقم الطلب: ${order.id.slice(0, 8)}\nالقيمة: ${(order.total_amount_cents / 100).toFixed(2)} شيكل`
-      );
+    // 2. Notify Production Staff via Telegram
+    const { data: prodStaff } = await supabase
+      .from("erp_staff")
+      .select("telegram_chat_id")
+      .eq("role", "production")
+      .eq("is_active", true)
+      .not("telegram_chat_id", "is", null);
+
+    if (prodStaff && prodStaff.length > 0) {
+      const message = `🔔 طلب إنتاج جديد!\n\nتم اعتماد طلب المبيعات رقم: #${order.id.split("-")[0]}\nللعميل: ${order.erp_customers?.name || "غير محدد"}\nالرجاء متابعة لوحة الإنتاج (Mini App).`;
+      
+      for (const staff of prodStaff) {
+        if (staff.telegram_chat_id) {
+          await sendTelegramMessage(staff.telegram_chat_id, message);
+        }
+      }
     }
   }
 
@@ -124,7 +132,12 @@ async function sendTelegramMessage(chatId: string, text: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: chatId,
-        text: text
+        text: text,
+        reply_markup: {
+          inline_keyboard: [[
+            { text: "فتح تطبيق المصنع", web_app: { url: "https://nassem-system.vercel.app/telegram-app" } }
+          ]]
+        }
       })
     });
     if (!res.ok) {
