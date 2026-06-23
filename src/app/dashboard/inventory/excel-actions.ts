@@ -6,17 +6,35 @@ import * as XLSX from "xlsx";
 
 export async function exportItemsToExcel() {
   try {
-    const { data: items, error } = await supabase
-      .from("erp_items")
-      .select("item_code, approved_name, cost_price_cents, final_selling_price_cents, is_active")
-      .order("item_code", { ascending: true });
+    let allItems: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let fetchMore = true;
 
-    if (error) {
-      throw new Error(error.message);
+    while (fetchMore) {
+      const { data: items, error } = await supabase
+        .from("erp_items")
+        .select("item_code, approved_name, cost_price_cents, final_selling_price_cents, is_active")
+        .order("item_code", { ascending: true })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (items && items.length > 0) {
+        allItems = allItems.concat(items);
+        page++;
+        if (items.length < pageSize) {
+          fetchMore = false;
+        }
+      } else {
+        fetchMore = false;
+      }
     }
 
     // Format data for Excel
-    const safeItems = items || [];
+    const safeItems = allItems;
     const excelData = safeItems.map((item) => ({
       "رمز الصنف (Item Code)": item.item_code,
       "اسم الصنف (Name)": item.approved_name || "",
