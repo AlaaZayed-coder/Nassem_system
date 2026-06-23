@@ -27,7 +27,7 @@ export default function Home() {
             <span className="text-base font-bold text-indigo-900 group-hover:text-white transition-colors">إدارة الإنتاج</span>
           </Link>
 
-          <Link href="/dashboard/inventory"
+          <Link href="/dashboard/inventory/warehouse"
             className="group flex flex-col items-center gap-3 p-6 bg-sky-50 hover:bg-sky-600 rounded-2xl transition-all border border-sky-100">
             <Boxes className="w-8 h-8 text-sky-600 group-hover:text-white transition-colors" />
             <span className="text-base font-bold text-sky-900 group-hover:text-white transition-colors">إدارة المخزون</span>
