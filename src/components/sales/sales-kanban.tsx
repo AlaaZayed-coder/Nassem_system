@@ -97,7 +97,7 @@ export function SalesKanban({ initialOrders }: { initialOrders: SalesOrder[] }) 
 
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                     <div className="text-slate-500 text-xs flex gap-2">
-                      {order.erp_customers?.phone && <Phone className="h-3.5 w-3.5" title={order.erp_customers.phone} />}
+                      {order.erp_customers?.phone && <span title={order.erp_customers.phone}><Phone className="h-3.5 w-3.5" /></span>}
                       {order.erp_customers?.telegram_chat_id && <span title="متصل بتليجرام">✈️</span>}
                     </div>
                     <div className="font-black text-indigo-700 font-mono text-sm" dir="ltr">
