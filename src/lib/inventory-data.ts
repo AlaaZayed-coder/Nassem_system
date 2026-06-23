@@ -32,19 +32,22 @@ export async function getWarehouses(): Promise<Warehouse[]> {
 }
 
 export async function getInventorySummary() {
-  // Fetch all items that have inventory records or just all items
-  // Since we want to show items and their quantities, we'll fetch items and their inventory joined.
-  
-  // First, fetch all items
-  const { data: items, error: itemsError } = await supabase
-    .from("erp_items")
-    .select("item_code, original_name, approved_name, unit_of_measure, cost_price_cents, final_selling_price_cents")
-    .order("created_at", { ascending: false });
-
-  if (itemsError) {
-    console.error("Error fetching items for inventory:", itemsError);
-    return [];
+  // Fetch ALL items in pages of 1000
+  let allItems: any[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data, error } = await supabase
+      .from("erp_items")
+      .select("item_code, original_name, approved_name, unit_of_measure, cost_price_cents, final_selling_price_cents")
+      .order("item_code", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) { console.error("Error fetching items for inventory:", error); return []; }
+    allItems = allItems.concat(data || []);
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
   }
+  const items = allItems;
 
   // Fetch all inventory records
   const { data: inventoryRecords, error: invError } = await supabase

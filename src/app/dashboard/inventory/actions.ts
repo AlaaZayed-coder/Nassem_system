@@ -17,6 +17,7 @@ export async function submitStockMovementAction(formData: FormData) {
     throw new Error(error.message || "فشل تسجيل حركة المخزون");
   }
 
+  revalidatePath("/dashboard/inventory/warehouse");
   revalidatePath("/dashboard/inventory");
 }
 
@@ -38,5 +39,6 @@ export async function submitStockTransferAction(formData: FormData) {
     throw new Error(error.message || "فشل نقل المخزون");
   }
 
+  revalidatePath("/dashboard/inventory/warehouse");
   revalidatePath("/dashboard/inventory");
 }
