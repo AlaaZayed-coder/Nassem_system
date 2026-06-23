@@ -20,7 +20,7 @@ export default async function ProductionOrderDetailsPage({ params }: { params: {
     return (
       <div className="p-8 max-w-3xl mx-auto text-center" dir="rtl">
         <h1 className="text-2xl font-bold text-slate-800">الطلب غير موجود أو منتهي</h1>
-        <Link href="/dashboard/production/orders" className="text-indigo-600 font-bold mt-4 inline-block hover:underline">العودة للقائمة</text>
+        <Link href="/dashboard/production/orders" className="text-indigo-600 font-bold mt-4 inline-block hover:underline">العودة للقائمة</Link>
       </div>
     );
   }
