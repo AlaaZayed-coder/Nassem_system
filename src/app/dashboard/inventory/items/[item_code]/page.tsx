@@ -206,13 +206,29 @@ export default function ItemDetailPage() {
               onChange={e => set("approved_name", e.target.value)} />
           </div>
 
-          {/* Door pricing checkbox */}
-          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: locked ? "default" : "pointer", userSelect: "none" }}>
-            <input type="checkbox" checked={showDoor} disabled={locked}
-              onChange={e => setShowDoor(e.target.checked)}
-              style={{ width: 15, height: 15, accentColor: "var(--brand)" }} />
-            <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>تسعير الباب بالمتر المربع / التركيب</span>
-          </label>
+          {/* Door pricing toggle */}
+          <div
+            onClick={() => { if (!locked) setShowDoor(d => !d); }}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              cursor: locked ? "default" : "pointer", userSelect: "none",
+              padding: "7px 10px",
+              border: `0.5px solid ${showDoor ? "var(--brand)" : "var(--color-border-tertiary)"}`,
+              borderRadius: "var(--border-radius-sm)",
+              background: showDoor ? "rgba(29,158,117,0.05)" : "transparent",
+            }}>
+            <div style={{
+              width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+              border: `2px solid ${showDoor ? "var(--brand)" : "var(--color-border-secondary)"}`,
+              background: showDoor ? "var(--brand)" : "transparent",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              {showDoor && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L4 7L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            </div>
+            <span style={{ fontSize: 13, color: showDoor ? "var(--brand)" : "var(--color-text-secondary)", fontWeight: showDoor ? 600 : 400 }}>
+              تسعير الباب بالمتر المربع / التركيب
+            </span>
+          </div>
         </div>
       </div>
 
@@ -250,7 +266,7 @@ export default function ItemDetailPage() {
             <div>
               <label className="field-label">السعر المقترح (₪)</label>
               <input className="field-input" dir="ltr" readOnly
-                value={fromCents(form.suggested_selling_price_cents)}
+                value={form.suggested_selling_price_cents != null ? fromCents(form.suggested_selling_price_cents) : "—"}
                 style={{ background: "var(--color-background-secondary)", color: "var(--color-text-tertiary)", cursor: "default" }} />
             </div>
           </div>
@@ -269,7 +285,7 @@ export default function ItemDetailPage() {
             <label className="field-label">المورّد</label>
             <input className="field-input" value={form.supplier || ""} disabled={locked}
               placeholder="اسم المورّد..."
-              onChange={e => set("supplier", e.target.value)} style={{ maxWidth: 280 }} />
+              onChange={e => set("supplier", e.target.value)} />
           </div>
         </div>
       </div>
