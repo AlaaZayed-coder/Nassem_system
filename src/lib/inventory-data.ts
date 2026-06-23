@@ -39,7 +39,7 @@ export async function getInventorySummary() {
   while (true) {
     const { data, error } = await supabase
       .from("erp_items")
-      .select("item_code, original_name, approved_name, unit_of_measure, cost_price_cents, final_selling_price_cents")
+      .select("*")
       .order("item_code", { ascending: true })
       .range(from, from + pageSize - 1);
     if (error) { console.error("Error fetching items for inventory:", error); return []; }
