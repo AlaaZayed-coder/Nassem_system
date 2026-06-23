@@ -11,7 +11,6 @@ const NAV = [
   { label: "الأصناف",         icon: Package,         href: "/dashboard/inventory/items" },
   { label: "التصنيفات",      icon: Grid3X3,         href: "/dashboard/inventory/categories" },
   { label: "المخزون",         icon: Warehouse,       href: "/dashboard/inventory/warehouse" },
-  { label: "سجل التعديلات",  icon: History,         href: "/dashboard/audit" },
 ];
 
 export default function InventoryLayout({ children }: { children: React.ReactNode }) {
