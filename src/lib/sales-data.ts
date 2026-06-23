@@ -8,7 +8,7 @@ export type Customer = {
   address: string | null;
   company_name: string | null;
   customer_type: string;
-  telegram_chat_id?: string | null;
+
   lead_source?: string | null;
   created_at: string;
 };

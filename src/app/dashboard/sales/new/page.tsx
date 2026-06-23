@@ -19,7 +19,7 @@ export default function NewSalesOpportunityPage() {
   // New Customer State
   const [custName, setCustName] = useState("");
   const [custPhone, setCustPhone] = useState("");
-  const [custTelegram, setCustTelegram] = useState("");
+  const [custAddress, setCustAddress] = useState("");
 
   // Order State
   const [totalAmount, setTotalAmount] = useState("");
@@ -42,7 +42,7 @@ export default function NewSalesOpportunityPage() {
           const custData = new FormData();
           custData.append("name", custName);
           custData.append("phone", custPhone);
-          custData.append("telegram_chat_id", custTelegram);
+          custData.append("address", custAddress);
           const newCust = await createCustomerAction(custData);
           finalCustomerId = newCust.id;
         }
@@ -120,9 +120,8 @@ export default function NewSalesOpportunityPage() {
                 <input type="text" value={custPhone} onChange={e => setCustPhone(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition dir-ltr text-left" placeholder="059..." />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-bold text-slate-700 mb-2">معرف تليجرام (Telegram Chat ID) للمراسلة الآلية</label>
-                <input type="text" value={custTelegram} onChange={e => setCustTelegram(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition dir-ltr text-left" placeholder="مثال: 123456789" />
-                <p className="text-xs text-slate-500 mt-2">سيتم استخدامه لإرسال إشعارات الأتمتة للعميل عندما يتم اعتماد طلبه.</p>
+                <label className="block text-sm font-bold text-slate-700 mb-2">عنوان العميل</label>
+                <input type="text" value={custAddress} onChange={e => setCustAddress(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition" placeholder="المدينة، الحي..." />
               </div>
             </div>
           )}

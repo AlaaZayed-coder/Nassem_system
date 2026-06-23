@@ -10,7 +10,6 @@ export async function createCustomerAction(formData: FormData) {
   const address = formData.get("address") as string;
   const company_name = formData.get("company_name") as string;
   const customer_type = formData.get("customer_type") as string || "فرد";
-  const telegram_chat_id = formData.get("telegram_chat_id") as string;
   const lead_source = formData.get("lead_source") as string || "direct";
 
   if (!name) throw new Error("اسم العميل مطلوب");
@@ -24,7 +23,6 @@ export async function createCustomerAction(formData: FormData) {
       address: address || null, 
       company_name: company_name || null, 
       customer_type,
-      telegram_chat_id: telegram_chat_id || null,
       lead_source
     }])
     .select()
@@ -72,7 +70,7 @@ export async function updateOpportunityStatusAction(orderId: string, newStatus: 
   // Fetch current order to see if we need to trigger automation
   const { data: order } = await supabase
     .from("erp_sales_orders")
-    .select("*, erp_customers(telegram_chat_id, name)")
+    .select("*, erp_customers(name)")
     .eq("id", orderId)
     .single();
 

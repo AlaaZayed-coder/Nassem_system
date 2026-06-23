@@ -1,5 +1,4 @@
--- Add telegram tracking to customers
-ALTER TABLE erp_customers ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT;
+
 ALTER TABLE erp_customers ADD COLUMN IF NOT EXISTS lead_source TEXT DEFAULT 'direct';
 
 -- Ensure sales_orders has the kanban status needed
