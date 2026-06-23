@@ -7,16 +7,11 @@ import {
 } from "lucide-react";
 
 const NAV = [
-  { label: "لوحة المعلومات",   icon: LayoutDashboard, href: "/dashboard/inventory" },
-  { label: "الأصناف",           icon: Package,         href: "/dashboard/inventory/items" },
-  { label: "التصنيفات",        icon: Grid3X3,         href: "/dashboard/inventory/categories" },
-  { label: "الأبواب والتركيب", icon: DoorOpen,        href: "/dashboard/inventory/items?door_pricing_enabled=1" },
-  { label: "صندوق المراجعة",   icon: ClipboardList,   href: "/dashboard/inventory/review" },
-  { label: "المخزون",           icon: Warehouse,       href: "/dashboard/inventory/warehouse" },
-  { label: "سجل التعديلات",    icon: History,         href: "/dashboard/audit" },
-  { label: "التقارير",          icon: BarChart2,       href: "/dashboard/reports" },
-  { label: "المستخدمون",       icon: Users,           href: "/dashboard/users" },
-  { label: "الإعدادات",        icon: Settings,        href: "/dashboard/settings" },
+  { label: "لوحة المعلومات", icon: LayoutDashboard, href: "/dashboard/inventory" },
+  { label: "الأصناف",         icon: Package,         href: "/dashboard/inventory/items" },
+  { label: "التصنيفات",      icon: Grid3X3,         href: "/dashboard/inventory/categories" },
+  { label: "المخزون",         icon: Warehouse,       href: "/dashboard/inventory/warehouse" },
+  { label: "سجل التعديلات",  icon: History,         href: "/dashboard/audit" },
 ];
 
 export default function InventoryLayout({ children }: { children: React.ReactNode }) {
