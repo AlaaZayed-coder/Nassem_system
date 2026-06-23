@@ -24,7 +24,7 @@ export default function NewSalesOpportunityPage() {
   const [custAddress, setCustAddress] = useState("");
 
   // Order Items State
-  const [lines, setLines] = useState<{ id: string, type: 'product' | 'maintenance' | 'manufacturing', itemCode: string, quantity: number, unitPriceCents: number, description: string, lineNotes: string }[]>([]);
+  const [lines, setLines] = useState<{ id: string, type: 'product' | 'maintenance' | 'manufacturing', itemCode: string, quantity: number, unitPriceCents: number, description: string, lineNotes: string, unit: string }[]>([]);
   
   // Order State
   const [notes, setNotes] = useState("");
@@ -32,7 +32,7 @@ export default function NewSalesOpportunityPage() {
   useEffect(() => {
     getCustomers().then(setCustomers);
     // Fetch Items for the dropdown
-    supabase.from("erp_items").select("item_code, original_name, approved_name, final_selling_price_cents").then(({ data }) => {
+    supabase.from("erp_items").select("item_code, original_name, approved_name, final_selling_price_cents, unit_of_measure").then(({ data }) => {
       if (data) setAvailableItems(data);
     });
   }, []);
@@ -45,7 +45,8 @@ export default function NewSalesOpportunityPage() {
       quantity: 1, 
       unitPriceCents: 0,
       description: "",
-      lineNotes: ""
+      lineNotes: "",
+      unit: "وحدة"
     }]);
   };
 
@@ -59,7 +60,10 @@ export default function NewSalesOpportunityPage() {
         const newLine = { ...l, [field]: value };
         if (field === 'itemCode' && newLine.type === 'product') {
           const item = availableItems.find(i => i.item_code === value);
-          if (item) newLine.unitPriceCents = item.final_selling_price_cents || 0;
+          if (item) {
+            newLine.unitPriceCents = item.final_selling_price_cents || 0;
+            newLine.unit = item.unit_of_measure || "وحدة";
+          }
         }
         return newLine;
       }
@@ -215,7 +219,7 @@ export default function NewSalesOpportunityPage() {
                       <select required value={line.itemCode} onChange={e => updateLine(line.id, 'itemCode', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none">
                         <option value="">اختر صنفاً...</option>
                         {availableItems.map(i => (
-                          <option key={i.item_code} value={i.item_code}>{i.approved_name || i.original_name}</option>
+                          <option key={i.item_code} value={i.item_code}>{i.approved_name || i.original_name} {i.unit_of_measure ? `(بـ ${i.unit_of_measure})` : ''}</option>
                         ))}
                       </select>
                     ) : (
@@ -236,8 +240,11 @@ export default function NewSalesOpportunityPage() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-xs text-slate-500 mb-1 md:hidden">الكمية</label>
-                    <input required type="number" min="1" value={line.quantity} onChange={e => updateLine(line.id, 'quantity', Number(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none text-center" />
+                    <label className="block text-xs text-slate-500 mb-1 md:hidden">الكمية ({line.unit})</label>
+                    <div className="relative">
+                      <input required type="number" step="0.01" min="0.01" value={line.quantity || ''} onChange={e => updateLine(line.id, 'quantity', Number(e.target.value))} className="w-full px-3 py-2 pr-12 rounded-lg border border-slate-300 outline-none text-center" />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{line.unit}</div>
+                    </div>
                   </div>
 
                   <div className="md:col-span-2">

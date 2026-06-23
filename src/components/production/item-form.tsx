@@ -38,7 +38,7 @@ export function ItemForm() {
         }} 
         className="p-6 space-y-6"
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
             <label htmlFor="item_code" className="block text-sm font-bold text-slate-700">كود الصنف (Item Code)</label>
             <input 
@@ -61,6 +61,21 @@ export function ItemForm() {
               placeholder="مثال: باب حديد مشغول" 
               className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition"
             />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="unit_of_measure" className="block text-sm font-bold text-slate-700">وحدة القياس</label>
+            <select 
+              name="unit_of_measure" 
+              id="unit_of_measure" 
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition bg-white"
+            >
+              <option value="وحدة">وحدة (قطعة)</option>
+              <option value="متر">متر (طولي)</option>
+              <option value="متر مربع">متر مربع</option>
+              <option value="كجم">كجم</option>
+              <option value="لتر">لتر</option>
+            </select>
           </div>
         </div>
 
