@@ -1,0 +1,113 @@
+"use server";
+
+import { supabase } from "@/lib/supabase";
+
+export async function fetchLegacyCategories() {
+  const { data, error } = await supabase
+    .from("erp_categories")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching categories:", error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function fetchLegacyDashboardStats() {
+  // We need to count items per category, and how many are approved/unpriced
+  const { data: items, error } = await supabase
+    .from("erp_items")
+    .select("main_category, pricing_status");
+
+  if (error) {
+    console.error("Error fetching stats:", error);
+    return { categories: [] };
+  }
+
+  const stats: Record<string, { category: string; total: number; approved: number; unpriced: number }> = {};
+
+  (items || []).forEach(item => {
+    const cat = item.main_category || "بدون تصنيف";
+    if (!stats[cat]) {
+      stats[cat] = { category: cat, total: 0, approved: 0, unpriced: 0 };
+    }
+    stats[cat].total++;
+    if (item.pricing_status === "معتمد") stats[cat].approved++;
+    if (item.pricing_status === "غير مسعّر") stats[cat].unpriced++;
+  });
+
+  return { categories: Object.values(stats) };
+}
+
+export async function fetchLegacyItems(filters: any) {
+  let query = supabase.from("erp_items").select("*", { count: "exact" });
+
+  if (filters.search) {
+    query = query.or(`item_code.ilike.%${filters.search}%,original_name.ilike.%${filters.search}%,approved_name.ilike.%${filters.search}%`);
+  }
+  if (filters.pricing_status) {
+    query = query.eq("pricing_status", filters.pricing_status);
+  }
+  if (filters.main_category) {
+    query = query.eq("main_category", filters.main_category);
+  }
+  if (filters.no_category === "1") {
+    query = query.is("main_category", null);
+  }
+  if (filters.door_pricing_enabled === "1") {
+    query = query.eq("door_pricing_enabled", true);
+  }
+
+  // Pagination
+  const page = filters.page ? parseInt(filters.page) : 1;
+  const pageSize = filters.pageSize ? parseInt(filters.pageSize) : 50;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  query = query.range(from, to).order("created_at", { ascending: false });
+
+  const { data, error, count } = await query;
+
+  if (error) {
+    console.error("Error fetching items:", error);
+    return { rows: [], total: 0, page, pageSize };
+  }
+
+  return { rows: data || [], total: count || 0, page, pageSize };
+}
+
+export async function updateLegacyCategory(id: string, updates: any) {
+  const { error } = await supabase
+    .from("erp_categories")
+    .update(updates)
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  return true;
+}
+
+export async function addLegacyCategory(category: any) {
+  const { error } = await supabase
+    .from("erp_categories")
+    .insert([
+      {
+        name: category.name,
+        type: category.type || 'main',
+        is_active: true
+      }
+    ]);
+  if (error) throw new Error(error.message);
+  return true;
+}
+
+export async function bulkUpdateLegacyItems(codes: string[], patch: any) {
+  if (!codes || codes.length === 0) return;
+  const { error } = await supabase
+    .from("erp_items")
+    .update(patch)
+    .in("item_code", codes);
+  
+  if (error) throw new Error(error.message);
+  return true;
+}
