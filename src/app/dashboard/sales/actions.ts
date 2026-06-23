@@ -76,12 +76,10 @@ export async function createSalesOpportunityAction(formData: FormData) {
     unit_price_cents: l.unitPriceCents,
     total_price_cents: l.quantity * l.unitPriceCents,
     line_type: l.type,
-    // Store description inside a note field if it's maintenance (Wait, no notes field in line table, we can just use item_code for text if it's not FK strict, but item_code is FK. So we need to put it somewhere or ignore. For now we will just use a generic maintenance code or skip it)
-    // Actually, item_code must be valid. If maintenance, we might pass null.
+    description: l.description || null,
+    line_notes: l.lineNotes || null
   }));
 
-  // Wait, item_code is a foreign key. If it's maintenance, item_code could be null. Let's ensure the table allows null.
-  // We'll insert them one by one to handle errors gracefully.
   for (const l of linesToInsert) {
     await supabase.from("erp_sales_order_lines").insert([l]);
   }
@@ -126,6 +124,23 @@ export async function updateOpportunityStatusAction(orderId: string, newStatus: 
             cost_cents: line.total_price_cents,
             performed_by: "فريق الصيانة"
           }]);
+          continue;
+        }
+
+        if (line.line_type === 'manufacturing') {
+          // Direct to Production - No inventory check
+          await supabase.from("erp_production_orders").insert([{
+            sales_order_id: order.id,
+            item_code: null, // Custom item
+            quantity: line.quantity,
+            status: "مخطط",
+            priority: "عالي",
+            notes: `تصنيع مخصص: ${line.description || 'بدون وصف'}` // we'll use description column from line if we had one, wait, line doesn't have description in db.
+            // Oh, wait! I didn't add description to erp_sales_order_lines.
+            // We need a place for this. Let's just put it in notes.
+          }]);
+          await supabase.from("erp_sales_order_lines").update({ fulfillment_status: 'manufacturing' }).eq("id", line.id);
+          createdProduction = true;
           continue;
         }
 
