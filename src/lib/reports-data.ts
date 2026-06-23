@@ -43,7 +43,7 @@ export async function getTopSellingItems() {
 
   const itemCounts: Record<string, { name: string, quantity: number, count: number }> = {};
 
-  prodOrders.forEach(order => {
+  prodOrders.forEach((order: any) => {
     const code = order.item_code;
     if (!itemCounts[code]) {
       itemCounts[code] = {
