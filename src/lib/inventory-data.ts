@@ -49,15 +49,10 @@ export async function getInventorySummary() {
   }
   const items = allItems;
 
-  // Fetch all inventory records
-  const { data: inventoryRecords, error: invError } = await supabase
+  // Fetch all inventory records (non-fatal if table missing or RLS blocks)
+  const { data: inventoryRecords } = await supabase
     .from("erp_inventory")
     .select("item_code, warehouse_id, quantity");
-
-  if (invError) {
-    console.error("Error fetching inventory records:", invError);
-    return [];
-  }
 
   // Map inventory by item_code
   const inventoryMap = new Map<string, { [w_id: string]: number }>();
