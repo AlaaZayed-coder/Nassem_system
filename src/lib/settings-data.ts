@@ -17,10 +17,10 @@ export async function updateSetting(key: string, value: string) {
 export async function getDashboardStats() {
   const { data, error } = await supabase
     .from("erp_items")
-    .select("pricing_status, main_category, is_active");
-  if (error) return { total: 0, byStatus: {}, categories: [], progress: 0 };
+    .select("pricing_status, main_category");
+  if (error) { console.error("getDashboardStats error:", error); return { total: 0, byStatus: {}, categories: [], progress: 0 }; }
 
-  const rows = (data || []).filter((r: any) => r.is_active !== false);
+  const rows = (data || []);
   const total = rows.length;
   const byStatus: Record<string, number> = {};
   const catMap: Record<string, { total: number; approved: number }> = {};
