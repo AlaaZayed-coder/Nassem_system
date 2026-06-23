@@ -59,8 +59,8 @@ export default async function InventoryPage() {
           </div>
         </div>
       </div>
-      {/* Navigation Cards for Items and Categories */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Navigation Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Link href="/dashboard/inventory/items" className="group p-6 bg-white rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-indigo-200 transition-all cursor-pointer flex flex-col items-start gap-4">
           <div className="p-4 bg-indigo-50 rounded-2xl group-hover:scale-110 transition-transform">
             <Package className="w-8 h-8 text-indigo-600" />
@@ -77,6 +77,15 @@ export default async function InventoryPage() {
           </div>
           <div>
             <h2 className="text-2xl font-bold text-slate-800">إدارة التصنيفات</h2>
+          </div>
+        </Link>
+
+        <Link href="/dashboard/inventory/review" className="group p-6 bg-white rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-yellow-200 transition-all cursor-pointer flex flex-col items-start gap-4">
+          <div className="p-4 bg-yellow-50 rounded-2xl group-hover:scale-110 transition-transform">
+            <LayoutDashboard className="w-8 h-8 text-yellow-600" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800">قائمة المراجعة</h2>
             <p className="text-slate-500 mt-1">ترتيب هيكلية الأقسام، التصنيفات الرئيسية والفرعية للأصناف.</p>
           </div>
         </Link>

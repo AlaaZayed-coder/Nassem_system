@@ -1,0 +1,93 @@
+"use client";
+import { useEffect, useState } from "react";
+import { getDashboardStats } from "@/lib/settings-data";
+import Link from "next/link";
+import { ArrowRight, Zap, Calendar } from "lucide-react";
+
+const KPI_STYLES: Record<string, { bg: string; label: string; value: string }> = {
+  "إجمالي":        { bg: "#F1EFE8", label: "#5F5E5A", value: "#2C2C2A" },
+  "معتمد":         { bg: "#EAF3DE", label: "#3B6D11", value: "#173404" },
+  "قيد العمل":     { bg: "#E6F1FB", label: "#185FA5", value: "#042C53" },
+  "بحاجة مراجعة": { bg: "#FAEEDA", label: "#854F0B", value: "#412402" },
+  "غير مسعّر":    { bg: "#F1EFE8", label: "#5F5E5A", value: "#2C2C2A" },
+  "مؤجّل":        { bg: "#EEEDFE", label: "#534AB7", value: "#26215C" },
+};
+
+const CAT_COLORS = ["#1D9E75","#378ADD","#EF9F27","#E05252","#7C5ABF","#888780"];
+
+export default function PricingDashboardPage() {
+  const [data, setData] = useState<any>(null);
+
+  useEffect(() => { getDashboardStats().then(setData); }, []);
+
+  if (!data) return <div className="p-8 text-slate-400" dir="rtl">جاري التحميل…</div>;
+
+  const kpis = [
+    { label: "إجمالي",       value: data.total,                        href: "/dashboard/inventory/items" },
+    { label: "معتمد",        value: data.byStatus["معتمد"] || 0,        href: "/dashboard/inventory/items?pricing_status=معتمد" },
+    { label: "قيد العمل",    value: data.byStatus["قيد العمل"] || 0,    href: "/dashboard/inventory/items?pricing_status=قيد العمل" },
+    { label: "بحاجة مراجعة",value: data.byStatus["بحاجة مراجعة"] || 0, href: "/dashboard/inventory/review" },
+    { label: "غير مسعّر",   value: data.byStatus["غير مسعّر"] || 0,   href: "/dashboard/inventory/items?pricing_status=غير مسعّر" },
+    { label: "مؤجّل",       value: data.byStatus["مؤجّل"] || 0,       href: "/dashboard/inventory/items?pricing_status=مؤجّل" },
+  ];
+
+  return (
+    <div className="legacy-wrapper" dir="rtl">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Link href="/dashboard/inventory" className="btn"><ArrowRight size={14} /></Link>
+          <h3 className="section-title" style={{ margin: 0 }}>لوحة معلومات التسعير</h3>
+        </div>
+        <Link href="/dashboard/inventory/items" className="btn btn-primary">
+          <Zap size={14} /> ابدأ التسعير
+        </Link>
+      </div>
+
+      {/* KPI grid */}
+      <div className="kpi-grid" style={{ marginBottom: 16 }}>
+        {kpis.map(k => {
+          const s = KPI_STYLES[k.label] || KPI_STYLES["إجمالي"];
+          return (
+            <Link key={k.label} href={k.href} className="kpi" style={{ background: s.bg, textDecoration: "none" }}>
+              <div className="kpi-label" style={{ color: s.label }}>{k.label}</div>
+              <div className="kpi-value" style={{ color: s.value }}>{(k.value || 0).toLocaleString("en")}</div>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Progress bar */}
+      <div className="progress-wrap" style={{ marginBottom: 16 }}>
+        <div className="progress-header">
+          <span style={{ color: "var(--color-text-secondary)" }}>نسبة الإنجاز العامة</span>
+          <span style={{ fontWeight: 500 }}>{data.progress || 0}%</span>
+        </div>
+        <div className="progress-bar">
+          <div className="progress-fill" style={{ width: `${data.progress || 0}%` }} />
+        </div>
+      </div>
+
+      {/* Categories */}
+      <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 6 }}>
+        التقدّم حسب التصنيف
+      </div>
+      <div>
+        {data.categories.map((r: any, i: number) => {
+          const pct = r.total ? Math.round((r.approved / r.total) * 100) : 0;
+          const col = CAT_COLORS[i % CAT_COLORS.length];
+          return (
+            <Link key={r.category} href={`/dashboard/inventory/items?main_category=${encodeURIComponent(r.category)}`}
+              className="cat-row" style={{ textDecoration: "none" }}>
+              <div className="cat-name">{r.category}</div>
+              <div className="cat-bar-wrap">
+                <div className="cat-bar-fill" style={{ width: `${pct}%`, background: col }} />
+              </div>
+              <div className="cat-pct">{pct}%</div>
+              <div className="cat-count">{r.approved}/{r.total}</div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
