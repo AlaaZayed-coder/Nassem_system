@@ -105,6 +105,11 @@ export default function ItemDetailPage() {
     catch (e: any) { notify(e.message, "err"); }
   }
 
+  async function handleLock() {
+    const fd = new FormData(); fd.append("item_code", code);
+    await lockItemAction(fd); await loadItem(); notify("تم قفل السعر");
+  }
+
   const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
     "معتمد":         { bg: "#EAF3DE", color: "#3B6D11" },
     "قيد العمل":     { bg: "#E6F1FB", color: "#185FA5" },
