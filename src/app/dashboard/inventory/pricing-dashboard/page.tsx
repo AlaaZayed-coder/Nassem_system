@@ -1,8 +1,8 @@
-"use client";
-import { useEffect, useState } from "react";
 import { getDashboardStats } from "@/lib/settings-data";
 import Link from "next/link";
-import { ArrowRight, Zap, Calendar } from "lucide-react";
+import { ArrowRight, Zap } from "lucide-react";
+
+export const dynamic = "force-dynamic";
 
 const KPI_STYLES: Record<string, { bg: string; label: string; value: string }> = {
   "إجمالي":        { bg: "#F1EFE8", label: "#5F5E5A", value: "#2C2C2A" },
@@ -13,26 +13,23 @@ const KPI_STYLES: Record<string, { bg: string; label: string; value: string }> =
   "مؤجّل":        { bg: "#EEEDFE", label: "#534AB7", value: "#26215C" },
 };
 
-const CAT_COLORS = ["#1D9E75","#378ADD","#EF9F27","#E05252","#7C5ABF","#888780"];
+const CAT_COLORS = ["#1D9E75","#378ADD","#EF9F27","#E05252","#7C5ABF","#888780","#1D9E75","#378ADD","#EF9F27","#E05252","#888780"];
 
-export default function PricingDashboardPage() {
-  const [data, setData] = useState<any>(null);
-
-  useEffect(() => { getDashboardStats().then(setData); }, []);
-
-  if (!data) return <div className="p-8 text-slate-400" dir="rtl">جاري التحميل…</div>;
+export default async function PricingDashboardPage() {
+  const data = await getDashboardStats();
 
   const kpis = [
-    { label: "إجمالي",       value: data.total,                        href: "/dashboard/inventory/items" },
-    { label: "معتمد",        value: data.byStatus["معتمد"] || 0,        href: "/dashboard/inventory/items?pricing_status=معتمد" },
-    { label: "قيد العمل",    value: data.byStatus["قيد العمل"] || 0,    href: "/dashboard/inventory/items?pricing_status=قيد العمل" },
-    { label: "بحاجة مراجعة",value: data.byStatus["بحاجة مراجعة"] || 0, href: "/dashboard/inventory/review" },
-    { label: "غير مسعّر",   value: data.byStatus["غير مسعّر"] || 0,   href: "/dashboard/inventory/items?pricing_status=غير مسعّر" },
-    { label: "مؤجّل",       value: data.byStatus["مؤجّل"] || 0,       href: "/dashboard/inventory/items?pricing_status=مؤجّل" },
+    { label: "إجمالي",        value: data.total,                         href: "/dashboard/inventory/items" },
+    { label: "معتمد",         value: data.byStatus["معتمد"] || 0,        href: "/dashboard/inventory/items?pricing_status=معتمد" },
+    { label: "قيد العمل",     value: data.byStatus["قيد العمل"] || 0,    href: "/dashboard/inventory/items?pricing_status=قيد العمل" },
+    { label: "بحاجة مراجعة", value: data.byStatus["بحاجة مراجعة"] || 0, href: "/dashboard/inventory/review" },
+    { label: "غير مسعّر",    value: data.byStatus["غير مسعّر"] || 0,    href: "/dashboard/inventory/items?pricing_status=غير مسعّر" },
+    { label: "مؤجّل",        value: data.byStatus["مؤجّل"] || 0,        href: "/dashboard/inventory/items?pricing_status=مؤجّل" },
   ];
 
   return (
     <div className="legacy-wrapper" dir="rtl">
+      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Link href="/dashboard/inventory" className="btn"><ArrowRight size={14} /></Link>
@@ -48,10 +45,10 @@ export default function PricingDashboardPage() {
         {kpis.map(k => {
           const s = KPI_STYLES[k.label] || KPI_STYLES["إجمالي"];
           return (
-            <Link key={k.label} href={k.href} className="kpi" style={{ background: s.bg, textDecoration: "none" }}>
+            <a key={k.label} href={k.href} className="kpi" style={{ background: s.bg, textDecoration: "none" }}>
               <div className="kpi-label" style={{ color: s.label }}>{k.label}</div>
               <div className="kpi-value" style={{ color: s.value }}>{(k.value || 0).toLocaleString("en")}</div>
-            </Link>
+            </a>
           );
         })}
       </div>
@@ -68,26 +65,40 @@ export default function PricingDashboardPage() {
       </div>
 
       {/* Categories */}
-      <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 6 }}>
-        التقدّم حسب التصنيف
-      </div>
-      <div>
-        {data.categories.map((r: any, i: number) => {
-          const pct = r.total ? Math.round((r.approved / r.total) * 100) : 0;
-          const col = CAT_COLORS[i % CAT_COLORS.length];
-          return (
-            <Link key={r.category} href={`/dashboard/inventory/items?main_category=${encodeURIComponent(r.category)}`}
-              className="cat-row" style={{ textDecoration: "none" }}>
-              <div className="cat-name">{r.category}</div>
-              <div className="cat-bar-wrap">
-                <div className="cat-bar-fill" style={{ width: `${pct}%`, background: col }} />
-              </div>
-              <div className="cat-pct">{pct}%</div>
-              <div className="cat-count">{r.approved}/{r.total}</div>
-            </Link>
-          );
-        })}
-      </div>
+      {data.categories.length > 0 && (
+        <>
+          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 6 }}>
+            التقدّم حسب التصنيف
+            <span style={{ color: "var(--color-text-tertiary)", fontSize: 11, marginRight: 6 }}>(اضغط أي صف لفتح أصنافه)</span>
+          </div>
+          <div>
+            {data.categories.map((r: any, i: number) => {
+              const pct = r.total ? Math.round((r.approved / r.total) * 100) : 0;
+              const col = CAT_COLORS[i % CAT_COLORS.length];
+              return (
+                <a key={r.category}
+                  href={r.category === 'بدون تصنيف'
+                    ? '/dashboard/inventory/items?no_category=1'
+                    : `/dashboard/inventory/items?main_category=${encodeURIComponent(r.category)}`}
+                  className="cat-row" style={{ textDecoration: "none", display: "flex" }}>
+                  <div className="cat-name">{r.category}</div>
+                  <div className="cat-bar-wrap">
+                    <div className="cat-bar-fill" style={{ width: `${pct}%`, background: col }} />
+                  </div>
+                  <div className="cat-pct">{pct}%</div>
+                  <div className="cat-count">{r.approved}/{r.total}</div>
+                </a>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {data.total === 0 && (
+        <p style={{ textAlign: "center", color: "var(--color-text-tertiary)", padding: 20 }}>
+          لا توجد بيانات
+        </p>
+      )}
     </div>
   );
 }
