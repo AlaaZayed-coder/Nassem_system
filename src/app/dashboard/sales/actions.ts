@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { supabase } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
 
 export async function createCustomerAction(formData: FormData) {
@@ -15,7 +15,6 @@ export async function createCustomerAction(formData: FormData) {
 
   if (!name) throw new Error("اسم العميل مطلوب");
 
-  const supabase = createClient();
   const { data, error } = await supabase
     .from("erp_customers")
     .insert([{ 
@@ -50,7 +49,6 @@ export async function createSalesOpportunityAction(formData: FormData) {
 
   if (!customer_id) throw new Error("يجب اختيار العميل");
 
-  const supabase = createClient();
   const { data, error } = await supabase
     .from("erp_sales_orders")
     .insert([{ 
@@ -71,8 +69,6 @@ export async function createSalesOpportunityAction(formData: FormData) {
 }
 
 export async function updateOpportunityStatusAction(orderId: string, newStatus: string) {
-  const supabase = createClient();
-  
   // Fetch current order to see if we need to trigger automation
   const { data: order } = await supabase
     .from("erp_sales_orders")

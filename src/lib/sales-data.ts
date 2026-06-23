@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { supabase } from "@/lib/supabase";
 
 export type Customer = {
   id: string;
@@ -27,7 +27,6 @@ export type SalesOrder = {
 };
 
 export async function getCustomers(): Promise<Customer[]> {
-  const supabase = createClient();
   const { data, error } = await supabase
     .from("erp_customers")
     .select("*")
@@ -41,7 +40,6 @@ export async function getCustomers(): Promise<Customer[]> {
 }
 
 export async function getSalesOpportunities(): Promise<SalesOrder[]> {
-  const supabase = createClient();
   const { data, error } = await supabase
     .from("erp_sales_orders")
     .select(`
