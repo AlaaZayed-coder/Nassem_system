@@ -8,6 +8,7 @@ export async function createItemAction(formData: FormData) {
   const item_code = formData.get("item_code") as string;
   const original_name = formData.get("original_name") as string;
   const unit_of_measure = formData.get("unit_of_measure") as string || "وحدة";
+  const item_source = formData.get("item_source") as string || "manufactured";
   const cost_price = Number(formData.get("cost_price"));
   const profit_margin = Number(formData.get("profit_margin"));
   
@@ -17,6 +18,7 @@ export async function createItemAction(formData: FormData) {
     item_code,
     original_name,
     unit_of_measure,
+    item_source,
     cost_price_cents: Math.round(cost_price * 100),
     profit_margin_percent: profit_margin,
     final_selling_price_cents,

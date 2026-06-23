@@ -38,6 +38,22 @@ export function ItemForm() {
         }} 
         className="p-6 space-y-6"
       >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="space-y-2">
+            <label htmlFor="item_source" className="block text-sm font-bold text-slate-700">مصدر الصنف</label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex items-center justify-center gap-2 p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-indigo-50 has-[:checked]:bg-indigo-100 has-[:checked]:border-indigo-500 has-[:checked]:text-indigo-800 transition font-bold text-sm">
+                <input type="radio" name="item_source" value="manufactured" className="sr-only" defaultChecked />
+                تصنيع داخلي
+              </label>
+              <label className="flex items-center justify-center gap-2 p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-sky-50 has-[:checked]:bg-sky-100 has-[:checked]:border-sky-500 has-[:checked]:text-sky-800 transition font-bold text-sm">
+                <input type="radio" name="item_source" value="purchased" className="sr-only" />
+                شراء جاهز
+              </label>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
             <label htmlFor="item_code" className="block text-sm font-bold text-slate-700">كود الصنف (Item Code)</label>

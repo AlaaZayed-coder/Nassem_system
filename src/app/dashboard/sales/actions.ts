@@ -145,6 +145,10 @@ export async function updateOpportunityStatusAction(orderId: string, newStatus: 
         }
 
         if (line.line_type === 'product' && line.item_code) {
+          // Fetch Item Details to know its source
+          const { data: itemData } = await supabase.from("erp_items").select("item_source").eq("item_code", line.item_code).single();
+          const isPurchased = itemData?.item_source === 'purchased';
+
           // Check Inventory First
           const { data: invData } = await supabase
             .from("erp_inventory")
@@ -176,17 +180,30 @@ export async function updateOpportunityStatusAction(orderId: string, newStatus: 
               missingQty = requiredQty - availableQty;
             }
 
-            // Create Production Order for the missing quantity
-            await supabase.from("erp_production_orders").insert([{
-              sales_order_id: order.id,
-              item_code: line.item_code,
-              quantity: missingQty,
-              status: "مخطط",
-              priority: "عالي",
-              notes: `تم الإنشاء آلياً لاستيفاء نقص المخزون. (متوفر: ${availableQty})`
-            }]);
-            await supabase.from("erp_sales_order_lines").update({ fulfillment_status: 'manufacturing' }).eq("id", line.id);
-            createdProduction = true;
+            if (isPurchased) {
+              // Create Purchase Request for the missing quantity
+              await supabase.from("erp_purchase_requests").insert([{
+                sales_order_id: order.id,
+                item_code: line.item_code,
+                quantity: missingQty,
+                status: "قيد الانتظار",
+                priority: "عالي",
+                notes: `مطلوب استيفاء لطلب المبيعات (متوفر في المخزن: ${availableQty})`
+              }]);
+              await supabase.from("erp_sales_order_lines").update({ fulfillment_status: 'purchasing' }).eq("id", line.id);
+            } else {
+              // Create Production Order for the missing quantity
+              await supabase.from("erp_production_orders").insert([{
+                sales_order_id: order.id,
+                item_code: line.item_code,
+                quantity: missingQty,
+                status: "مخطط",
+                priority: "عالي",
+                notes: `تم الإنشاء آلياً لاستيفاء نقص المخزون. (متوفر: ${availableQty})`
+              }]);
+              await supabase.from("erp_sales_order_lines").update({ fulfillment_status: 'manufacturing' }).eq("id", line.id);
+              createdProduction = true;
+            }
           }
         }
       }
