@@ -14,7 +14,15 @@ export default function Home() {
           <p className="text-xl text-slate-500 font-medium">النظام الشامل لإدارة الإنتاج، التسعير، والصيانة.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-8">
+          <Link 
+            href="/dashboard/sales"
+            className="group flex flex-col items-center gap-4 p-8 bg-purple-50 hover:bg-purple-600 rounded-3xl transition-all border border-purple-100"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-purple-600 group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            <span className="text-xl font-bold text-purple-900 group-hover:text-white transition-colors">المبيعات و CRM</span>
+          </Link>
+
           <Link 
             href="/dashboard/production"
             className="group flex flex-col items-center gap-4 p-8 bg-indigo-50 hover:bg-indigo-600 rounded-3xl transition-all border border-indigo-100"
