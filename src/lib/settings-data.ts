@@ -17,7 +17,8 @@ export async function updateSetting(key: string, value: string) {
 export async function getDashboardStats() {
   const { data, error } = await supabase
     .from("erp_items")
-    .select("pricing_status, main_category");
+    .select("pricing_status, main_category, main_category_id, erp_categories!erp_items_main_category_id_fkey(name)");
+
   if (error) { console.error("getDashboardStats error:", error); return { total: 0, byStatus: {}, categories: [], progress: 0 }; }
 
   const rows = (data || []);
@@ -28,7 +29,8 @@ export async function getDashboardStats() {
   rows.forEach((r: any) => {
     const s = r.pricing_status || 'غير مسعّر';
     byStatus[s] = (byStatus[s] || 0) + 1;
-    const cat = r.main_category || 'بدون تصنيف';
+    // Use joined category name, or text main_category, or fallback
+    const cat = r.erp_categories?.name || r.main_category || 'بدون تصنيف';
     if (!catMap[cat]) catMap[cat] = { total: 0, approved: 0 };
     catMap[cat].total++;
     if (s === 'معتمد') catMap[cat].approved++;
