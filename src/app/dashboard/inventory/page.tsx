@@ -1,7 +1,7 @@
 import { getWarehouses, getInventorySummary } from "@/lib/inventory-data";
 import { getDashboardStats } from "@/lib/settings-data";
 import { InventoryTable } from "@/components/inventory/inventory-table";
-import { Boxes, Store, Package, LayoutDashboard, ClipboardCheck, Zap } from "lucide-react";
+import { Store, Package, LayoutDashboard, ClipboardCheck, Zap } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/format";
 import { ExcelManager } from "@/components/inventory/excel-manager";
@@ -45,136 +45,123 @@ export default async function InventoryPage() {
   ];
 
   return (
-    <div className="p-8 max-w-7xl mx-auto flex flex-col gap-8" dir="rtl">
+    <div className="legacy-wrapper" dir="rtl">
 
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-4xl font-extrabold text-slate-800 tracking-tight flex items-center gap-3">
-            <Boxes className="h-10 w-10 text-indigo-600" />
-            إدارة المخزون والتسعير
-          </h1>
-          <p className="text-slate-500 mt-2 text-lg">تحكم في الأصناف، التسعير، والمستودعات.</p>
-        </div>
-        <div className="flex gap-3 items-center">
-          <Link href="/dashboard/inventory/items" className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-indigo-700 transition">
-            <Zap className="h-4 w-4" /> ابدأ التسعير
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <h3 className="section-title" style={{ margin: 0 }}>لوحة معلومات التسعير</h3>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <ExcelManager />
+          <Link href="/dashboard/inventory/items" className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Zap size={14} /> ابدأ التسعير
           </Link>
-          <div className="hidden md:block"><ExcelManager /></div>
         </div>
       </div>
 
-      {/* Pricing KPIs */}
-      <div>
-        <h2 className="text-lg font-bold text-slate-700 mb-3">حالة التسعير</h2>
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-          {kpis.map(k => {
-            const s = KPI_STYLES[k.label] || KPI_STYLES["إجمالي"];
-            return (
-              <a key={k.label} href={k.href}
-                className="rounded-2xl p-4 text-center no-underline hover:opacity-80 transition"
-                style={{ background: s.bg, textDecoration: "none" }}>
-                <div className="text-xs font-medium mb-1" style={{ color: s.label }}>{k.label}</div>
-                <div className="text-2xl font-black font-mono" style={{ color: s.value }}>{(k.value || 0).toLocaleString("en")}</div>
-              </a>
-            );
-          })}
-        </div>
+      {/* KPI grid */}
+      <div className="kpi-grid" style={{ marginBottom: 16 }}>
+        {kpis.map(k => {
+          const s = KPI_STYLES[k.label] || KPI_STYLES["إجمالي"];
+          return (
+            <a key={k.label} href={k.href} className="kpi" style={{ background: s.bg, textDecoration: "none" }}>
+              <div className="kpi-label" style={{ color: s.label }}>{k.label}</div>
+              <div className="kpi-value" style={{ color: s.value }}>{(k.value || 0).toLocaleString("en")}</div>
+            </a>
+          );
+        })}
       </div>
 
       {/* Progress bar */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-        <div className="flex justify-between text-sm mb-2">
-          <span className="text-slate-500 font-medium">نسبة الإنجاز العامة</span>
-          <span className="font-bold text-slate-700">{stats.progress}%</span>
+      <div className="progress-wrap" style={{ marginBottom: 16 }}>
+        <div className="progress-header">
+          <span style={{ color: "var(--color-text-secondary)" }}>نسبة الإنجاز العامة</span>
+          <span style={{ fontWeight: 500 }}>{stats.progress}%</span>
         </div>
-        <div className="w-full bg-slate-100 rounded-full h-3">
-          <div className="bg-green-500 h-3 rounded-full transition-all" style={{ width: `${stats.progress}%` }} />
+        <div className="progress-bar">
+          <div className="progress-fill" style={{ width: `${stats.progress}%` }} />
         </div>
       </div>
 
       {/* Category progress */}
       {stats.categories.length > 0 && (
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-500 mb-4">التقدّم حسب التصنيف</h2>
-          <div className="flex flex-col gap-2">
-            {stats.categories.map((r: any, i: number) => {
-              const pct = r.total ? Math.round((r.approved / r.total) * 100) : 0;
-              const col = CAT_COLORS[i % CAT_COLORS.length];
-              const href = r.category === 'بدون تصنيف'
-                ? '/dashboard/inventory/items?no_category=1'
-                : `/dashboard/inventory/items?main_category=${encodeURIComponent(r.category)}`;
-              return (
-                <a key={r.category} href={href} className="flex items-center gap-3 hover:bg-slate-50 rounded-xl px-2 py-1 transition" style={{ textDecoration: "none" }}>
-                  <span className="text-sm text-slate-700 w-52 truncate text-right">{r.category}</span>
-                  <div className="flex-1 bg-slate-100 rounded-full h-2">
-                    <div className="h-2 rounded-full" style={{ width: `${pct}%`, background: col }} />
-                  </div>
-                  <span className="text-xs text-slate-400 w-8 text-left">{pct}%</span>
-                  <span className="text-xs text-slate-400 w-16 text-left font-mono">{r.approved}/{r.total}</span>
-                </a>
-              );
-            })}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 6 }}>
+            التقدّم حسب التصنيف
+            <span style={{ color: "var(--color-text-tertiary)", fontSize: 11, marginRight: 6 }}>(اضغط أي صف لفتح أصنافه)</span>
           </div>
+          {stats.categories.map((r: any, i: number) => {
+            const pct = r.total ? Math.round((r.approved / r.total) * 100) : 0;
+            const col = CAT_COLORS[i % CAT_COLORS.length];
+            return (
+              <a key={r.category}
+                href={r.category === 'بدون تصنيف'
+                  ? '/dashboard/inventory/items?no_category=1'
+                  : `/dashboard/inventory/items?main_category=${encodeURIComponent(r.category)}`}
+                className="cat-row" style={{ textDecoration: "none", display: "flex" }}>
+                <div className="cat-name">{r.category}</div>
+                <div className="cat-bar-wrap">
+                  <div className="cat-bar-fill" style={{ width: `${pct}%`, background: col }} />
+                </div>
+                <div className="cat-pct">{pct}%</div>
+                <div className="cat-count">{r.approved}/{r.total}</div>
+              </a>
+            );
+          })}
         </div>
       )}
 
-      {/* Nav cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Link href="/dashboard/inventory/items" className="group p-6 bg-white rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-indigo-200 transition-all flex flex-col items-start gap-4">
-          <div className="p-4 bg-indigo-50 rounded-2xl group-hover:scale-110 transition-transform">
-            <Package className="w-8 h-8 text-indigo-600" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800">الأصناف والتسعير</h2>
-            <p className="text-slate-500 mt-1">إضافة الأصناف، التسعير، ومراجعة التكلفة.</p>
+      {stats.total === 0 && (
+        <p style={{ textAlign: "center", color: "var(--color-text-tertiary)", padding: 20 }}>
+          لا توجد بيانات
+        </p>
+      )}
+
+      {/* Separator */}
+      <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", margin: "20px 0" }} />
+
+      {/* Quick nav cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
+        <Link href="/dashboard/inventory/items" style={{ textDecoration: "none" }}>
+          <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-md)", padding: 12, background: "var(--color-background-primary)", cursor: "pointer", display: "flex", flexDirection: "column", gap: 4 }}>
+            <Package size={18} color="var(--brand)" />
+            <b style={{ fontSize: 13 }}>الأصناف والتسعير</b>
+            <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>عرض وتسعير جميع الأصناف</span>
           </div>
         </Link>
-
-        <Link href="/dashboard/inventory/categories" className="group p-6 bg-white rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-sky-200 transition-all flex flex-col items-start gap-4">
-          <div className="p-4 bg-sky-50 rounded-2xl group-hover:scale-110 transition-transform">
-            <LayoutDashboard className="w-8 h-8 text-sky-600" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800">إدارة التصنيفات</h2>
-            <p className="text-slate-500 mt-1">التصنيفات الرئيسية والفرعية للأصناف.</p>
+        <Link href="/dashboard/inventory/categories" style={{ textDecoration: "none" }}>
+          <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-md)", padding: 12, background: "var(--color-background-primary)", cursor: "pointer", display: "flex", flexDirection: "column", gap: 4 }}>
+            <LayoutDashboard size={18} color="var(--brand)" />
+            <b style={{ fontSize: 13 }}>التصنيفات</b>
+            <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>إدارة التصنيفات الرئيسية</span>
           </div>
         </Link>
-
-        <Link href="/dashboard/inventory/review" className="group p-6 bg-white rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-yellow-200 transition-all flex flex-col items-start gap-4">
-          <div className="p-4 bg-yellow-50 rounded-2xl group-hover:scale-110 transition-transform">
-            <ClipboardCheck className="w-8 h-8 text-yellow-600" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800">قائمة المراجعة</h2>
-            <p className="text-slate-500 mt-1">الأصناف التي تحتاج اعتماداً أو مراجعة.</p>
+        <Link href="/dashboard/inventory/review" style={{ textDecoration: "none" }}>
+          <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-md)", padding: 12, background: "var(--color-background-primary)", cursor: "pointer", display: "flex", flexDirection: "column", gap: 4 }}>
+            <ClipboardCheck size={18} color="var(--brand)" />
+            <b style={{ fontSize: 13 }}>قائمة المراجعة</b>
+            <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>أصناف بحاجة اعتماد</span>
           </div>
         </Link>
       </div>
 
-      {/* Warehouse table */}
-      <div className="pt-4 border-t border-slate-100">
-        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-          <Store className="h-6 w-6 text-slate-400" />
-          المخزون الكلي والنقل
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-200">
-            <h3 className="text-indigo-100 font-medium mb-1">إجمالي تكلفة المخزون</h3>
-            <p className="text-3xl font-black font-mono" dir="ltr">{formatCurrency(totalCostValue)}</p>
+      {/* Warehouse stats */}
+      <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+          <Store size={15} color="var(--color-text-secondary)" />
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)" }}>المخزون الكلي</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
+          <div style={{ background: "var(--brand)", borderRadius: "var(--border-radius-md)", padding: "10px 12px", color: "#fff" }}>
+            <div style={{ fontSize: 11, opacity: 0.8 }}>تكلفة المخزون</div>
+            <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "monospace" }} dir="ltr">{formatCurrency(totalCostValue)}</div>
           </div>
-          <div className="bg-emerald-500 rounded-3xl p-6 text-white shadow-lg shadow-emerald-200">
-            <h3 className="text-emerald-100 font-medium mb-1">القيمة البيعية للمخزون</h3>
-            <p className="text-3xl font-black font-mono" dir="ltr">{formatCurrency(totalSellingValue)}</p>
+          <div style={{ background: "#1D9E75", borderRadius: "var(--border-radius-md)", padding: "10px 12px", color: "#fff" }}>
+            <div style={{ fontSize: 11, opacity: 0.8 }}>القيمة البيعية</div>
+            <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "monospace" }} dir="ltr">{formatCurrency(totalSellingValue)}</div>
           </div>
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex items-center justify-between">
-            <div>
-              <h3 className="text-slate-500 font-medium mb-1">عدد المستودعات</h3>
-              <p className="text-3xl font-black text-slate-800 font-mono" dir="ltr">{warehouses.length}</p>
-            </div>
-            <div className="h-14 w-14 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center">
-              <Store className="h-7 w-7" />
-            </div>
+          <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-md)", padding: "10px 12px", background: "var(--color-background-primary)" }}>
+            <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>المستودعات</div>
+            <div style={{ fontSize: 18, fontWeight: 700 }}>{warehouses.length}</div>
           </div>
         </div>
         <InventoryTable warehouses={warehouses} items={items} />
