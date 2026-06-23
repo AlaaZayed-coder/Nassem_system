@@ -248,8 +248,11 @@ export default function NewSalesOpportunityPage() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-xs text-slate-500 mb-1 md:hidden">سعر الوحدة</label>
-                    <input required type="number" step="0.01" value={line.unitPriceCents / 100} onChange={e => updateLine(line.id, 'unitPriceCents', Math.round(Number(e.target.value) * 100))} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none text-center dir-ltr" />
+                    <label className="block text-xs text-slate-500 mb-1 md:hidden">سعر ({line.unit})</label>
+                    <div className="relative">
+                      <input required type="number" step="0.01" value={line.unitPriceCents / 100} onChange={e => updateLine(line.id, 'unitPriceCents', Math.round(Number(e.target.value) * 100))} className="w-full px-3 py-2 pr-14 rounded-lg border border-slate-300 outline-none text-center dir-ltr" />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] bg-slate-100 px-1 py-0.5 rounded">لكل {line.unit}</div>
+                    </div>
                   </div>
 
                   <div className="md:col-span-2">
