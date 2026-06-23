@@ -207,3 +207,28 @@ export async function getActiveProductionOrders(): Promise<ProductionOrder[]> {
   }
   return data as any as ProductionOrder[];
 }
+
+export async function getProductionMaterials(orderId: string) {
+  const { data, error } = await supabase
+    .from("erp_production_materials")
+    .select("*, erp_items(original_name, approved_name), erp_warehouses(name)")
+    .eq("production_order_id", orderId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching production materials:", error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function addProductionMaterial(materialData: any) {
+  const { data, error } = await supabase
+    .from("erp_production_materials")
+    .insert(materialData)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}

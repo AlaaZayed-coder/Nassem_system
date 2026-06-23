@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { updateOrderStatusAction } from "@/app/dashboard/production/orders/actions";
 import { Factory, Calendar, Settings2, CheckCircle2, Clock } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
+import Link from "next/link";
 
 type Order = {
   id: string;
@@ -78,16 +79,22 @@ export function KanbanBoard({ initialOrders }: { initialOrders: Order[] }) {
                     {new Date(order.created_at).toLocaleDateString("ar-SA")}
                   </div>
 
-                  <select 
-                    value={order.status}
-                    onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                    disabled={isPending}
-                    className="w-full text-xs font-bold border border-slate-200 bg-slate-50 text-slate-700 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-500 disabled:opacity-50"
-                  >
-                    {COLUMNS.map(c => (
-                      <option key={c.id} value={c.id}>{c.label}</option>
-                    ))}
-                  </select>
+                  <div className="flex flex-col gap-2">
+                    <select 
+                      value={order.status}
+                      onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                      disabled={isPending}
+                      className="w-full text-xs font-bold border border-slate-200 bg-slate-50 text-slate-700 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-500 disabled:opacity-50"
+                    >
+                      {COLUMNS.map(c => (
+                        <option key={c.id} value={c.id}>{c.label}</option>
+                      ))}
+                    </select>
+                    
+                    <Link href={`/dashboard/production/orders/${order.id}`} className="w-full text-center text-xs font-bold bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-lg px-2 py-1.5 transition">
+                      تفاصيل ومواد خام
+                    </Link>
+                  </div>
                 </div>
               ))}
 

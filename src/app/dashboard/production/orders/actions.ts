@@ -80,3 +80,47 @@ export async function createProductionOrderAction(formData: FormData) {
   revalidatePath("/dashboard/production/orders");
   return data;
 }
+export async function addProductionMaterialAction(formData: FormData) {
+  const production_order_id = formData.get("production_order_id") as string;
+  const item_code = formData.get("item_code") as string;
+  const quantity_used = parseFloat(formData.get("quantity_used") as string) || 0;
+  const warehouse_id = formData.get("warehouse_id") as string;
+  const notes = formData.get("notes") as string;
+
+  if (!item_code || quantity_used <= 0 || !warehouse_id) {
+    throw new Error("بيانات المادة المستهلكة غير مكتملة");
+  }
+
+  // 1. Insert into erp_production_materials
+  const { data, error } = await supabase
+    .from("erp_production_materials")
+    .insert([{
+      production_order_id,
+      item_code,
+      quantity_used,
+      warehouse_id,
+      notes
+    }])
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  // 2. Insert into erp_inventory_movements as OUT (Consumption)
+  const { error: moveError } = await supabase
+    .from("erp_inventory_movements")
+    .insert([{
+      item_code,
+      warehouse_id,
+      movement_type: "OUT",
+      quantity: quantity_used,
+      reference_type: "PRODUCTION",
+      reference_id: production_order_id,
+      notes: `استهلاك لأمر إنتاج #${production_order_id.split("-")[0]}`
+    }]);
+
+  if (moveError) throw new Error(moveError.message);
+
+  revalidatePath("/dashboard/production/orders");
+  return data;
+}
