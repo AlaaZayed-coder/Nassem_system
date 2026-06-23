@@ -10,6 +10,7 @@ export type InventoryItem = {
   item_code: string;
   original_name: string;
   approved_name: string;
+  unit_of_measure: string;
   cost_price_cents: number;
   final_selling_price_cents: number;
   inventory: {
@@ -37,7 +38,7 @@ export async function getInventorySummary() {
   // First, fetch all items
   const { data: items, error: itemsError } = await supabase
     .from("erp_items")
-    .select("item_code, original_name, approved_name, cost_price_cents, final_selling_price_cents")
+    .select("item_code, original_name, approved_name, unit_of_measure, cost_price_cents, final_selling_price_cents")
     .order("created_at", { ascending: false });
 
   if (itemsError) {
@@ -69,6 +70,7 @@ export async function getInventorySummary() {
     item_code: item.item_code,
     original_name: item.original_name,
     approved_name: item.approved_name || item.original_name,
+    unit_of_measure: item.unit_of_measure || "وحدة",
     cost_price_cents: item.cost_price_cents || 0,
     final_selling_price_cents: item.final_selling_price_cents || 0,
     inventory: inventoryMap.get(item.item_code) || {},

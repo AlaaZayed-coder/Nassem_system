@@ -109,6 +109,9 @@ export function InventoryTable({ warehouses, items }: InventoryTableProps) {
                   <td className="p-4 text-slate-500 font-mono text-xs" dir="ltr">{item.item_code}</td>
                   <td className="p-4 font-bold text-slate-800 max-w-[200px] truncate" title={item.approved_name}>
                     {item.approved_name}
+                    <span className="text-xs font-normal text-slate-500 mr-2 bg-slate-100 px-2 py-0.5 rounded block w-fit mt-1">
+                      {item.unit_of_measure || 'وحدة'}
+                    </span>
                   </td>
                   <td className="p-4 text-rose-600 font-medium font-mono" dir="ltr">
                     {formatCurrency(item.cost_price_cents / 100)}
