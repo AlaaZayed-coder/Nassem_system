@@ -1,10 +1,7 @@
-import { getWarehouses, getInventorySummary } from "@/lib/inventory-data";
 import { getDashboardStats } from "@/lib/settings-data";
-import { InventoryTable } from "@/components/inventory/inventory-table";
-import { Store, Package, LayoutDashboard, ClipboardCheck, Zap } from "lucide-react";
-import Link from "next/link";
-import { formatCurrency } from "@/lib/format";
 import { ExcelManager } from "@/components/inventory/excel-manager";
+import { Package, LayoutDashboard, ClipboardCheck, Zap } from "lucide-react";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -19,21 +16,7 @@ const KPI_STYLES: Record<string, { bg: string; label: string; value: string }> =
 const CAT_COLORS = ["#1D9E75","#378ADD","#EF9F27","#E05252","#7C5ABF","#888780","#1D9E75","#378ADD","#EF9F27","#E05252","#888780"];
 
 export default async function InventoryPage() {
-  const [warehouses, items, stats] = await Promise.all([
-    getWarehouses(),
-    getInventorySummary(),
-    getDashboardStats(),
-  ]);
-
-  let totalCostValue = 0;
-  let totalSellingValue = 0;
-  items.forEach(item => {
-    const totalQty = Object.values(item.inventory).reduce((a: number, b: any) => a + b, 0);
-    if (totalQty > 0) {
-      totalCostValue += (item.cost_price_cents / 100) * totalQty;
-      totalSellingValue += (item.final_selling_price_cents / 100) * totalQty;
-    }
-  });
+  const stats = await getDashboardStats();
 
   const kpis = [
     { label: "إجمالي",        value: stats.total,                          href: "/dashboard/inventory/items" },
@@ -112,15 +95,15 @@ export default async function InventoryPage() {
 
       {stats.total === 0 && (
         <p style={{ textAlign: "center", color: "var(--color-text-tertiary)", padding: 20 }}>
-          لا توجد بيانات
+          لا توجد بيانات — تأكد من تشغيل SQL لتصنيف الأصناف
         </p>
       )}
 
       {/* Separator */}
       <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", margin: "20px 0" }} />
 
-      {/* Quick nav cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
+      {/* Quick nav */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
         <Link href="/dashboard/inventory/items" style={{ textDecoration: "none" }}>
           <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-md)", padding: 12, background: "var(--color-background-primary)", cursor: "pointer", display: "flex", flexDirection: "column", gap: 4 }}>
             <Package size={18} color="var(--brand)" />
@@ -142,29 +125,6 @@ export default async function InventoryPage() {
             <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>أصناف بحاجة اعتماد</span>
           </div>
         </Link>
-      </div>
-
-      {/* Warehouse stats */}
-      <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-          <Store size={15} color="var(--color-text-secondary)" />
-          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)" }}>المخزون الكلي</span>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
-          <div style={{ background: "var(--brand)", borderRadius: "var(--border-radius-md)", padding: "10px 12px", color: "#fff" }}>
-            <div style={{ fontSize: 11, opacity: 0.8 }}>تكلفة المخزون</div>
-            <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "monospace" }} dir="ltr">{formatCurrency(totalCostValue)}</div>
-          </div>
-          <div style={{ background: "#1D9E75", borderRadius: "var(--border-radius-md)", padding: "10px 12px", color: "#fff" }}>
-            <div style={{ fontSize: 11, opacity: 0.8 }}>القيمة البيعية</div>
-            <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "monospace" }} dir="ltr">{formatCurrency(totalSellingValue)}</div>
-          </div>
-          <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-md)", padding: "10px 12px", background: "var(--color-background-primary)" }}>
-            <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>المستودعات</div>
-            <div style={{ fontSize: 18, fontWeight: 700 }}>{warehouses.length}</div>
-          </div>
-        </div>
-        <InventoryTable warehouses={warehouses} items={items} />
       </div>
 
     </div>

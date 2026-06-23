@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Package, Grid3X3, DoorOpen,
-  ClipboardList, History, BarChart2, Users, Settings, Home
+  ClipboardList, History, BarChart2, Users, Settings, Home, Warehouse
 } from "lucide-react";
 
 const NAV = [
@@ -12,6 +12,7 @@ const NAV = [
   { label: "التصنيفات",        icon: Grid3X3,         href: "/dashboard/inventory/categories" },
   { label: "الأبواب والتركيب", icon: DoorOpen,        href: "/dashboard/inventory/items?door_pricing_enabled=1" },
   { label: "صندوق المراجعة",   icon: ClipboardList,   href: "/dashboard/inventory/review" },
+  { label: "المخزون",           icon: Warehouse,       href: "/dashboard/inventory/warehouse" },
   { label: "سجل التعديلات",    icon: History,         href: "/dashboard/audit" },
   { label: "التقارير",          icon: BarChart2,       href: "/dashboard/reports" },
   { label: "المستخدمون",       icon: Users,           href: "/dashboard/users" },

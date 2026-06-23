@@ -15,14 +15,22 @@ export async function updateSetting(key: string, value: string) {
 }
 
 export async function getDashboardStats() {
-  // Step 1: get all items with only simple columns (no join)
-  const { data: items, error: itemsError } = await supabase
-    .from("erp_items")
-    .select("pricing_status, main_category, main_category_id");
-
-  if (itemsError) {
-    console.error("getDashboardStats items error:", itemsError);
-    return { total: 0, byStatus: {}, categories: [], progress: 0 };
+  // Fetch all items in pages of 1000 (Supabase default limit)
+  let allItems: any[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data, error } = await supabase
+      .from("erp_items")
+      .select("pricing_status, main_category, main_category_id")
+      .range(from, from + pageSize - 1);
+    if (error) {
+      console.error("getDashboardStats items error:", error);
+      return { total: 0, byStatus: {}, categories: [], progress: 0 };
+    }
+    allItems = allItems.concat(data || []);
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
   }
 
   // Step 2: get all categories for name lookup
@@ -34,7 +42,7 @@ export async function getDashboardStats() {
   const catNameById: Record<string, string> = {};
   (cats || []).forEach((c: any) => { catNameById[c.id] = c.name; });
 
-  const rows = (items || []);
+  const rows = allItems;
   const total = rows.length;
   const byStatus: Record<string, number> = {};
   const catMap: Record<string, { total: number; approved: number }> = {};
