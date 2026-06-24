@@ -1,5 +1,7 @@
 import { getDashboardStats } from "@/lib/settings-data";
+import { getWarehouses } from "@/lib/inventory-data";
 import { ExcelManager } from "@/components/inventory/excel-manager";
+import { ItemsImportModal } from "@/components/inventory/items-import-modal";
 import { Package, LayoutDashboard, ClipboardCheck, Zap } from "lucide-react";
 import Link from "next/link";
 
@@ -14,7 +16,7 @@ const KPI_STYLES: Record<string, { bg: string; label: string; value: string }> =
 const CAT_COLORS = ["#1D9E75","#378ADD","#EF9F27","#E05252","#7C5ABF","#888780","#1D9E75","#378ADD","#EF9F27","#E05252","#888780"];
 
 export default async function InventoryPage() {
-  const stats = await getDashboardStats();
+  const [stats, warehouses] = await Promise.all([getDashboardStats(), getWarehouses()]);
 
   const kpis = [
     { label: "إجمالي",     value: stats.total,                        href: "/dashboard/inventory/items" },
@@ -29,7 +31,8 @@ export default async function InventoryPage() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <h3 className="section-title" style={{ margin: 0 }}>لوحة معلومات التسعير</h3>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <ItemsImportModal warehouses={warehouses} />
           <ExcelManager />
           <Link href="/dashboard/inventory/items" className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <Zap size={14} /> ابدأ التسعير
