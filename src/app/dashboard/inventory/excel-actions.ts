@@ -4,6 +4,51 @@ import { supabase } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
 
+// ─── Export blank import template ────────────────────────────────────────────
+export async function exportImportTemplate() {
+  const headers = ["الكود", "اسم الصنف", "ملحق الاسم", "الوحدة", "الرصيد"];
+
+  const examples = [
+    ["A001", "باب خشبي", "ذو مصراعين", "قطعة", 10],
+    ["A002", "ألومنيوم", "بروفايل 6م", "متر", 50],
+    ["A003", "زجاج شفاف", "", "متر", 0],
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...examples]);
+
+  // Column widths
+  ws["!cols"] = [
+    { wch: 12 }, // الكود
+    { wch: 28 }, // اسم الصنف
+    { wch: 20 }, // ملحق الاسم
+    { wch: 10 }, // الوحدة
+    { wch: 10 }, // الرصيد
+  ];
+
+  // Note row after examples
+  const noteRow = [
+    "* الوحدة: قطعة أو متر فقط",
+    "* الملحق والرصيد اختياريان",
+    "", "", "",
+  ];
+  XLSX.utils.sheet_add_aoa(ws, [noteRow], { origin: -1 });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "قالب الاستيراد");
+
+  const base64 = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
+  return { success: true, data: base64 };
+}
+
+// ─── Unit normalization ───────────────────────────────────────────────────────
+function normalizeUnit(raw: string): string {
+  const u = (raw || "").trim();
+  if (u.includes("متر") || u.toLowerCase() === "m" || u.toLowerCase() === "meter") return "متر";
+  if (u.includes("قطع") || u.toLowerCase() === "pcs" || u.toLowerCase() === "pc" || u.toLowerCase() === "piece") return "قطعة";
+  // default to قطعة if unrecognized
+  return u || "قطعة";
+}
+
 // ─── Category auto-assignment ────────────────────────────────────────────────
 function inferCategory(name: string): string | null {
   const n = (name || "").toUpperCase();
@@ -96,7 +141,7 @@ export async function importItemsMasterFromExcel(formData: FormData) {
       is_active: true,
     };
 
-    if (rawUnit) upsertRow.unit_of_measure = rawUnit;
+    if (rawUnit) upsertRow.unit_of_measure = normalizeUnit(rawUnit);
 
     // New items get default status and category
     if (isNew) {

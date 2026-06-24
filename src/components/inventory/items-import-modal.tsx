@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useRef, useTransition } from "react";
-import { Upload, X, Loader2, CheckCircle, AlertCircle, FileSpreadsheet, Info } from "lucide-react";
-import { importItemsMasterFromExcel } from "@/app/dashboard/inventory/excel-actions";
+import { Upload, X, Loader2, CheckCircle, AlertCircle, FileSpreadsheet, Info, Download } from "lucide-react";
+import { importItemsMasterFromExcel, exportImportTemplate } from "@/app/dashboard/inventory/excel-actions";
 
 type Warehouse = { id: string; name: string };
 
@@ -21,7 +21,28 @@ export function ItemsImportModal({ warehouses }: { warehouses: Warehouse[] }) {
   const [result, setResult] = useState<Result | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isDownloading, setIsDownloading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handleDownloadTemplate() {
+    setIsDownloading(true);
+    try {
+      const res = await exportImportTemplate();
+      if (!res.success || !res.data) return;
+      const bytes = Uint8Array.from(atob(res.data), c => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "قالب_استيراد_الأصناف.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsDownloading(false);
+    }
+  }
 
   function reset() {
     setFile(null);
@@ -109,9 +130,26 @@ export function ItemsImportModal({ warehouses }: { warehouses: Warehouse[] }) {
                 <FileSpreadsheet size={18} color="#7C5ABF" />
                 <span style={{ fontWeight: 700, fontSize: 14 }}>استيراد أصناف جديدة من Excel</span>
               </div>
-              <button onClick={close} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-tertiary)" }}>
-                <X size={18} />
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  onClick={handleDownloadTemplate}
+                  disabled={isDownloading}
+                  title="تحميل قالب Excel فارغ"
+                  style={{
+                    display: "flex", alignItems: "center", gap: 5,
+                    padding: "5px 10px", borderRadius: 6,
+                    border: "0.5px solid #7C5ABF", background: "#F3EFFE",
+                    color: "#7C5ABF", fontSize: 11.5, fontWeight: 600,
+                    cursor: isDownloading ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {isDownloading ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                  تحميل القالب
+                </button>
+                <button onClick={close} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-tertiary)" }}>
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
             {/* Body */}
@@ -126,7 +164,7 @@ export function ItemsImportModal({ warehouses }: { warehouses: Warehouse[] }) {
                 <Info size={15} color="#7C5ABF" style={{ flexShrink: 0, marginTop: 1 }} />
                 <div style={{ fontSize: 11.5, color: "#5A3FA0", lineHeight: 1.6 }}>
                   <b>الأعمدة المدعومة في الملف:</b><br />
-                  كود · اسم الصنف · ملحق الاسم · الوحدة · الرصيد<br />
+                  كود · اسم الصنف · ملحق الاسم · الوحدة (قطعة/متر) · الرصيد<br />
                   <span style={{ color: "#7C5ABF" }}>
                     ✓ يُحافظ على أسعار وحالة الأصناف الموجودة<br />
                     ✓ يُعيّن التصنيف تلقائياً للأصناف بدون تصنيف
