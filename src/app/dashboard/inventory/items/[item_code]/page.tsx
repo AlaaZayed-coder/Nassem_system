@@ -2,17 +2,34 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { STATUSES, PRICING_METHODS } from "@/lib/pricing-service";
+import { PRICING_METHODS } from "@/lib/pricing-service";
 import { saveItemFullAction, lockItemAction, unlockItemAction } from "./actions";
 import { getPriceHistory } from "@/lib/audit-data";
 import {
   ArrowRight, Lock, Unlock, CheckCircle, Send,
-  ChevronDown, ChevronUp, ChevronRight, History, ChevronLeft, Tag, Calculator, AlertCircle
+  ChevronDown, ChevronUp, ChevronRight, History, ChevronLeft, Tag, Calculator, FileText, Wrench,
 } from "lucide-react";
 import Link from "next/link";
 
 function toCents(val: string) { return val ? Math.round(Number(val) * 100) : null; }
 function fromCents(c: any) { return c != null ? (c / 100).toFixed(2) : ""; }
+
+const SECTION: React.CSSProperties = {
+  border: "0.5px solid var(--color-border-tertiary)",
+  borderRadius: "var(--border-radius-lg, 10px)",
+  marginBottom: 10,
+  overflow: "hidden",
+  background: "var(--color-background-primary)",
+};
+const SECTION_HEAD: React.CSSProperties = {
+  padding: "10px 16px",
+  background: "var(--color-background-secondary)",
+  borderBottom: "0.5px solid var(--color-border-tertiary)",
+  display: "flex",
+  alignItems: "center",
+  gap: 7,
+};
+const SECTION_BODY: React.CSSProperties = { padding: "14px 16px" };
 
 export default function ItemDetailPage() {
   const params = useParams();
@@ -53,8 +70,6 @@ export default function ItemDetailPage() {
     supabase.from("erp_categories").select("*").eq("type", "main").order("name")
       .then(({ data }) => setCategories(data || []));
     getPriceHistory(code).then(setPriceHistory);
-
-    // Load prev/next
     supabase.from("erp_items").select("item_code").order("item_code").then(({ data }) => {
       if (!data) return;
       const idx = data.findIndex((r: any) => r.item_code === code);
@@ -73,8 +88,8 @@ export default function ItemDetailPage() {
 
   const locked = item.price_locked;
   const mainCats = categories.filter(c => c.is_active !== false);
+  const showInstallation = (form.main_category || "").match(/أبواب|مواتير/);
 
-  // Auto-calculate suggested price
   function handleCostChange(val: string) {
     const c = toCents(val);
     const m = form.profit_margin_percent || 0;
@@ -99,8 +114,7 @@ export default function ItemDetailPage() {
       await saveItemFullAction(fd);
       await loadItem();
       notify(statusOverride === "معتمد" ? "تم الاعتماد ✓" : statusOverride === "قيد المراجعة" ? "أُرسل للمراجعة ✓" : "تم الحفظ ✓");
-    }
-    catch (e: any) { notify(e.message, "err"); }
+    } catch (e: any) { notify(e.message, "err"); }
     setSaving(false);
   }
 
@@ -123,6 +137,14 @@ export default function ItemDetailPage() {
   };
   const badge = STATUS_BADGE[item.pricing_status] || STATUS_BADGE["غير مسعّر"];
 
+  const inputStyle: React.CSSProperties = {
+    width: "100%", padding: "7px 10px", borderRadius: "var(--border-radius-sm, 6px)",
+    border: "0.5px solid var(--color-border-secondary)",
+    background: "var(--color-background-primary)",
+    fontSize: 13, color: "var(--color-text-primary)",
+    boxSizing: "border-box", outline: "none",
+  };
+
   return (
     <div className="legacy-wrapper" dir="rtl" style={{ maxWidth: 720 }}>
       {toast && (
@@ -130,15 +152,19 @@ export default function ItemDetailPage() {
       )}
 
       {/* ── Header ── */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, gap: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-          <Link href="/dashboard/inventory/items" className="btn btn-ghost" style={{ padding: "4px 6px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Link href="/dashboard/inventory/items" className="btn btn-ghost" style={{ padding: "5px 8px" }}>
             <ArrowRight size={16} />
           </Link>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-              <span style={{ fontFamily: "monospace", fontSize: 12, color: "var(--color-text-tertiary)" }} dir="ltr">{code}</span>
-              <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, fontWeight: 600, background: badge.bg, color: badge.color }}>
+            <span style={{ fontFamily: "monospace", fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 2 }}
+              dir="ltr">{code}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontWeight: 600, fontSize: 17, color: "var(--color-text-primary)" }}>
+                {item.approved_name || item.original_name}
+              </span>
+              <span style={{ fontSize: 11, padding: "2px 9px", borderRadius: 20, fontWeight: 600, background: badge.bg, color: badge.color, whiteSpace: "nowrap" }}>
                 {item.pricing_status}
               </span>
               {locked && (
@@ -147,13 +173,8 @@ export default function ItemDetailPage() {
                 </span>
               )}
             </div>
-            <div style={{ fontWeight: 700, fontSize: 17 }}>
-              {item.approved_name || item.original_name}
-            </div>
           </div>
         </div>
-
-        {/* Prev/Next */}
         <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
           {adjacents.prev && (
             <Link href={`/dashboard/inventory/items/${encodeURIComponent(adjacents.prev)}`} className="btn btn-ghost" title="الصنف السابق">
@@ -169,27 +190,26 @@ export default function ItemDetailPage() {
       </div>
 
       {/* ── Section 1: التصنيف والاسم ── */}
-      <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-md)", marginBottom: 12, overflow: "hidden" }}>
-        <div style={{ padding: "10px 14px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", alignItems: "center", gap: 7 }}>
-          <Tag size={13} color="var(--brand)" />
-          <span style={{ fontSize: 13, fontWeight: 600 }}>التصنيف والاسم</span>
+      <div style={SECTION}>
+        <div style={SECTION_HEAD}>
+          <Tag size={14} color="#1D9E75" />
+          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>التصنيف والاسم</span>
         </div>
-        <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ ...SECTION_BODY, display: "flex", flexDirection: "column", gap: 12 }}>
 
-          {/* Category + Unit */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
+          {/* تصنيف + وحدة */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 100px", gap: 10 }}>
             <div>
-              <label className="field-label">التصنيف الرئيسي</label>
-              <select className="field-input" value={form.main_category || ""} disabled={locked}
+              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>التصنيف الرئيسي</label>
+              <select style={inputStyle} value={form.main_category || ""} disabled={locked}
                 onChange={e => set("main_category", e.target.value)}>
                 <option value="">— بدون تصنيف —</option>
                 {mainCats.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="field-label">الوحدة</label>
-              <select className="field-input" value={form.unit_of_measure || "قطعة"} disabled={locked}
-                style={{ width: 90 }}
+              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>الوحدة</label>
+              <select style={inputStyle} value={form.unit_of_measure || "قطعة"} disabled={locked}
                 onChange={e => set("unit_of_measure", e.target.value)}>
                 <option value="قطعة">قطعة</option>
                 <option value="متر">متر</option>
@@ -197,114 +217,127 @@ export default function ItemDetailPage() {
             </div>
           </div>
 
-          {/* Original name (read-only) */}
+          {/* الاسم الأصلي — pill للقراءة */}
           <div>
-            <label className="field-label">الاسم الأصلي (من ERP)</label>
-            <div style={{ padding: "7px 10px", background: "var(--color-background-secondary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-sm)", fontSize: 13, color: "var(--color-text-secondary)" }}>
+            <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>الاسم الأصلي (ERP)</label>
+            <div style={{
+              padding: "7px 12px", background: "var(--color-background-secondary)",
+              border: "0.5px solid var(--color-border-tertiary)",
+              borderRadius: "var(--border-radius-sm, 6px)",
+              fontSize: 13, color: "var(--color-text-secondary)",
+              display: "flex", alignItems: "center", gap: 6,
+            }}>
+              <Lock size={12} style={{ opacity: 0.35, flexShrink: 0 }} />
               {item.original_name}
             </div>
           </div>
 
-          {/* Name suffix */}
-          <div>
-            <label className="field-label">ملحق الاسم</label>
-            <input className="field-input" value={form.name_suffix || ""} disabled={locked}
-              placeholder="مثال: ذو مصراعين، بروفايل 6م..."
-              onChange={e => set("name_suffix", e.target.value)} />
-          </div>
-
-          {/* Approved name */}
-          <div>
-            <label className="field-label">الاسم المعتمد</label>
-            <textarea className="field-input" rows={2} value={form.approved_name || ""} disabled={locked}
-              placeholder="اكتب الاسم المعتمد هنا..."
-              onChange={e => set("approved_name", e.target.value)}
-              style={{ resize: "vertical", minHeight: 44, lineHeight: 1.5 }} />
+          {/* ملحق الاسم + الاسم المعتمد جنباً لجنب */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div>
+              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>ملحق الاسم</label>
+              <input style={inputStyle} value={form.name_suffix || ""} disabled={locked}
+                placeholder="مثال: كبير، 6م..."
+                onChange={e => set("name_suffix", e.target.value)} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>الاسم المعتمد</label>
+              <input style={inputStyle} value={form.approved_name || ""} disabled={locked}
+                placeholder="الاسم النهائي للعرض..."
+                onChange={e => set("approved_name", e.target.value)} />
+            </div>
           </div>
         </div>
       </div>
 
       {/* ── Section 2: التكلفة والسعر ── */}
-      <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-md)", marginBottom: 12, overflow: "hidden" }}>
-        <div style={{ padding: "10px 14px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", alignItems: "center", gap: 7 }}>
-          <Calculator size={13} color="var(--brand)" />
-          <span style={{ fontSize: 13, fontWeight: 600 }}>التكلفة والسعر</span>
+      <div style={SECTION}>
+        <div style={SECTION_HEAD}>
+          <Calculator size={14} color="#1D9E75" />
+          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>التكلفة والسعر</span>
         </div>
-        <div style={{ padding: 14 }}>
+        <div style={{ ...SECTION_BODY, display: "flex", flexDirection: "column", gap: 12 }}>
 
-          {/* طريقة التسعير */}
-          <div style={{ marginBottom: 12 }}>
-            <label className="field-label">طريقة التسعير</label>
-            <select className="field-input" value={form.pricing_method || "تكلفة + هامش"} disabled={locked}
-              onChange={e => set("pricing_method", e.target.value)} style={{ maxWidth: 220 }}>
-              {PRICING_METHODS.map(m => <option key={m}>{m}</option>)}
-            </select>
+          {/* طريقة التسعير + المورّد */}
+          <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 10 }}>
+            <div>
+              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>طريقة التسعير</label>
+              <select style={inputStyle} value={form.pricing_method || "تكلفة + هامش"} disabled={locked}
+                onChange={e => set("pricing_method", e.target.value)}>
+                {PRICING_METHODS.map(m => <option key={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>المورّد</label>
+              <input style={inputStyle} value={form.supplier || ""} disabled={locked}
+                placeholder="اسم المورّد..."
+                onChange={e => set("supplier", e.target.value)} />
+            </div>
           </div>
 
-          {/* Cost + Margin + Suggested in one row */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+          {/* تكلفة + هامش + مقترح */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
             <div>
-              <label className="field-label">التكلفة (₪)</label>
-              <input className="field-input" type="number" step="0.01" dir="ltr" disabled={locked}
+              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>التكلفة (₪)</label>
+              <input style={{ ...inputStyle, fontFamily: "monospace" }} type="number" step="0.01" dir="ltr" disabled={locked}
                 value={fromCents(form.cost_price_cents)}
                 onChange={e => handleCostChange(e.target.value)} />
             </div>
             <div>
-              <label className="field-label">هامش الربح %</label>
-              <input className="field-input" type="number" step="0.1" dir="ltr" disabled={locked}
+              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>هامش الربح %</label>
+              <input style={{ ...inputStyle, fontFamily: "monospace" }} type="number" step="0.1" dir="ltr" disabled={locked}
                 value={form.profit_margin_percent ?? ""}
                 onChange={e => handleMarginChange(e.target.value)} />
             </div>
             <div>
-              <label className="field-label">السعر المقترح (₪)</label>
+              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>السعر المقترح (₪)</label>
               <div style={{
-                padding: "7px 10px", border: "0.5px solid var(--color-border-tertiary)",
-                borderRadius: "var(--border-radius-sm)", background: "var(--color-background-secondary)",
-                fontFamily: "monospace", fontSize: 14, fontWeight: 600, color: "#378ADD",
-                textAlign: "left", direction: "ltr", minHeight: 34,
+                padding: "7px 10px", borderRadius: "var(--border-radius-sm, 6px)",
+                border: "0.5px solid var(--color-border-tertiary)",
+                background: "var(--color-background-secondary)",
+                fontFamily: "monospace", fontSize: 14, fontWeight: 600, color: "#185FA5",
+                minHeight: 34, direction: "ltr",
               }}>
                 {form.suggested_selling_price_cents != null ? fromCents(form.suggested_selling_price_cents) : "—"}
               </div>
             </div>
           </div>
 
-          {/* Final price — prominent */}
-          <div style={{ background: "rgba(29,158,117,0.06)", border: "1px solid rgba(29,158,117,0.25)", borderRadius: "var(--border-radius-md)", padding: "10px 14px" }}>
-            <label className="field-label" style={{ color: "#1D9E75", fontWeight: 600 }}>السعر النهائي للبيع (₪)</label>
+          {/* السعر النهائي — بارز */}
+          <div style={{ background: "#EAF3DE", border: "0.5px solid #C0DD97", borderRadius: "var(--border-radius-sm, 6px)", padding: "12px 16px" }}>
+            <label style={{ fontSize: 11, color: "#3B6D11", fontWeight: 600, display: "block", marginBottom: 6 }}>السعر النهائي للبيع (₪)</label>
             <input type="number" step="0.01" dir="ltr" disabled={locked}
               value={fromCents(form.final_selling_price_cents)}
               onChange={e => set("final_selling_price_cents", toCents(e.target.value))}
-              style={{ width: "100%", border: "1px solid rgba(29,158,117,0.4)", borderRadius: "var(--border-radius-sm)", padding: "8px 12px", fontSize: 18, fontWeight: 700, fontFamily: "monospace", background: "#fff", outline: "none", textAlign: "left" }} />
-          </div>
-
-          {/* Supplier */}
-          <div style={{ marginTop: 10 }}>
-            <label className="field-label">المورّد</label>
-            <input className="field-input" value={form.supplier || ""} disabled={locked}
-              placeholder="اسم المورّد..."
-              onChange={e => set("supplier", e.target.value)} />
+              style={{
+                width: "100%", padding: "9px 14px",
+                border: "1px solid #C0DD97", borderRadius: "var(--border-radius-sm, 6px)",
+                background: "#fff", fontSize: 20, fontWeight: 600,
+                fontFamily: "monospace", color: "#27500A",
+                boxSizing: "border-box", outline: "none",
+              }} />
           </div>
         </div>
       </div>
 
       {/* ── Section 3: سعر التركيب (أبواب / مواتير) ── */}
-      {(form.main_category || "").match(/أبواب|مواتير/) && (
-        <div style={{ border: "0.5px solid #C9AEEE", borderRadius: "var(--border-radius-md)", marginBottom: 12, overflow: "hidden" }}>
-          <div style={{ padding: "10px 14px", background: "#F3EFFE", borderBottom: "0.5px solid #C9AEEE", display: "flex", alignItems: "center", gap: 7 }}>
-            <span style={{ fontSize: 15 }}>🔧</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#5A3FA0" }}>سعر التركيب</span>
-            <span style={{ fontSize: 11, color: "#8B6EC7", marginRight: 4 }}>({form.main_category})</span>
+      {showInstallation && (
+        <div style={{ ...SECTION, border: "0.5px solid #C9AEEE" }}>
+          <div style={{ ...SECTION_HEAD, background: "#F3EFFE", borderBottom: "0.5px solid #C9AEEE" }}>
+            <Wrench size={14} color="#7C5ABF" />
+            <span style={{ fontSize: 13, fontWeight: 500, color: "#5A3FA0" }}>سعر التركيب</span>
+            <span style={{ fontSize: 11, color: "#9B7DD4", marginRight: 4 }}>({form.main_category})</span>
           </div>
-          <div style={{ padding: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ ...SECTION_BODY, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <label className="field-label">سعر بدون تركيب (₪)</label>
-              <input className="field-input" type="number" step="0.01" dir="ltr" disabled={locked}
+              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>سعر بدون تركيب (₪)</label>
+              <input style={{ ...inputStyle, fontFamily: "monospace" }} type="number" step="0.01" dir="ltr" disabled={locked}
                 value={form.price_without_installation || ""}
                 onChange={e => set("price_without_installation", e.target.value)} />
             </div>
             <div>
-              <label className="field-label">سعر مع تركيب (₪)</label>
-              <input className="field-input" type="number" step="0.01" dir="ltr" disabled={locked}
+              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>سعر مع تركيب (₪)</label>
+              <input style={{ ...inputStyle, fontFamily: "monospace" }} type="number" step="0.01" dir="ltr" disabled={locked}
                 value={form.price_with_installation || ""}
                 onChange={e => set("price_with_installation", e.target.value)} />
             </div>
@@ -313,21 +346,85 @@ export default function ItemDetailPage() {
       )}
 
       {/* ── Section 4: الملاحظات ── */}
-      <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-md)", marginBottom: 80, overflow: "hidden" }}>
-        <div style={{ padding: "10px 14px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", alignItems: "center", gap: 7 }}>
-          <AlertCircle size={13} color="var(--brand)" />
-          <span style={{ fontSize: 13, fontWeight: 600 }}>الحالة والملاحظات</span>
+      <div style={SECTION}>
+        <div style={SECTION_HEAD}>
+          <FileText size={14} color="#1D9E75" />
+          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>ملاحظات</span>
         </div>
-        <div style={{ padding: 14 }}>
-          <label className="field-label">ملاحظات</label>
-          <textarea className="field-input" rows={3} value={form.notes || ""} disabled={locked}
+        <div style={SECTION_BODY}>
+          <textarea
+            value={form.notes || ""} disabled={locked}
             placeholder="أي ملاحظة على هذا الصنف..."
-            onChange={e => set("notes", e.target.value)} />
+            rows={2}
+            onChange={e => set("notes", e.target.value)}
+            style={{ ...inputStyle, resize: "none", lineHeight: 1.6 }} />
         </div>
       </div>
 
-      {/* ── Price history ── */}
-      <div style={{ marginBottom: 80 }}>
+      {/* ── شريط الإجراءات — مضمّن كآخر كارد ── */}
+      {!locked && (
+        <div style={{ ...SECTION, marginBottom: 12 }}>
+          <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 8 }}>
+            <button disabled={saving} onClick={() => handleSave("قيد المراجعة")} style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "8px 18px", borderRadius: 8, border: "none", cursor: saving ? "not-allowed" : "pointer",
+              background: "#E6F1FB", color: "#0C447C", fontWeight: 600, fontSize: 13,
+              opacity: saving ? 0.6 : 1,
+            }}>
+              <Send size={14} /> قيد المراجعة
+            </button>
+
+            <button disabled={saving} onClick={() => handleSave("معتمد")} style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "8px 20px", borderRadius: 8, border: "none", cursor: saving ? "not-allowed" : "pointer",
+              background: "#1D9E75", color: "#fff", fontWeight: 600, fontSize: 13,
+              opacity: saving ? 0.6 : 1,
+            }}>
+              <CheckCircle size={14} /> معتمد
+            </button>
+
+            {adjacents.next && (
+              <button disabled={saving} onClick={handleNext} style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "8px 16px", borderRadius: 8, cursor: saving ? "not-allowed" : "pointer",
+                fontWeight: 600, fontSize: 13,
+                border: "0.5px solid var(--color-border-secondary)",
+                background: "transparent", color: "var(--color-text-secondary)",
+                opacity: saving ? 0.6 : 1,
+              }}>
+                {saving ? "جاري…" : "التالي"} <ChevronLeft size={14} />
+              </button>
+            )}
+
+            <div style={{ flex: 1 }} />
+
+            <button onClick={handleLock} style={{
+              display: "flex", alignItems: "center", gap: 5,
+              padding: "6px 12px", borderRadius: 8,
+              border: "0.5px solid var(--color-border-tertiary)",
+              background: "transparent", color: "var(--color-text-tertiary)",
+              fontSize: 12, cursor: "pointer",
+            }}>
+              <Lock size={13} /> قفل
+            </button>
+          </div>
+        </div>
+      )}
+
+      {locked && (
+        <div style={{ ...SECTION, border: "0.5px solid #FFC8C8", marginBottom: 12 }}>
+          <div style={{ padding: "12px 16px", background: "#FFF5F5", display: "flex", alignItems: "center", gap: 8 }}>
+            <Lock size={14} color="#E05252" />
+            <span style={{ fontSize: 13, color: "#E05252", fontWeight: 600 }}>السعر مقفول</span>
+            <button className="btn" onClick={() => setShowUnlock(true)} style={{ gap: 6, marginRight: 8 }}>
+              <Unlock size={14} /> فك القفل
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── سجل الأسعار ── */}
+      <div style={{ marginBottom: 24 }}>
         <button className="btn" style={{ width: "100%", justifyContent: "space-between" }}
           onClick={() => setShowHistory(h => !h)}>
           <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -353,78 +450,6 @@ export default function ItemDetailPage() {
           </table>
         )}
       </div>
-
-      {/* ── Sticky bottom action bar ── */}
-      {!locked && (
-        <div style={{
-          position: "fixed", bottom: 0, left: 180, right: 0,
-          padding: "10px 24px", background: "var(--color-background-primary)",
-          borderTop: "0.5px solid var(--color-border-tertiary)",
-          display: "flex", alignItems: "center", gap: 8,
-          zIndex: 100, boxShadow: "0 -2px 12px rgba(0,0,0,0.06)"
-        }}>
-          {/* قيد المراجعة */}
-          <button disabled={saving} onClick={() => handleSave("قيد المراجعة")}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "7px 16px", borderRadius: 8, border: "none", cursor: "pointer",
-              background: "#E6F1FB", color: "#185FA5", fontWeight: 600, fontSize: 13,
-              opacity: saving ? 0.6 : 1,
-            }}>
-            <Send size={14} /> قيد المراجعة
-          </button>
-
-          {/* معتمد */}
-          <button disabled={saving} onClick={() => handleSave("معتمد")}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "7px 16px", borderRadius: 8, border: "none", cursor: "pointer",
-              background: "#1D9E75", color: "#fff", fontWeight: 600, fontSize: 13,
-              opacity: saving ? 0.6 : 1,
-            }}>
-            <CheckCircle size={14} /> معتمد
-          </button>
-
-          {/* التالي */}
-          {adjacents.next && (
-            <button disabled={saving} onClick={handleNext}
-              style={{
-                display: "flex", alignItems: "center", gap: 6,
-                padding: "7px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13,
-                background: "var(--color-background-secondary)",
-                border: "0.5px solid var(--color-border-tertiary)",
-                color: "var(--color-text-secondary)",
-                opacity: saving ? 0.6 : 1,
-              }}>
-              {saving ? "جاري…" : "التالي"} <ChevronLeft size={14} />
-            </button>
-          )}
-
-          <div style={{ flex: 1 }} />
-          <button onClick={handleLock} style={{
-            display: "flex", alignItems: "center", gap: 5,
-            padding: "5px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-tertiary)",
-            background: "transparent", color: "var(--color-text-tertiary)", fontSize: 12, cursor: "pointer",
-          }}>
-            <Lock size={13} /> قفل
-          </button>
-        </div>
-      )}
-
-      {locked && (
-        <div style={{
-          position: "fixed", bottom: 0, left: 180, right: 0,
-          padding: "10px 24px", background: "#FFF5F5",
-          borderTop: "0.5px solid #FFC8C8",
-          display: "flex", alignItems: "center", gap: 8, zIndex: 100
-        }}>
-          <Lock size={14} color="#E05252" />
-          <span style={{ fontSize: 13, color: "#E05252", fontWeight: 600 }}>السعر مقفول</span>
-          <button className="btn" onClick={() => setShowUnlock(true)} style={{ gap: 6, marginRight: 8 }}>
-            <Unlock size={14} /> فك القفل
-          </button>
-        </div>
-      )}
 
       {/* ── Unlock modal ── */}
       {showUnlock && (
