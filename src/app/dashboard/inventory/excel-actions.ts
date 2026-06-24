@@ -65,17 +65,22 @@ function inferCategory(name: string): string | null {
 }
 
 async function getOrCreateMainWarehouse(): Promise<string | null> {
-  // Try to find existing main warehouse
-  const { data: existing } = await supabase
+  // Fetch all warehouses and pick the best match
+  const { data: warehouses } = await supabase
     .from("erp_warehouses")
-    .select("id")
-    .or("name.ilike.%كلي%,name.ilike.%رئيسي%,name.ilike.%main%,name.ilike.%عام%")
-    .limit(1)
-    .maybeSingle();
+    .select("id, name")
+    .order("created_at", { ascending: true });
 
-  if (existing) return existing.id;
+  if (warehouses && warehouses.length > 0) {
+    // Prefer one with كلي or رئيسي in the name, otherwise take the first
+    const match = warehouses.find(w =>
+      w.name.includes("كلي") || w.name.includes("رئيسي") ||
+      w.name.toLowerCase().includes("main") || w.name.includes("عام")
+    );
+    return (match || warehouses[0]).id;
+  }
 
-  // Create it if not found
+  // No warehouses exist — create المستودع الكلي
   const { data: created, error } = await supabase
     .from("erp_warehouses")
     .insert({ name: "المستودع الكلي", location: "المستودع الرئيسي" })
