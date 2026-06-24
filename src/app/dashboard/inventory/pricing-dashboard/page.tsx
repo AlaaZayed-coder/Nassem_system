@@ -5,12 +5,10 @@ import { ArrowRight, Zap } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 const KPI_STYLES: Record<string, { bg: string; label: string; value: string }> = {
-  "إجمالي":        { bg: "#F1EFE8", label: "#5F5E5A", value: "#2C2C2A" },
-  "معتمد":         { bg: "#EAF3DE", label: "#3B6D11", value: "#173404" },
-  "قيد المراجعة":     { bg: "#E6F1FB", label: "#185FA5", value: "#042C53" },
-  "بحاجة مراجعة": { bg: "#FAEEDA", label: "#854F0B", value: "#412402" },
-  "غير مسعّر":    { bg: "#F1EFE8", label: "#5F5E5A", value: "#2C2C2A" },
-  "مؤجّل":        { bg: "#EEEDFE", label: "#534AB7", value: "#26215C" },
+  "إجمالي":       { bg: "#F1EFE8", label: "#5F5E5A", value: "#2C2C2A" },
+  "غير مسعّر":   { bg: "#FAEEDA", label: "#854F0B", value: "#412402" },
+  "قيد المراجعة": { bg: "#E6F1FB", label: "#185FA5", value: "#042C53" },
+  "معتمد":        { bg: "#EAF3DE", label: "#3B6D11", value: "#173404" },
 };
 
 const CAT_COLORS = ["#1D9E75","#378ADD","#EF9F27","#E05252","#7C5ABF","#888780","#1D9E75","#378ADD","#EF9F27","#E05252","#888780"];
@@ -19,12 +17,10 @@ export default async function PricingDashboardPage() {
   const data = await getDashboardStats();
 
   const kpis = [
-    { label: "إجمالي",        value: data.total,                         href: "/dashboard/inventory/items" },
-    { label: "معتمد",         value: data.byStatus["معتمد"] || 0,        href: "/dashboard/inventory/items?pricing_status=معتمد" },
-    { label: "قيد المراجعة",     value: data.byStatus["قيد المراجعة"] || 0,    href: "/dashboard/inventory/items?pricing_status=قيد المراجعة" },
-    { label: "بحاجة مراجعة", value: data.byStatus["بحاجة مراجعة"] || 0, href: "/dashboard/inventory/review" },
-    { label: "غير مسعّر",    value: data.byStatus["غير مسعّر"] || 0,    href: "/dashboard/inventory/items?pricing_status=غير مسعّر" },
-    { label: "مؤجّل",        value: data.byStatus["مؤجّل"] || 0,        href: "/dashboard/inventory/items?pricing_status=مؤجّل" },
+    { label: "إجمالي",       value: data.total,                          href: "/dashboard/inventory/items" },
+    { label: "غير مسعّر",   value: data.byStatus["غير مسعّر"] || 0,    href: "/dashboard/inventory/items?pricing_status=غير مسعّر" },
+    { label: "قيد المراجعة", value: data.byStatus["قيد المراجعة"] || 0, href: "/dashboard/inventory/items?pricing_status=قيد المراجعة" },
+    { label: "معتمد",        value: data.byStatus["معتمد"] || 0,        href: "/dashboard/inventory/items?pricing_status=معتمد" },
   ];
 
   return (
@@ -41,7 +37,7 @@ export default async function PricingDashboardPage() {
       </div>
 
       {/* KPI grid */}
-      <div className="kpi-grid" style={{ marginBottom: 16 }}>
+      <div className="kpi-grid" style={{ marginBottom: 16, gridTemplateColumns: "repeat(4, 1fr)" }}>
         {kpis.map(k => {
           const s = KPI_STYLES[k.label] || KPI_STYLES["إجمالي"];
           return (
