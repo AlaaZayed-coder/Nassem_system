@@ -381,7 +381,9 @@ export default function ItemDetailPage() {
             <label className="field-label">حالة التسعير</label>
             <select className="field-input" value={form.pricing_status || "غير مسعّر"} disabled={locked}
               onChange={e => set("pricing_status", e.target.value)} style={{ maxWidth: 200 }}>
-              {STATUSES.map(s => <option key={s}>{s}</option>)}
+              <option value="غير مسعّر">غير مسعّر</option>
+              <option value="قيد العمل">قيد العمل</option>
+              <option value="معتمد">معتمد</option>
             </select>
           </div>
           <div>
