@@ -114,6 +114,28 @@ export async function unlockItemAction(formData: FormData) {
   revalidatePath(`/dashboard/inventory/items/${encodeURIComponent(item_code)}`);
 }
 
+export async function freezeItemAction(formData: FormData) {
+  const item_code = formData.get("item_code") as string;
+  await supabase.from("erp_items").update({
+    is_frozen: true,
+    last_modified_by: "system", last_modified_at: new Date().toISOString(),
+  }).eq("item_code", item_code);
+  await addAuditEntry({ user: "system", action: "تجميد", item_code });
+  revalidatePath(`/dashboard/inventory/items/${encodeURIComponent(item_code)}`);
+  revalidatePath("/dashboard/inventory/items");
+}
+
+export async function unfreezeItemAction(formData: FormData) {
+  const item_code = formData.get("item_code") as string;
+  await supabase.from("erp_items").update({
+    is_frozen: false,
+    last_modified_by: "system", last_modified_at: new Date().toISOString(),
+  }).eq("item_code", item_code);
+  await addAuditEntry({ user: "system", action: "إلغاء تجميد", item_code });
+  revalidatePath(`/dashboard/inventory/items/${encodeURIComponent(item_code)}`);
+  revalidatePath("/dashboard/inventory/items");
+}
+
 export async function submitForReviewAction(formData: FormData) {
   const item_code = formData.get("item_code") as string;
   const reason = formData.get("review_reason") as string;

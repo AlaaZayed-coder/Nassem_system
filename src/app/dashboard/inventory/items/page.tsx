@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   Search, Grid, Flag, DoorOpen,
-  Upload, Download, ChevronLeft, ChevronDown, CheckSquare
+  Upload, Download, ChevronLeft, ChevronDown, CheckSquare, Snowflake
 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { StatusBadge } from '@/components/legacy-status-badge';
@@ -23,7 +23,8 @@ function ItemsContent() {
   const [filters, setFilters] = useState<any>({
     page: 1,
     main_category: searchParams.get('main_category') || '',
-    no_category: searchParams.get('no_category') || ''
+    no_category: searchParams.get('no_category') || '',
+    show_frozen: false,
   });
   const [data, setData] = useState({ rows: [], total: 0, page: 1, pageSize: 50 });
   const [categories, setCategories] = useState<any[]>([]);
@@ -137,6 +138,14 @@ function ItemsContent() {
           <DoorOpen size={13} />
           تركيب فقط
         </div>
+
+        <div
+          className={`chip${filters.show_frozen ? ' active' : ''}`}
+          style={filters.show_frozen ? { background: '#EEF6FF', color: '#1D4ED8', borderColor: '#93C5FD' } : {}}
+          onClick={() => setFilters({ ...filters, show_frozen: !filters.show_frozen, page: 1 })}>
+          <Snowflake size={13} />
+          المجمّدة
+        </div>
       </div>
 
       {/* Bulk bar */}
@@ -180,8 +189,15 @@ function ItemsContent() {
                   onChange={() => toggleSelect(item.item_code)} />
               </td>
               <td className="code ltr">{item.item_code}</td>
-              <td>
-                {item.approved_name || item.original_name}
+              <td style={{ opacity: item.is_frozen ? 0.6 : 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {item.approved_name || item.original_name}
+                  {item.is_frozen && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 10, padding: '1px 6px', borderRadius: 20, background: '#EEF6FF', color: '#1D4ED8', fontWeight: 600, flexShrink: 0 }}>
+                      <Snowflake size={9} /> مجمّد
+                    </span>
+                  )}
+                </div>
                 <div className="item-sub">{item.unit_of_measure || 'وحدة'}</div>
               </td>
               <td><StatusBadge status={item.pricing_status} /></td>

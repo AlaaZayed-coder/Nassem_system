@@ -3,11 +3,11 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { PRICING_METHODS } from "@/lib/pricing-service";
-import { saveItemFullAction, lockItemAction, unlockItemAction } from "./actions";
+import { saveItemFullAction, lockItemAction, unlockItemAction, freezeItemAction, unfreezeItemAction } from "./actions";
 import { getPriceHistory } from "@/lib/audit-data";
 import {
   ArrowRight, Lock, Unlock, CheckCircle, Send,
-  ChevronDown, ChevronUp, ChevronRight, History, ChevronLeft, Tag, Calculator, FileText, Wrench,
+  ChevronDown, ChevronUp, ChevronRight, History, ChevronLeft, Tag, Calculator, FileText, Wrench, Snowflake,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -128,6 +128,16 @@ export default function ItemDetailPage() {
     await lockItemAction(fd); await loadItem(); notify("تم قفل السعر");
   }
 
+  async function handleFreeze() {
+    const fd = new FormData(); fd.append("item_code", code);
+    await freezeItemAction(fd); await loadItem(); notify("تم تجميد الصنف ❄️");
+  }
+
+  async function handleUnfreeze() {
+    const fd = new FormData(); fd.append("item_code", code);
+    await unfreezeItemAction(fd); await loadItem(); notify("تم إلغاء التجميد ✓");
+  }
+
   const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
     "معتمد":         { bg: "#EAF3DE", color: "#3B6D11" },
     "قيد المراجعة":  { bg: "#E6F1FB", color: "#185FA5" },
@@ -170,6 +180,11 @@ export default function ItemDetailPage() {
               {locked && (
                 <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, fontWeight: 600, background: "#FFE4E4", color: "#E05252", display: "flex", alignItems: "center", gap: 3 }}>
                   <Lock size={10} /> مقفول
+                </span>
+              )}
+              {item.is_frozen && (
+                <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, fontWeight: 600, background: "#EEF6FF", color: "#1D4ED8", display: "flex", alignItems: "center", gap: 3 }}>
+                  <Snowflake size={10} /> مجمّد
                 </span>
               )}
             </div>
@@ -389,6 +404,29 @@ export default function ItemDetailPage() {
             )}
 
             <div style={{ flex: 1 }} />
+
+            {/* زر التجميد */}
+            {item.is_frozen ? (
+              <button onClick={handleUnfreeze} style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "6px 12px", borderRadius: 8,
+                border: "0.5px solid #93C5FD",
+                background: "#EEF6FF", color: "#1D4ED8",
+                fontSize: 12, cursor: "pointer", fontWeight: 600,
+              }}>
+                <Snowflake size={13} /> إلغاء التجميد
+              </button>
+            ) : (
+              <button onClick={handleFreeze} style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "6px 12px", borderRadius: 8,
+                border: "0.5px solid var(--color-border-tertiary)",
+                background: "transparent", color: "var(--color-text-tertiary)",
+                fontSize: 12, cursor: "pointer",
+              }}>
+                <Snowflake size={13} /> تجميد
+              </button>
+            )}
 
             <button onClick={handleLock} style={{
               display: "flex", alignItems: "center", gap: 5,

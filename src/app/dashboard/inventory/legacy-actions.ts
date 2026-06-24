@@ -59,6 +59,11 @@ export async function fetchLegacyItems(filters: any) {
   if (filters.door_pricing_enabled === "1") {
     query = query.eq("door_pricing_enabled", true);
   }
+  if (filters.show_frozen) {
+    query = query.eq("is_frozen", true);
+  } else {
+    query = query.or("is_frozen.is.null,is_frozen.eq.false");
+  }
 
   // Pagination
   const page = filters.page ? parseInt(filters.page) : 1;
