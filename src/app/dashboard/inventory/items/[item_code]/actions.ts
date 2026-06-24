@@ -34,10 +34,9 @@ export async function saveItemFullAction(formData: FormData) {
 
   const updates: any = {
     original_name: formData.get("original_name"),
+    name_suffix: formData.get("name_suffix") || null,
     approved_name: formData.get("approved_name") || null,
-    proposed_name: formData.get("proposed_name") || null,
-    name_status: formData.get("name_status") || "لا يوجد",
-    unit_of_measure: formData.get("unit_of_measure") || "وحدة",
+    unit_of_measure: formData.get("unit_of_measure") || "قطعة",
     main_category: formData.get("main_category") || null,
     pricing_status: formData.get("pricing_status") || "غير مسعّر",
     pricing_method: formData.get("pricing_method") || "تكلفة + هامش",
