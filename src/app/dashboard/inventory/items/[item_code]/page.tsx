@@ -258,21 +258,13 @@ export default function ItemDetailPage() {
         </div>
         <div style={{ ...SECTION_BODY, display: "flex", flexDirection: "column", gap: 12 }}>
 
-          {/* طريقة التسعير + المورّد */}
-          <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 10 }}>
-            <div>
-              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>طريقة التسعير</label>
-              <select style={inputStyle} value={form.pricing_method || "تكلفة + هامش"} disabled={locked}
-                onChange={e => set("pricing_method", e.target.value)}>
-                {PRICING_METHODS.map(m => <option key={m}>{m}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>المورّد</label>
-              <input style={inputStyle} value={form.supplier || ""} disabled={locked}
-                placeholder="اسم المورّد..."
-                onChange={e => set("supplier", e.target.value)} />
-            </div>
+          {/* طريقة التسعير */}
+          <div style={{ maxWidth: 220 }}>
+            <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>طريقة التسعير</label>
+            <select style={inputStyle} value={form.pricing_method || "تكلفة + هامش"} disabled={locked}
+              onChange={e => set("pricing_method", e.target.value)}>
+              {PRICING_METHODS.map(m => <option key={m}>{m}</option>)}
+            </select>
           </div>
 
           {/* تكلفة + هامش + مقترح */}
@@ -317,33 +309,33 @@ export default function ItemDetailPage() {
                 boxSizing: "border-box", outline: "none",
               }} />
           </div>
+
+          {/* سعر التركيب — يظهر فقط لأبواب/مواتير */}
+          {showInstallation && (
+            <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 12, marginTop: 2 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                <Wrench size={13} color="#7C5ABF" />
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#5A3FA0" }}>سعر التركيب</span>
+                <span style={{ fontSize: 11, color: "#9B7DD4" }}>({form.main_category})</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>بدون تركيب (₪)</label>
+                  <input style={{ ...inputStyle, fontFamily: "monospace" }} type="number" step="0.01" dir="ltr" disabled={locked}
+                    value={form.price_without_installation || ""}
+                    onChange={e => set("price_without_installation", e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>مع تركيب (₪)</label>
+                  <input style={{ ...inputStyle, fontFamily: "monospace" }} type="number" step="0.01" dir="ltr" disabled={locked}
+                    value={form.price_with_installation || ""}
+                    onChange={e => set("price_with_installation", e.target.value)} />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* ── Section 3: سعر التركيب (أبواب / مواتير) ── */}
-      {showInstallation && (
-        <div style={{ ...SECTION, border: "0.5px solid #C9AEEE" }}>
-          <div style={{ ...SECTION_HEAD, background: "#F3EFFE", borderBottom: "0.5px solid #C9AEEE" }}>
-            <Wrench size={14} color="#7C5ABF" />
-            <span style={{ fontSize: 13, fontWeight: 500, color: "#5A3FA0" }}>سعر التركيب</span>
-            <span style={{ fontSize: 11, color: "#9B7DD4", marginRight: 4 }}>({form.main_category})</span>
-          </div>
-          <div style={{ ...SECTION_BODY, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>سعر بدون تركيب (₪)</label>
-              <input style={{ ...inputStyle, fontFamily: "monospace" }} type="number" step="0.01" dir="ltr" disabled={locked}
-                value={form.price_without_installation || ""}
-                onChange={e => set("price_without_installation", e.target.value)} />
-            </div>
-            <div>
-              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>سعر مع تركيب (₪)</label>
-              <input style={{ ...inputStyle, fontFamily: "monospace" }} type="number" step="0.01" dir="ltr" disabled={locked}
-                value={form.price_with_installation || ""}
-                onChange={e => set("price_with_installation", e.target.value)} />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Section 4: الملاحظات ── */}
       <div style={SECTION}>
