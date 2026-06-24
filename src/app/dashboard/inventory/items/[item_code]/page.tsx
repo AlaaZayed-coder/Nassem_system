@@ -280,6 +280,31 @@ export default function ItemDetailPage() {
         </div>
       </div>
 
+      {/* ── Section 3: سعر التركيب (أبواب / مواتير) ── */}
+      {(form.main_category || "").match(/أبواب|مواتير/) && (
+        <div style={{ border: "0.5px solid #C9AEEE", borderRadius: "var(--border-radius-md)", marginBottom: 12, overflow: "hidden" }}>
+          <div style={{ padding: "10px 14px", background: "#F3EFFE", borderBottom: "0.5px solid #C9AEEE", display: "flex", alignItems: "center", gap: 7 }}>
+            <span style={{ fontSize: 15 }}>🔧</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#5A3FA0" }}>سعر التركيب</span>
+            <span style={{ fontSize: 11, color: "#8B6EC7", marginRight: 4 }}>({form.main_category})</span>
+          </div>
+          <div style={{ padding: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label className="field-label">سعر بدون تركيب (₪)</label>
+              <input className="field-input" type="number" step="0.01" dir="ltr" disabled={locked}
+                value={fromCents(form.price_without_installation_cents)}
+                onChange={e => set("price_without_installation_cents", toCents(e.target.value))} />
+            </div>
+            <div>
+              <label className="field-label">سعر مع تركيب (₪)</label>
+              <input className="field-input" type="number" step="0.01" dir="ltr" disabled={locked}
+                value={fromCents(form.price_with_installation_cents)}
+                onChange={e => set("price_with_installation_cents", toCents(e.target.value))} />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Section 4: الملاحظات ── */}
       <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-md)", marginBottom: 80, overflow: "hidden" }}>
         <div style={{ padding: "10px 14px", background: "var(--color-background-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", alignItems: "center", gap: 7 }}>
