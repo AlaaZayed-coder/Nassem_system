@@ -201,9 +201,10 @@ export default function ItemDetailPage() {
           {/* Approved name */}
           <div>
             <label className="field-label">الاسم المعتمد</label>
-            <input className="field-input" value={form.approved_name || ""} disabled={locked}
-              placeholder="اكتب الاسم المُسلّح هنا..."
-              onChange={e => set("approved_name", e.target.value)} />
+            <textarea className="field-input" rows={2} value={form.approved_name || ""} disabled={locked}
+              placeholder="اكتب الاسم المعتمد هنا..."
+              onChange={e => set("approved_name", e.target.value)}
+              style={{ resize: "vertical", minHeight: 44, lineHeight: 1.5 }} />
           </div>
 
           {/* Door pricing toggle */}
@@ -265,9 +266,14 @@ export default function ItemDetailPage() {
             </div>
             <div>
               <label className="field-label">السعر المقترح (₪)</label>
-              <input className="field-input" dir="ltr" readOnly
-                value={form.suggested_selling_price_cents != null ? fromCents(form.suggested_selling_price_cents) : "—"}
-                style={{ background: "var(--color-background-secondary)", color: "var(--color-text-tertiary)", cursor: "default" }} />
+              <div style={{
+                padding: "7px 10px", border: "0.5px solid var(--color-border-tertiary)",
+                borderRadius: "var(--border-radius-sm)", background: "var(--color-background-secondary)",
+                fontFamily: "monospace", fontSize: 14, fontWeight: 600, color: "#378ADD",
+                textAlign: "left", direction: "ltr", minHeight: 34,
+              }}>
+                {form.suggested_selling_price_cents != null ? fromCents(form.suggested_selling_price_cents) : "—"}
+              </div>
             </div>
           </div>
 
