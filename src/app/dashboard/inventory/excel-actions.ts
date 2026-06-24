@@ -134,9 +134,14 @@ export async function importItemsMasterFromExcel(formData: FormData) {
   }
 
   let added = 0, updated = 0, withCat = 0, withInv = 0, errors = 0;
+  let firstError = "";
 
-  // ── Process rows in batches of 200 ───────────────────────────────────────
-  const batch: any[] = [];
+  // ── Build batches ─────────────────────────────────────────────────────────
+  // itemsBatch: only safe columns that definitely exist
+  // catUpdates: separate list for main_category updates
+  // invBatch: inventory records
+  const itemsBatch: any[] = [];
+  const catUpdates: { item_code: string; main_category: string }[] = [];
   const invBatch: any[] = [];
 
   for (let i = 1; i < rows.length; i++) {
@@ -151,76 +156,66 @@ export async function importItemsMasterFromExcel(formData: FormData) {
     const rawUnit   = colUnit   !== -1 ? String(row[colUnit]   || "").trim() : "";
     const rawQty    = colQty    !== -1 ? parseFloat(String(row[colQty] || "0")) : null;
 
-    // Build full name
     const fullName = rawSuffix ? `${rawName} ${rawSuffix}`.trim() : rawName;
 
-    // Auto-assign category only for items without one
     const existing = existingMap.get(itemCode);
     const isNew = !existing;
-    const category = (!existing?.hasCat) ? inferCategory(fullName) : undefined;
 
+    // ── Item upsert row (only core columns, NO main_category here) ──────────
     const upsertRow: Record<string, any> = {
       item_code: itemCode,
       original_name: fullName || itemCode,
       is_active: true,
     };
-
     if (rawUnit) upsertRow.unit_of_measure = normalizeUnit(rawUnit);
+    if (isNew)  upsertRow.pricing_status = "غير مسعّر";
 
-    // New items get default status and category
-    if (isNew) {
-      upsertRow.pricing_status = "غير مسعّر";
-      if (category) { upsertRow.main_category = category; withCat++; }
-    } else {
-      // Existing: update name/unit only, assign category if missing
-      if (category) { upsertRow.main_category = category; withCat++; }
-    }
-
-    batch.push(upsertRow);
+    itemsBatch.push(upsertRow);
     if (isNew) added++; else updated++;
 
-    // Inventory record
+    // ── Category (separate update to avoid column issues) ───────────────────
+    if (!existing?.hasCat) {
+      const cat = inferCategory(fullName);
+      if (cat) { catUpdates.push({ item_code: itemCode, main_category: cat }); withCat++; }
+    }
+
+    // ── Inventory ────────────────────────────────────────────────────────────
     if (warehouseId && rawQty !== null && !isNaN(rawQty) && rawQty > 0) {
-      invBatch.push({
-        item_code: itemCode,
-        warehouse_id: warehouseId,
-        quantity: rawQty,
-        last_updated: new Date().toISOString(),
-      });
+      invBatch.push({ item_code: itemCode, warehouse_id: warehouseId, quantity: rawQty,
+        last_updated: new Date().toISOString() });
       withInv++;
     }
-
-    // Flush every 200 rows
-    if (batch.length >= 200) {
-      const { error } = await supabase.from("erp_items")
-        .upsert(batch, { onConflict: "item_code", ignoreDuplicates: false });
-      if (error) { console.error("Upsert batch error:", error); errors += batch.length; }
-      batch.length = 0;
-    }
   }
 
-  // Flush remaining
-  if (batch.length > 0) {
+  // ── Upsert items in batches of 200 ────────────────────────────────────────
+  for (let i = 0; i < itemsBatch.length; i += 200) {
     const { error } = await supabase.from("erp_items")
-      .upsert(batch, { onConflict: "item_code", ignoreDuplicates: false });
-    if (error) { console.error("Upsert final batch error:", error); errors += batch.length; }
+      .upsert(itemsBatch.slice(i, i + 200), { onConflict: "item_code", ignoreDuplicates: false });
+    if (error) {
+      if (!firstError) firstError = error.message;
+      errors += Math.min(200, itemsBatch.length - i);
+    }
   }
 
-  // Inventory upsert
-  if (invBatch.length > 0 && warehouseId) {
-    for (let i = 0; i < invBatch.length; i += 200) {
-      await supabase.from("erp_inventory").upsert(
-        invBatch.slice(i, i + 200),
-        { onConflict: "item_code,warehouse_id", ignoreDuplicates: false }
-      );
-    }
+  // ── Update categories separately ──────────────────────────────────────────
+  for (const cu of catUpdates) {
+    await supabase.from("erp_items")
+      .update({ main_category: cu.main_category })
+      .eq("item_code", cu.item_code);
+  }
+
+  // ── Upsert inventory ──────────────────────────────────────────────────────
+  for (let i = 0; i < invBatch.length; i += 200) {
+    const { error } = await supabase.from("erp_inventory")
+      .upsert(invBatch.slice(i, i + 200), { onConflict: "item_code,warehouse_id", ignoreDuplicates: false });
+    if (error) console.error("Inventory upsert error:", error.message);
   }
 
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/inventory/items");
   revalidatePath("/dashboard/inventory/warehouse");
 
-  return { success: true, added, updated, withCat, withInv, errors };
+  return { success: true, added, updated, withCat, withInv, errors, firstError };
 }
 
 export async function exportItemsToExcel() {

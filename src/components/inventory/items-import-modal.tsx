@@ -10,6 +10,7 @@ type Result = {
   withCat: number;
   withInv: number;
   errors: number;
+  firstError?: string;
 };
 
 export function ItemsImportModal() {
@@ -234,9 +235,17 @@ export function ItemsImportModal() {
                       </div>
                     ))}
                     {result.errors > 0 && (
-                      <div style={{ gridColumn: "span 2", display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                        <span style={{ color: "#DC2626" }}>أخطاء</span>
-                        <span style={{ fontWeight: 700, color: "#DC2626", fontFamily: "monospace" }}>{result.errors}</span>
+                      <div style={{ gridColumn: "span 2" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                          <span style={{ color: "#DC2626" }}>أخطاء</span>
+                          <span style={{ fontWeight: 700, color: "#DC2626", fontFamily: "monospace" }}>{result.errors}</span>
+                        </div>
+                        {result.firstError && (
+                          <div style={{ fontSize: 10.5, color: "#DC2626", marginTop: 4, wordBreak: "break-all",
+                            background: "#FEF2F2", padding: "4px 6px", borderRadius: 4 }}>
+                            {result.firstError}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
