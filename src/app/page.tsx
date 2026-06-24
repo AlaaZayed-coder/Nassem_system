@@ -9,7 +9,7 @@ export default function Home() {
           <Factory className="w-10 h-10" />
         </div>
         <div className="space-y-3">
-          <h1 className="text-5xl font-black text-slate-800 tracking-tight">نظام النسيم الإداري</h1>
+          <h1 className="text-5xl font-black text-slate-800 tracking-tight">نظام الحوكمة</h1>
           <p className="text-xl text-slate-500 font-medium">النظام الشامل لإدارة الإنتاج، التسعير، والصيانة.</p>
         </div>
 
