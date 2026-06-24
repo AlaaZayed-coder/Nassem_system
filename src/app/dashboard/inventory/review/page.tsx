@@ -31,9 +31,9 @@ export default function ReviewInboxPage() {
   }
 
   async function reject(item_code: string) {
-    await supabase.from("erp_items").update({ pricing_status: "قيد العمل", review_reason: null }).eq("item_code", item_code);
+    await supabase.from("erp_items").update({ pricing_status: "قيد المراجعة", review_reason: null }).eq("item_code", item_code);
     await addAuditEntry({ user: "system", action: "رفض مراجعة", item_code });
-    notify("أُعيد إلى قيد العمل"); load();
+    notify("أُعيد إلى قيد المراجعة"); load();
   }
 
   async function postpone(item_code: string) {

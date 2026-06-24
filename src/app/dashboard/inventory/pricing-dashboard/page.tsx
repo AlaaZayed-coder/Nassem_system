@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 const KPI_STYLES: Record<string, { bg: string; label: string; value: string }> = {
   "إجمالي":        { bg: "#F1EFE8", label: "#5F5E5A", value: "#2C2C2A" },
   "معتمد":         { bg: "#EAF3DE", label: "#3B6D11", value: "#173404" },
-  "قيد العمل":     { bg: "#E6F1FB", label: "#185FA5", value: "#042C53" },
+  "قيد المراجعة":     { bg: "#E6F1FB", label: "#185FA5", value: "#042C53" },
   "بحاجة مراجعة": { bg: "#FAEEDA", label: "#854F0B", value: "#412402" },
   "غير مسعّر":    { bg: "#F1EFE8", label: "#5F5E5A", value: "#2C2C2A" },
   "مؤجّل":        { bg: "#EEEDFE", label: "#534AB7", value: "#26215C" },
@@ -21,7 +21,7 @@ export default async function PricingDashboardPage() {
   const kpis = [
     { label: "إجمالي",        value: data.total,                         href: "/dashboard/inventory/items" },
     { label: "معتمد",         value: data.byStatus["معتمد"] || 0,        href: "/dashboard/inventory/items?pricing_status=معتمد" },
-    { label: "قيد العمل",     value: data.byStatus["قيد العمل"] || 0,    href: "/dashboard/inventory/items?pricing_status=قيد العمل" },
+    { label: "قيد المراجعة",     value: data.byStatus["قيد المراجعة"] || 0,    href: "/dashboard/inventory/items?pricing_status=قيد المراجعة" },
     { label: "بحاجة مراجعة", value: data.byStatus["بحاجة مراجعة"] || 0, href: "/dashboard/inventory/review" },
     { label: "غير مسعّر",    value: data.byStatus["غير مسعّر"] || 0,    href: "/dashboard/inventory/items?pricing_status=غير مسعّر" },
     { label: "مؤجّل",        value: data.byStatus["مؤجّل"] || 0,        href: "/dashboard/inventory/items?pricing_status=مؤجّل" },

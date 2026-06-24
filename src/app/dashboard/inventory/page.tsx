@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 const KPI_STYLES: Record<string, { bg: string; label: string; value: string }> = {
   "إجمالي":     { bg: "#F1EFE8", label: "#5F5E5A", value: "#2C2C2A" },
   "غير مسعّر": { bg: "#FAEEDA", label: "#854F0B", value: "#412402" },
-  "قيد العمل": { bg: "#E6F1FB", label: "#185FA5", value: "#042C53" },
+  "قيد المراجعة": { bg: "#E6F1FB", label: "#185FA5", value: "#042C53" },
   "معتمد":     { bg: "#EAF3DE", label: "#3B6D11", value: "#173404" },
 };
 const CAT_COLORS = ["#1D9E75","#378ADD","#EF9F27","#E05252","#7C5ABF","#888780","#1D9E75","#378ADD","#EF9F27","#E05252","#888780"];
@@ -19,7 +19,7 @@ export default async function InventoryPage() {
   const kpis = [
     { label: "إجمالي",     value: stats.total,                        href: "/dashboard/inventory/items" },
     { label: "غير مسعّر", value: stats.byStatus["غير مسعّر"] || 0,   href: "/dashboard/inventory/items?pricing_status=غير مسعّر" },
-    { label: "قيد العمل", value: stats.byStatus["قيد العمل"] || 0,   href: "/dashboard/inventory/items?pricing_status=قيد العمل" },
+    { label: "قيد المراجعة", value: stats.byStatus["قيد المراجعة"] || 0,   href: "/dashboard/inventory/items?pricing_status=قيد المراجعة" },
     { label: "معتمد",     value: stats.byStatus["معتمد"] || 0,       href: "/dashboard/inventory/items?pricing_status=معتمد" },
   ];
 

@@ -1,4 +1,4 @@
-export const STATUSES = ['غير مسعّر','قيد العمل','بحاجة مراجعة','معتمد','مؤجّل'] as const;
+export const STATUSES = ['غير مسعّر','قيد المراجعة','بحاجة مراجعة','معتمد','مؤجّل'] as const;
 export const PRICING_METHODS = ['تكلفة + هامش','يدوي','خدمة','حسب المتر المربع','حسب المتر الطولي','بحاجة مراجعة'] as const;
 
 export function moneyToCents(value: any): number | null {

@@ -112,7 +112,7 @@ export default function ItemDetailPage() {
 
   const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
     "معتمد":         { bg: "#EAF3DE", color: "#3B6D11" },
-    "قيد العمل":     { bg: "#E6F1FB", color: "#185FA5" },
+    "قيد المراجعة":  { bg: "#E6F1FB", color: "#185FA5" },
     "بحاجة مراجعة": { bg: "#FAEEDA", color: "#854F0B" },
     "غير مسعّر":    { bg: "#F1EFE8", color: "#5F5E5A" },
     "مؤجّل":        { bg: "#EEEDFE", color: "#534AB7" },
@@ -382,7 +382,7 @@ export default function ItemDetailPage() {
             <select className="field-input" value={form.pricing_status || "غير مسعّر"} disabled={locked}
               onChange={e => set("pricing_status", e.target.value)} style={{ maxWidth: 200 }}>
               <option value="غير مسعّر">غير مسعّر</option>
-              <option value="قيد العمل">قيد العمل</option>
+              <option value="قيد المراجعة">قيد المراجعة</option>
               <option value="معتمد">معتمد</option>
             </select>
           </div>
