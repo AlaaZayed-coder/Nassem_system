@@ -38,7 +38,14 @@ export default function ItemDetailPage() {
 
   const loadItem = useCallback(async () => {
     const { data } = await supabase.from("erp_items").select("*").eq("item_code", code).single();
-    if (data) { setItem(data); setForm(data); }
+    if (data) {
+      setItem(data);
+      setForm({
+        ...data,
+        price_without_installation: data.price_without_installation_cents != null ? (data.price_without_installation_cents / 100).toFixed(2) : "",
+        price_with_installation: data.price_with_installation_cents != null ? (data.price_with_installation_cents / 100).toFixed(2) : "",
+      });
+    }
   }, [code]);
 
   useEffect(() => {
@@ -292,14 +299,14 @@ export default function ItemDetailPage() {
             <div>
               <label className="field-label">سعر بدون تركيب (₪)</label>
               <input className="field-input" type="number" step="0.01" dir="ltr" disabled={locked}
-                value={fromCents(form.price_without_installation_cents)}
-                onChange={e => set("price_without_installation_cents", toCents(e.target.value))} />
+                value={form.price_without_installation || ""}
+                onChange={e => set("price_without_installation", e.target.value)} />
             </div>
             <div>
               <label className="field-label">سعر مع تركيب (₪)</label>
               <input className="field-input" type="number" step="0.01" dir="ltr" disabled={locked}
-                value={fromCents(form.price_with_installation_cents)}
-                onChange={e => set("price_with_installation_cents", toCents(e.target.value))} />
+                value={form.price_with_installation || ""}
+                onChange={e => set("price_with_installation", e.target.value)} />
             </div>
           </div>
         </div>

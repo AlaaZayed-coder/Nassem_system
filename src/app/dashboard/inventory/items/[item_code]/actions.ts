@@ -47,8 +47,6 @@ export async function saveItemFullAction(formData: FormData) {
     final_selling_price_cents: finalPriceCents,
     supplier: formData.get("supplier") || null,
     notes: formData.get("notes") || null,
-    price_without_installation_cents: formData.get("price_without_installation_cents") ? Number(formData.get("price_without_installation_cents")) : null,
-    price_with_installation_cents: formData.get("price_with_installation_cents") ? Number(formData.get("price_with_installation_cents")) : null,
     last_modified_by: "system",
     last_modified_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
