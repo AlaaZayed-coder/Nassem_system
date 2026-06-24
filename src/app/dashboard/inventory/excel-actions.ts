@@ -64,11 +64,35 @@ function inferCategory(name: string): string | null {
   return null;
 }
 
+async function getOrCreateMainWarehouse(): Promise<string | null> {
+  // Try to find existing main warehouse
+  const { data: existing } = await supabase
+    .from("erp_warehouses")
+    .select("id")
+    .or("name.ilike.%كلي%,name.ilike.%رئيسي%,name.ilike.%main%,name.ilike.%عام%")
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) return existing.id;
+
+  // Create it if not found
+  const { data: created, error } = await supabase
+    .from("erp_warehouses")
+    .insert({ name: "المستودع الكلي", location: "المستودع الرئيسي" })
+    .select("id")
+    .single();
+
+  if (error) { console.error("Could not create main warehouse:", error); return null; }
+  return created.id;
+}
+
 export async function importItemsMasterFromExcel(formData: FormData) {
   const file = formData.get("file") as File;
-  const warehouseId = formData.get("warehouse_id") as string | null;
 
   if (!file) throw new Error("لم يتم إرفاق أي ملف");
+
+  // Always use المستودع الكلي for balance
+  const warehouseId = await getOrCreateMainWarehouse();
 
   const bytes = await file.arrayBuffer();
   const workbook = XLSX.read(bytes, { type: "array" });

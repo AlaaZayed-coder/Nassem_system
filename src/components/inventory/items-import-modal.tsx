@@ -4,8 +4,6 @@ import { useState, useRef, useTransition } from "react";
 import { Upload, X, Loader2, CheckCircle, AlertCircle, FileSpreadsheet, Info, Download } from "lucide-react";
 import { importItemsMasterFromExcel, exportImportTemplate } from "@/app/dashboard/inventory/excel-actions";
 
-type Warehouse = { id: string; name: string };
-
 type Result = {
   added: number;
   updated: number;
@@ -14,10 +12,9 @@ type Result = {
   errors: number;
 };
 
-export function ItemsImportModal({ warehouses }: { warehouses: Warehouse[] }) {
+export function ItemsImportModal() {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [warehouseId, setWarehouseId] = useState<string>("");
   const [result, setResult] = useState<Result | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -48,7 +45,6 @@ export function ItemsImportModal({ warehouses }: { warehouses: Warehouse[] }) {
     setFile(null);
     setResult(null);
     setErrMsg(null);
-    setWarehouseId("");
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -71,7 +67,6 @@ export function ItemsImportModal({ warehouses }: { warehouses: Warehouse[] }) {
 
     const fd = new FormData();
     fd.append("file", file);
-    if (warehouseId) fd.append("warehouse_id", warehouseId);
 
     startTransition(async () => {
       try {
@@ -167,7 +162,8 @@ export function ItemsImportModal({ warehouses }: { warehouses: Warehouse[] }) {
                   كود · اسم الصنف · ملحق الاسم · الوحدة (قطعة/متر) · الرصيد<br />
                   <span style={{ color: "#7C5ABF" }}>
                     ✓ يُحافظ على أسعار وحالة الأصناف الموجودة<br />
-                    ✓ يُعيّن التصنيف تلقائياً للأصناف بدون تصنيف
+                    ✓ يُعيّن التصنيف تلقائياً للأصناف بدون تصنيف<br />
+                    ✓ الرصيد يُسجَّل تلقائياً في <b>المستودع الكلي</b>
                   </span>
                 </div>
               </div>
@@ -201,34 +197,6 @@ export function ItemsImportModal({ warehouses }: { warehouses: Warehouse[] }) {
                   )}
                 </div>
                 <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFileChange} style={{ display: "none" }} />
-              </div>
-
-              {/* Warehouse picker */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>
-                  تسجيل الرصيد في المستودع
-                  <span style={{ fontWeight: 400, color: "var(--color-text-tertiary)", marginRight: 4 }}>(اختياري)</span>
-                </label>
-                <select
-                  value={warehouseId}
-                  onChange={e => setWarehouseId(e.target.value)}
-                  style={{
-                    width: "100%", padding: "8px 10px", borderRadius: 8,
-                    border: "0.5px solid var(--color-border-tertiary)",
-                    background: "var(--color-background-secondary)",
-                    fontSize: 12.5, color: "var(--color-text-primary)",
-                  }}
-                >
-                  <option value="">— بدون تسجيل رصيد —</option>
-                  {warehouses.map(w => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
-                  ))}
-                </select>
-                {!warehouseId && (
-                  <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 4 }}>
-                    إذا لم تختر مستودعاً، سيتم استيراد الأصناف فقط بدون تسجيل رصيد
-                  </div>
-                )}
               </div>
 
               {/* Error */}
