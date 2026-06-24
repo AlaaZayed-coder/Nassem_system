@@ -49,18 +49,58 @@ function normalizeUnit(raw: string): string {
   return u || "قطعة";
 }
 
-// ─── Category auto-assignment ────────────────────────────────────────────────
+// ─── Category auto-assignment (names must match erp_categories exactly) ──────
 function inferCategory(name: string): string | null {
   const n = (name || "").toUpperCase();
-  if (n.includes("باب") || n.includes("بوابة") || n.includes("DOOR")) return "أبواب";
-  if (n.includes("نافذة") || n.includes("شباك") || n.includes("WINDOW")) return "نوافذ";
-  if (n.includes("مطبخ") || n.includes("خزانة") || n.includes("KITCHEN") || n.includes("CABINET")) return "مطابخ وخزائن";
-  if (n.includes("زجاج") || n.includes("GLASS") || n.includes("مرآة")) return "زجاج";
-  if (n.includes("اكسسوار") || n.includes("قبضة") || n.includes("مسمار") || n.includes("برغي") || n.includes("مفصلة") || n.includes("ACCESSORY")) return "اكسسوارات";
-  if (n.includes("سيلكون") || n.includes("مانع") || n.includes("عازل") || n.includes("SEAL") || n.includes("SILICON")) return "مواد عازلة";
-  if (n.includes("ألومنيوم") || n.includes("ALUMINIUM") || n.includes("ALUMINUM") || n.includes("بروفايل")) return "ألومنيوم";
-  if (n.includes("حديد") || n.includes("فولاذ") || n.includes("STEEL") || n.includes("IRON")) return "حديد وفولاذ";
-  if (n.includes("صنع") || n.includes("تركيب") || n.includes("عمالة") || n.includes("LABOR") || n.includes("INSTALL")) return "أعمال";
+
+  // أبواب رول ومستلزماتها (أكثر تحديداً — يجب أن يسبق أبواب ومستلزماتها)
+  if (n.includes("رول") || n.includes("ROLL")) return "أبواب رول ومستلزماتها";
+
+  // أبواب ومستلزماتها
+  if (n.includes("باب") || n.includes("بوابة") || n.includes("DOOR") ||
+      n.includes("نافذة") || n.includes("شباك") || n.includes("WINDOW")) return "أبواب ومستلزماتها";
+
+  // مواتير وماكينات وقطع كهربائية
+  if (n.includes("موتور") || n.includes("مواتير") || n.includes("ماكينة") ||
+      n.includes("كهرباء") || n.includes("كهربائي") || n.includes("MOTOR") ||
+      n.includes("ELECTRIC") || n.includes("محرك")) return "مواتير وماكينات وقطع كهربائية";
+
+  // صاج ومواد خام
+  if (n.includes("صاج") || n.includes("حديد") || n.includes("فولاذ") ||
+      n.includes("ألومنيوم") || n.includes("ALUMINIUM") || n.includes("ALUMINUM") ||
+      n.includes("بروفايل") || n.includes("STEEL") || n.includes("IRON") ||
+      n.includes("مواد خام") || n.includes("خام")) return "صاج ومواد خام";
+
+  // إكسسوارات أبواب وجرارات
+  if (n.includes("جرار") || n.includes("اكسسوار") || n.includes("ACCESSORY") ||
+      n.includes("قبضة") || n.includes("مقبض") || n.includes("يد باب")) return "إكسسوارات أبواب وجرارات";
+
+  // مفصلات وأقفال وقطع تثبيت
+  if (n.includes("مفصل") || n.includes("قفل") || n.includes("HINGE") ||
+      n.includes("LOCK") || n.includes("برغي") || n.includes("مسمار") ||
+      n.includes("تثبيت") || n.includes("ربط")) return "مفصلات وأقفال وقطع تثبيت";
+
+  // زينة حديد وحدادة ديكورية
+  if (n.includes("زينة") || n.includes("ديكور") || n.includes("حدادة") ||
+      n.includes("DECOR") || n.includes("زخرف")) return "زينة حديد وحدادة ديكورية";
+
+  // روزيت وغطاء وقطع تشطيب
+  if (n.includes("روزيت") || n.includes("غطاء") || n.includes("تشطيب") ||
+      n.includes("ROSETTE") || n.includes("COVER")) return "روزيت وغطاء وقطع تشطيب";
+
+  // شبك وسلك ومجاري
+  if (n.includes("شبك") || n.includes("سلك") || n.includes("مجرى") ||
+      n.includes("WIRE") || n.includes("MESH") || n.includes("CHANNEL")) return "شبك وسلك ومجاري";
+
+  // خدمات وتصنيع وتشطيب
+  if (n.includes("تصنيع") || n.includes("تركيب") || n.includes("عمالة") ||
+      n.includes("خدمة") || n.includes("LABOR") || n.includes("INSTALL") ||
+      n.includes("SERVICE")) return "خدمات وتصنيع وتشطيب";
+
+  // سيلكون ومانعات
+  if (n.includes("سيلكون") || n.includes("مانع") || n.includes("عازل") ||
+      n.includes("SILICON") || n.includes("SEAL")) return "صاج ومواد خام";
+
   return null;
 }
 
