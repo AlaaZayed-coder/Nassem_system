@@ -3,6 +3,7 @@
 import { supabase } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 // ─── Export blank import template ────────────────────────────────────────────
 export async function exportImportTemplate() {
@@ -261,6 +262,207 @@ export async function importItemsMasterFromExcel(formData: FormData) {
   revalidatePath("/dashboard/inventory/warehouse");
 
   return { success: true, added, updated, withCat, withInv, errors, firstError };
+}
+
+// ─── Professional pricing entry export ───────────────────────────────────────
+export async function exportPricingSheet() {
+  // Fetch all non-frozen items
+  let allItems: any[] = [];
+  let from = 0;
+  const ps = 1000;
+  while (true) {
+    const { data } = await supabase
+      .from("erp_items")
+      .select("item_code, original_name, name_suffix, approved_name, main_category, cost_price_cents, profit_margin_percent, final_selling_price_cents, pricing_status, is_frozen")
+      .or("is_frozen.is.null,is_frozen.eq.false")
+      .order("main_category", { ascending: true })
+      .order("item_code", { ascending: true })
+      .range(from, from + ps - 1);
+    if (!data || data.length === 0) break;
+    allItems = allItems.concat(data);
+    if (data.length < ps) break;
+    from += ps;
+  }
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "نظام الحوكمة";
+  wb.created = new Date();
+
+  const ws = wb.addWorksheet("إدخال الأسعار", {
+    views: [{ state: "frozen", ySplit: 2, rightToLeft: "rtl" as any }],
+  });
+
+  // ── Column definitions ────────────────────────────────────────────────────
+  ws.columns = [
+    { key: "no",       width: 6  },
+    { key: "code",     width: 14 },
+    { key: "name",     width: 34 },
+    { key: "suffix",   width: 18 },
+    { key: "category", width: 22 },
+    { key: "cost",     width: 13 },
+    { key: "margin",   width: 12 },
+    { key: "suggested",width: 13 },
+    { key: "final",    width: 13 },
+    { key: "status",   width: 16 },
+  ];
+
+  // ── Row 1: Title banner ───────────────────────────────────────────────────
+  ws.mergeCells("A1:J1");
+  const titleCell = ws.getCell("A1");
+  titleCell.value = `نظام الحوكمة — ملف إدخال الأسعار   (${new Date().toLocaleDateString("ar-SA")})`;
+  titleCell.font   = { name: "Arial", size: 13, bold: true, color: { argb: "FFFFFFFF" } };
+  titleCell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A3C5E" } };
+  titleCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+  ws.getRow(1).height = 28;
+
+  // ── Row 2: Column headers ─────────────────────────────────────────────────
+  const HEADER_BG   = "FF2C5F8A";
+  const HEADER_TEXT = "FFFFFFFF";
+  const headers = [
+    "#", "الكود", "اسم الصنف", "ملحق الاسم", "التصنيف",
+    "التكلفة ₪", "الهامش %", "المقترح ₪", "السعر النهائي ₪", "الحالة",
+  ];
+  const headerRow = ws.addRow(headers);
+  headerRow.height = 22;
+  headerRow.eachCell(cell => {
+    cell.font      = { name: "Arial", size: 11, bold: true, color: { argb: HEADER_TEXT } };
+    cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_BG } };
+    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: false, readingOrder: "rtl" };
+    cell.border    = { bottom: { style: "medium", color: { argb: "FF1A3C5E" } } };
+  });
+
+  // ── Colour palette for categories ─────────────────────────────────────────
+  const CAT_COLORS: Record<string, string> = {};
+  const PALETTE = ["FFE8F5E9","FFE3F2FD","FFFFF3E0","FFFCE4EC","FFEDE7F6","FFE0F7FA","FFFFF8E1","FFF3E5F5","FFE8EAF6","FFEFEBE9"];
+  let palIdx = 0;
+  function catColor(cat: string) {
+    if (!CAT_COLORS[cat]) CAT_COLORS[cat] = PALETTE[palIdx++ % PALETTE.length];
+    return CAT_COLORS[cat];
+  }
+
+  // ── Status colors for read-only cells ─────────────────────────────────────
+  const STATUS_FG: Record<string, string> = {
+    "معتمد":          "FF1D9E75",
+    "قيد المراجعة":   "FF185FA5",
+    "غير مسعّر":      "FF854F0B",
+    "مؤجّل":          "FF534AB7",
+    "بحاجة مراجعة":  "FFB45309",
+  };
+
+  // ── Data rows ─────────────────────────────────────────────────────────────
+  const lockedStyle = { argb: "FFF5F5F5" };
+  const editableFill = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: "FFFFFFFF" } };
+  const lockedFill   = { type: "pattern" as const, pattern: "solid" as const, fgColor: lockedStyle };
+  const numFmt = '#,##0.00';
+  const pctFmt = '0.00%';
+
+  allItems.forEach((item, idx) => {
+    const rowNum = idx + 3; // rows start at 3 (1=title, 2=header)
+    const cost    = item.cost_price_cents    != null ? item.cost_price_cents / 100    : null;
+    const final   = item.final_selling_price_cents != null ? item.final_selling_price_cents / 100 : null;
+    const margin  = item.profit_margin_percent != null ? item.profit_margin_percent / 100 : null;
+    const cat     = item.main_category || "بدون تصنيف";
+    const bg      = catColor(cat);
+
+    const row = ws.addRow([
+      idx + 1,
+      item.item_code,
+      item.original_name || "",
+      item.name_suffix || "",
+      cat,
+      cost,
+      margin,
+      null, // suggested — formula
+      final,
+      item.pricing_status || "غير مسعّر",
+    ]);
+    row.height = 18;
+
+    // Suggested price formula: cost * (1 + margin)
+    const sugCell = row.getCell(8);
+    sugCell.value = { formula: `=IF(AND(F${rowNum}<>"",G${rowNum}<>""),ROUND(F${rowNum}*(1+G${rowNum}),2),"")` };
+
+    row.eachCell({ includeEmpty: true }, (cell, colNum) => {
+      cell.alignment = { vertical: "middle", readingOrder: "rtl",
+        horizontal: colNum === 1 ? "center" : colNum >= 6 ? "left" : "right" };
+      cell.font = { name: "Arial", size: 10 };
+      cell.border = {
+        bottom: { style: "thin", color: { argb: "FFE0E0E0" } },
+        right:  { style: "thin", color: { argb: "FFE0E0E0" } },
+      };
+
+      // Locked (read-only styled) columns: #, code, name, suffix, category
+      if (colNum <= 5) {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+        cell.font = { name: "Arial", size: 10, color: { argb: "FF333333" } };
+        if (colNum === 1) cell.font = { ...cell.font, color: { argb: "FF888888" } };
+        if (colNum === 2) cell.font = { ...cell.font, bold: true, color: { argb: "FF1A3C5E" } };
+      } else {
+        cell.fill = editableFill;
+      }
+
+      // Number formats
+      if (colNum === 6 || colNum === 8 || colNum === 9) cell.numFmt = numFmt;
+      if (colNum === 7) cell.numFmt = pctFmt;
+
+      // Suggested — light blue background (formula, not editable)
+      if (colNum === 8) {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE3F2FD" } };
+        cell.font = { name: "Arial", size: 10, color: { argb: "FF1565C0" }, italic: true };
+      }
+
+      // Status column color
+      if (colNum === 10) {
+        const stColor = STATUS_FG[item.pricing_status] || "FF888888";
+        cell.font = { name: "Arial", size: 10, bold: true, color: { argb: stColor } };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF8F8F8" } };
+      }
+    });
+
+    // Data validation: status dropdown
+    ws.getCell(`J${rowNum}`).dataValidation = {
+      type: "list",
+      allowBlank: false,
+      formulae: ['"قيد المراجعة,معتمد,مجمد,مؤجّل,غير مسعّر"'],
+      showErrorMessage: true,
+      errorTitle: "قيمة غير صحيحة",
+      error: "اختر من القائمة: قيد المراجعة، معتمد، مجمد، مؤجّل، غير مسعّر",
+    };
+  });
+
+  // ── Instructions sheet ────────────────────────────────────────────────────
+  const info = wb.addWorksheet("تعليمات", { views: [{ rightToLeft: "rtl" as any }] });
+  info.columns = [{ width: 70 }];
+  const instructions = [
+    ["نظام الحوكمة — تعليمات إدخال الأسعار"],
+    [""],
+    ["الأعمدة المطلوبة للتعديل:"],
+    ["  • التكلفة ₪ — أدخل سعر التكلفة بالشيكل"],
+    ["  • الهامش % — أدخل نسبة الهامش (مثال: 0.35 يعني 35%)"],
+    ["  • السعر النهائي ₪ — يمكنك تجاوز السعر المقترح وكتابة سعر مختلف"],
+    ["  • الحالة — اختر من القائمة المنسدلة: قيد المراجعة / معتمد / مجمد / مؤجّل"],
+    [""],
+    ["الأعمدة الرمادية (الكود، الاسم، التصنيف) للعرض فقط ولا تُعدَّل."],
+    [""],
+    ["ملاحظة: عمود 'المقترح ₪' يُحسب تلقائياً من التكلفة × (1 + الهامش)."],
+    ["بعد الانتهاء من الإدخال، احفظ الملف وارفعه من صفحة الأصناف."],
+  ];
+  instructions.forEach((r, i) => {
+    const row = info.addRow(r);
+    row.height = i === 0 ? 26 : 18;
+    const cell = row.getCell(1);
+    cell.font = i === 0
+      ? { name: "Arial", size: 13, bold: true, color: { argb: "FF1A3C5E" } }
+      : i === 2
+      ? { name: "Arial", size: 11, bold: true }
+      : { name: "Arial", size: 10 };
+    cell.alignment = { readingOrder: "rtl" };
+  });
+
+  // ── Write to buffer ───────────────────────────────────────────────────────
+  const buffer = await wb.xlsx.writeBuffer();
+  const base64 = Buffer.from(buffer).toString("base64");
+  return { success: true, data: base64, count: allItems.length };
 }
 
 export async function exportItemsToExcel() {

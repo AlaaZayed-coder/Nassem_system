@@ -1,6 +1,7 @@
 import { getDashboardStats } from "@/lib/settings-data";
 import { ExcelManager } from "@/components/inventory/excel-manager";
 import { ItemsImportModal } from "@/components/inventory/items-import-modal";
+import { PricingExportButton } from "@/components/inventory/pricing-export-button";
 import { Package, LayoutDashboard, ClipboardCheck, Zap } from "lucide-react";
 import Link from "next/link";
 
@@ -32,6 +33,7 @@ export default async function InventoryPage() {
         <h3 className="section-title" style={{ margin: 0 }}>لوحة معلومات التسعير</h3>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <ItemsImportModal />
+          <PricingExportButton />
           <ExcelManager />
           <Link href="/dashboard/inventory/items" className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <Zap size={14} /> ابدأ التسعير
