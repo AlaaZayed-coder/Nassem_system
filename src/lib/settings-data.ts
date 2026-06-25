@@ -22,7 +22,7 @@ export async function getDashboardStats() {
   while (true) {
     const { data, error } = await supabase
       .from("erp_items")
-      .select("pricing_status, main_category, main_category_id")
+      .select("pricing_status, main_category, main_category_id, is_frozen")
       .range(from, from + pageSize - 1);
     if (error) {
       console.error("getDashboardStats items error:", error);
@@ -44,6 +44,7 @@ export async function getDashboardStats() {
 
   const rows = allItems;
   const total = rows.length;
+  const frozen = rows.filter((r: any) => r.is_frozen === true).length;
   const byStatus: Record<string, number> = {};
   const catMap: Record<string, { total: number; approved: number }> = {};
 
@@ -67,5 +68,5 @@ export async function getDashboardStats() {
     .map(([category, v]) => ({ category, ...v }))
     .sort((a, b) => b.total - a.total);
 
-  return { total, byStatus, categories, progress };
+  return { total, frozen, byStatus, categories, progress };
 }

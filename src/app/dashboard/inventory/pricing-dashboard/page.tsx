@@ -5,10 +5,11 @@ import { ArrowRight, Zap } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 const KPI_STYLES: Record<string, { bg: string; label: string; value: string }> = {
-  "إجمالي":       { bg: "#F1EFE8", label: "#5F5E5A", value: "#2C2C2A" },
-  "غير مسعّر":   { bg: "#FAEEDA", label: "#854F0B", value: "#412402" },
+  "إجمالي":        { bg: "#F1EFE8", label: "#5F5E5A", value: "#2C2C2A" },
+  "غير مسعّر":    { bg: "#FAEEDA", label: "#854F0B", value: "#412402" },
   "قيد المراجعة": { bg: "#E6F1FB", label: "#185FA5", value: "#042C53" },
-  "معتمد":        { bg: "#EAF3DE", label: "#3B6D11", value: "#173404" },
+  "معتمد":         { bg: "#EAF3DE", label: "#3B6D11", value: "#173404" },
+  "مجمّد":         { bg: "#EEF6FF", label: "#1D4ED8", value: "#1E3A8A" },
 };
 
 const CAT_COLORS = ["#1D9E75","#378ADD","#EF9F27","#E05252","#7C5ABF","#888780","#1D9E75","#378ADD","#EF9F27","#E05252","#888780"];
@@ -16,11 +17,13 @@ const CAT_COLORS = ["#1D9E75","#378ADD","#EF9F27","#E05252","#7C5ABF","#888780",
 export default async function PricingDashboardPage() {
   const data = await getDashboardStats();
 
+  const d = data as any;
   const kpis = [
-    { label: "إجمالي",       value: data.total,                          href: "/dashboard/inventory/items" },
-    { label: "غير مسعّر",   value: data.byStatus["غير مسعّر"] || 0,    href: "/dashboard/inventory/items?pricing_status=غير مسعّر" },
-    { label: "قيد المراجعة", value: data.byStatus["قيد المراجعة"] || 0, href: "/dashboard/inventory/items?pricing_status=قيد المراجعة" },
-    { label: "معتمد",        value: data.byStatus["معتمد"] || 0,        href: "/dashboard/inventory/items?pricing_status=معتمد" },
+    { label: "إجمالي",        value: d.total,                          href: "/dashboard/inventory/items" },
+    { label: "غير مسعّر",    value: d.byStatus?.["غير مسعّر"] || 0,  href: "/dashboard/inventory/items?pricing_status=غير مسعّر" },
+    { label: "قيد المراجعة", value: d.byStatus?.["قيد المراجعة"] || 0, href: "/dashboard/inventory/items?pricing_status=قيد المراجعة" },
+    { label: "معتمد",         value: d.byStatus?.["معتمد"] || 0,      href: "/dashboard/inventory/items?pricing_status=معتمد" },
+    { label: "مجمّد",         value: d.frozen || 0,                   href: "/dashboard/inventory/items?show_frozen=1" },
   ];
 
   return (
@@ -37,7 +40,7 @@ export default async function PricingDashboardPage() {
       </div>
 
       {/* KPI grid */}
-      <div className="kpi-grid" style={{ marginBottom: 16, gridTemplateColumns: "repeat(4, 1fr)" }}>
+      <div className="kpi-grid" style={{ marginBottom: 16, gridTemplateColumns: "repeat(5, 1fr)" }}>
         {kpis.map(k => {
           const s = KPI_STYLES[k.label] || KPI_STYLES["إجمالي"];
           return (

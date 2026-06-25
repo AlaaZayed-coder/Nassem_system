@@ -118,7 +118,7 @@ export async function fetchLegacyItems(filters: any) {
   if (filters.door_pricing_enabled === "1") {
     query = query.eq("door_pricing_enabled", true);
   }
-  if (filters.show_frozen) {
+  if (filters.show_frozen === true || filters.show_frozen === "1" || filters.show_frozen === "true") {
     query = query.eq("is_frozen", true);
   } else {
     query = query.or("is_frozen.is.null,is_frozen.eq.false");
