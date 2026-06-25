@@ -101,7 +101,7 @@ export async function deleteLegacyItem(item_code: string) {
 }
 
 export async function fetchLegacyItems(filters: any) {
-  let query = supabase.from("erp_items").select("*", { count: "exact" });
+  let query = supabase.from("erp_items").select("*, erp_inventory(quantity)", { count: "exact" });
 
   if (filters.search) {
     query = query.or(`item_code.ilike.%${filters.search}%,original_name.ilike.%${filters.search}%,approved_name.ilike.%${filters.search}%`);

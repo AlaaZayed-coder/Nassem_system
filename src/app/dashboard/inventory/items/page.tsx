@@ -171,87 +171,118 @@ function ItemsContent() {
       )}
 
       {/* Table */}
-      <table className="tbl">
+      <table className="tbl" style={{ tableLayout: 'fixed', width: '100%' }}>
+        <colgroup>
+          <col style={{ width: 28 }} />
+          <col style={{ width: 80 }} />
+          <col />
+          <col style={{ width: 62 }} />
+          <col style={{ width: 58 }} />
+          <col style={{ width: 108 }} />
+          <col style={{ width: 20 }} />
+        </colgroup>
         <thead>
-          <tr>
-            <th style={{ width: 28 }}></th>
-            <th style={{ width: 72 }}>الكود</th>
-            <th>الصنف</th>
-            <th style={{ width: 130 }}>الوحدة / التصنيف</th>
-            <th style={{ width: 100 }}>الحالة</th>
-            <th style={{ width: 90 }} className="num">السعر</th>
-            <th style={{ width: 20 }}></th>
+          <tr style={{ background: 'var(--color-background-secondary)' }}>
+            <th style={{ padding: '9px 6px' }}></th>
+            <th style={{ padding: '9px 8px', fontSize: 11, fontWeight: 500, color: 'var(--color-text-tertiary)', textAlign: 'right' }}>الكود</th>
+            <th style={{ padding: '9px 8px', fontSize: 11, fontWeight: 500, color: 'var(--color-text-tertiary)', textAlign: 'right' }}>الصنف</th>
+            <th style={{ padding: '9px 8px', fontSize: 11, fontWeight: 500, color: 'var(--color-text-tertiary)', textAlign: 'center' }}>المتوفر</th>
+            <th style={{ padding: '9px 8px', fontSize: 11, fontWeight: 500, color: 'var(--color-text-tertiary)', textAlign: 'center' }}>الوحدة</th>
+            <th style={{ padding: '9px 8px', fontSize: 11, fontWeight: 500, color: 'var(--color-text-tertiary)', textAlign: 'left' }}>الحالة / السعر</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
-          {data.rows.map((item: any) => (
-            <tr key={item.item_code}
-              style={{ cursor: 'pointer' }}
-              onClick={() => window.location.href = `/dashboard/inventory/items/${encodeURIComponent(item.item_code)}`}>
+          {data.rows.map((item: any, idx: number) => {
+            const totalQty = Array.isArray(item.erp_inventory)
+              ? item.erp_inventory.reduce((s: number, r: any) => s + (r.quantity || 0), 0)
+              : 0;
+            const isEven = idx % 2 === 0;
+            return (
+              <tr key={item.item_code}
+                style={{
+                  cursor: 'pointer',
+                  background: isEven ? 'var(--color-background-primary)' : 'var(--color-background-secondary)',
+                  opacity: item.is_frozen ? 0.6 : 1,
+                  borderBottom: '0.5px solid var(--color-border-tertiary)',
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-background-info)')}
+                onMouseLeave={e => (e.currentTarget.style.background = isEven ? 'var(--color-background-primary)' : 'var(--color-background-secondary)')}
+                onClick={() => window.location.href = `/dashboard/inventory/items/${encodeURIComponent(item.item_code)}`}>
 
-              {/* checkbox */}
-              <td onClick={e => e.stopPropagation()}>
-                <input type="checkbox" checked={selected.includes(item.item_code)}
-                  onChange={() => toggleSelect(item.item_code)} />
-              </td>
+                {/* checkbox */}
+                <td style={{ padding: '10px 6px', textAlign: 'center', verticalAlign: 'middle' }} onClick={e => e.stopPropagation()}>
+                  <input type="checkbox" checked={selected.includes(item.item_code)}
+                    onChange={() => toggleSelect(item.item_code)} style={{ margin: 0 }} />
+                </td>
 
-              {/* الكود */}
-              <td className="code ltr" style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--color-text-secondary)', verticalAlign: 'middle' }}>
-                {item.item_code}
-              </td>
+                {/* الكود */}
+                <td style={{ padding: '10px 8px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--color-text-tertiary)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.item_code}
+                  </span>
+                </td>
 
-              {/* الصنف + ملحق الاسم */}
-              <td style={{ opacity: item.is_frozen ? 0.55 : 1, verticalAlign: 'middle' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500, fontSize: 13, color: 'var(--color-text-primary)' }}>
-                  {item.approved_name || item.original_name}
-                  {item.is_frozen && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 10, padding: '1px 6px', borderRadius: 20, background: '#EEF6FF', color: '#1D4ED8', fontWeight: 600, flexShrink: 0 }}>
-                      <Snowflake size={9} /> مجمّد
+                {/* الصنف + ملحق + تصنيف */}
+                <td style={{ padding: '10px 8px', verticalAlign: 'middle', overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
+                    <span style={{ fontWeight: 500, fontSize: 13, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {item.approved_name || item.original_name}
                     </span>
+                    {item.is_frozen && (
+                      <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 10, padding: '1px 5px', borderRadius: 20, background: '#EEF6FF', color: '#1D4ED8', fontWeight: 600 }}>
+                        <Snowflake size={9} /> مجمّد
+                      </span>
+                    )}
+                  </div>
+                  {item.name_suffix && (
+                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {item.name_suffix}
+                    </div>
                   )}
-                </div>
-                {item.name_suffix && (
-                  <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 2 }}>{item.name_suffix}</div>
-                )}
-              </td>
+                  {item.main_category && (
+                    <div style={{ fontSize: 10, color: 'var(--color-text-tertiary)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {item.main_category}
+                    </div>
+                  )}
+                </td>
 
-              {/* الوحدة / التصنيف */}
-              <td style={{ verticalAlign: 'middle' }}>
-                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 3 }}>
-                  {item.unit_of_measure || 'قطعة'}
-                </div>
-                {item.main_category && (
-                  <div
-                    onClick={e => { e.stopPropagation(); setFilters((f: any) => ({ ...f, main_category: item.main_category, page: 1 })); }}
-                    style={{ display: 'inline-block', fontSize: 10, padding: '1px 7px', borderRadius: 20, background: 'var(--color-background-secondary)', color: 'var(--color-text-tertiary)', border: '0.5px solid var(--color-border-tertiary)', cursor: 'pointer', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                    title={item.main_category}>
-                    {item.main_category}
+                {/* المتوفر */}
+                <td style={{ padding: '10px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: totalQty > 0 ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}>
+                    {totalQty > 0 ? totalQty.toLocaleString('en') : '—'}
+                  </span>
+                </td>
+
+                {/* الوحدة */}
+                <td style={{ padding: '10px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
+                  <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
+                    {item.unit_of_measure || 'قطعة'}
+                  </span>
+                </td>
+
+                {/* الحالة + السعر */}
+                <td style={{ padding: '10px 8px', verticalAlign: 'middle' }}>
+                  <StatusBadge status={item.pricing_status} />
+                  <div style={{ marginTop: 4, fontWeight: 600, fontSize: 13, color: item.final_selling_price_cents ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)', direction: 'ltr', textAlign: 'left' }}>
+                    {item.final_selling_price_cents ? `${money(item.final_selling_price_cents)} ₪` : '—'}
                   </div>
-                )}
-              </td>
+                  {item.cost_price_cents ? (
+                    <div style={{ fontSize: 10, color: 'var(--color-text-tertiary)', direction: 'ltr', textAlign: 'left' }}>
+                      ت: {money(item.cost_price_cents)}
+                    </div>
+                  ) : null}
+                </td>
 
-              {/* الحالة */}
-              <td style={{ verticalAlign: 'middle' }}>
-                <StatusBadge status={item.pricing_status} />
-              </td>
-
-              {/* السعر */}
-              <td className="num" style={{ verticalAlign: 'middle' }}>
-                <div style={{ fontWeight: 600, fontSize: 13, color: item.final_selling_price_cents ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}>
-                  {money(item.final_selling_price_cents) || '—'}
-                </div>
-                {item.cost_price_cents ? (
-                  <div style={{ fontSize: 10, color: 'var(--color-text-tertiary)', marginTop: 2 }}>
-                    ت: {money(item.cost_price_cents)}
-                  </div>
-                ) : null}
-              </td>
-
-              <td className="icon-cell"><ChevronLeft size={14} /></td>
-            </tr>
-          ))}
+                <td style={{ padding: '10px 6px', textAlign: 'center', verticalAlign: 'middle', color: 'var(--color-text-tertiary)' }}>
+                  <ChevronLeft size={13} />
+                </td>
+              </tr>
+            );
+          })}
           {data.rows.length === 0 && (
-            <tr><td colSpan={7} style={{ textAlign: 'center', padding: 20, color: 'var(--color-text-tertiary)' }}>لا توجد نتائج</td></tr>
+            <tr><td colSpan={7} style={{ textAlign: 'center', padding: 24, color: 'var(--color-text-tertiary)', fontSize: 13 }}>لا توجد نتائج</td></tr>
           )}
         </tbody>
       </table>
