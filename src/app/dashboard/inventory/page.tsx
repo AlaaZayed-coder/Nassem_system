@@ -34,13 +34,8 @@ export default async function InventoryPage() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <h3 className="section-title" style={{ margin: 0 }}>لوحة معلومات التسعير</h3>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <ItemsImportModal />
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <PricingExportButton />
-          <ExcelManager />
-          <Link href="/dashboard/inventory/items" className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Zap size={14} /> ابدأ التسعير
-          </Link>
         </div>
       </div>
 
