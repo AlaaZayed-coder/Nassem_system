@@ -202,13 +202,13 @@ function ItemsContent() {
               <tr key={item.item_code}
                 style={{
                   cursor: 'pointer',
-                  background: isEven ? 'var(--color-background-primary)' : 'var(--color-background-secondary)',
+                  background: isEven ? 'var(--color-background-primary)' : '#EDF2F8',
                   opacity: item.is_frozen ? 0.6 : 1,
                   borderBottom: '0.5px solid var(--color-border-tertiary)',
                   transition: 'background 0.1s',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-background-info)')}
-                onMouseLeave={e => (e.currentTarget.style.background = isEven ? 'var(--color-background-primary)' : 'var(--color-background-secondary)')}
+                onMouseEnter={e => (e.currentTarget.style.background = '#DDE9F6')}
+                onMouseLeave={e => (e.currentTarget.style.background = isEven ? 'var(--color-background-primary)' : '#EDF2F8')}
                 onClick={() => window.location.href = `/dashboard/inventory/items/${encodeURIComponent(item.item_code)}`}>
 
                 {/* checkbox */}
