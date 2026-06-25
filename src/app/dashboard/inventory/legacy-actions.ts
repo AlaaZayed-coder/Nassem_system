@@ -74,7 +74,7 @@ export async function fetchLegacyItems(filters: any) {
     query = query.eq("main_category", filters.main_category);
   }
   if (filters.no_category === "1") {
-    query = query.is("main_category", null);
+    query = query.or("main_category.is.null,main_category.eq.");
   }
   if (filters.door_pricing_enabled === "1") {
     query = query.eq("door_pricing_enabled", true);
