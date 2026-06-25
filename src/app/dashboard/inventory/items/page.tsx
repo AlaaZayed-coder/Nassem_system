@@ -24,6 +24,7 @@ function ItemsContent() {
     page: 1,
     main_category: searchParams.get('main_category') || '',
     no_category: searchParams.get('no_category') || '',
+    pricing_status: searchParams.get('pricing_status') || '',
     show_frozen: searchParams.get('show_frozen') === '1',
   });
   const [data, setData] = useState({ rows: [], total: 0, page: 1, pageSize: 50 });
