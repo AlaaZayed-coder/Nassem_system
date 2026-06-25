@@ -46,6 +46,8 @@ export default function ItemDetailPage() {
   const [showUnlock, setShowUnlock] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<any>({});
+  const [costInput, setCostInput] = useState("");
+  const [marginInput, setMarginInput] = useState("");
 
   function set(k: string, v: any) { setForm((f: any) => ({ ...f, [k]: v })); }
   function notify(msg: string, type: "ok" | "err" = "ok") {
@@ -62,6 +64,8 @@ export default function ItemDetailPage() {
         price_without_installation: data.price_without_installation_cents != null ? (data.price_without_installation_cents / 100).toFixed(2) : "",
         price_with_installation: data.price_with_installation_cents != null ? (data.price_with_installation_cents / 100).toFixed(2) : "",
       });
+      setCostInput(data.cost_price_cents != null ? (data.cost_price_cents / 100).toFixed(2) : "");
+      setMarginInput(data.profit_margin_percent != null ? String(data.profit_margin_percent) : "");
     }
   }, [code]);
 
@@ -90,16 +94,16 @@ export default function ItemDetailPage() {
   const mainCats = categories.filter(c => c.is_active !== false);
   const showInstallation = (form.main_category || "").match(/أبواب|مواتير/);
 
-  function handleCostChange(val: string) {
-    const c = toCents(val);
+  function commitCost(val: string) {
+    const c = val ? Math.round(Number(val) * 100) : null;
     const m = form.profit_margin_percent || 0;
-    const sug = c != null ? Math.round(Math.round(c * (1 + m / 100)) / 100) * 100 : null;
+    const sug = c != null ? Math.round(c * (1 + m / 100) / 100) * 100 : null;
     setForm((f: any) => ({ ...f, cost_price_cents: c, suggested_selling_price_cents: sug }));
   }
-  function handleMarginChange(val: string) {
+  function commitMargin(val: string) {
     const m = Number(val) || 0;
     const c = form.cost_price_cents;
-    const sug = c != null ? Math.round(Math.round(c * (1 + m / 100)) / 100) * 100 : null;
+    const sug = c != null ? Math.round(c * (1 + m / 100) / 100) * 100 : null;
     setForm((f: any) => ({ ...f, profit_margin_percent: m, suggested_selling_price_cents: sug }));
   }
 
@@ -286,15 +290,17 @@ export default function ItemDetailPage() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
             <div>
               <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>التكلفة (₪)</label>
-              <input style={{ ...inputStyle, fontFamily: "monospace" }} type="number" step="0.01" dir="ltr" disabled={locked}
-                value={fromCents(form.cost_price_cents)}
-                onChange={e => handleCostChange(e.target.value)} />
+              <input style={{ ...inputStyle, fontFamily: "monospace" }} type="text" inputMode="decimal" dir="ltr" disabled={locked}
+                value={costInput}
+                onChange={e => setCostInput(e.target.value)}
+                onBlur={e => commitCost(e.target.value)} />
             </div>
             <div>
               <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>هامش الربح %</label>
-              <input style={{ ...inputStyle, fontFamily: "monospace" }} type="number" step="0.1" dir="ltr" disabled={locked}
-                value={form.profit_margin_percent ?? ""}
-                onChange={e => handleMarginChange(e.target.value)} />
+              <input style={{ ...inputStyle, fontFamily: "monospace" }} type="text" inputMode="decimal" dir="ltr" disabled={locked}
+                value={marginInput}
+                onChange={e => setMarginInput(e.target.value)}
+                onBlur={e => commitMargin(e.target.value)} />
             </div>
             <div>
               <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>السعر المقترح (₪)</label>
