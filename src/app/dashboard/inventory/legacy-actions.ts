@@ -106,6 +106,38 @@ export async function addLegacyCategory(category: any) {
   return true;
 }
 
+export async function renameLegacyCategory(id: string, newName: string) {
+  const oldData = await supabase.from("erp_categories").select("name").eq("id", id).single();
+  const oldName = oldData.data?.name;
+  const { error } = await supabase.from("erp_categories").update({ name: newName }).eq("id", id);
+  if (error) throw new Error(error.message);
+  // Update all items that had the old category name
+  if (oldName && oldName !== newName) {
+    await supabase.from("erp_items").update({ main_category: newName }).eq("main_category", oldName);
+  }
+  return true;
+}
+
+export async function addLegacyItem(item: {
+  item_code: string;
+  original_name: string;
+  name_suffix?: string;
+  unit_of_measure: string;
+  main_category: string;
+}) {
+  const { error } = await supabase.from("erp_items").insert([{
+    item_code: item.item_code,
+    original_name: item.original_name,
+    name_suffix: item.name_suffix || null,
+    unit_of_measure: item.unit_of_measure,
+    main_category: item.main_category,
+    pricing_status: "غير مسعّر",
+    is_active: true,
+  }]);
+  if (error) throw new Error(error.message);
+  return true;
+}
+
 export async function bulkUpdateLegacyItems(codes: string[], patch: any) {
   if (!codes || codes.length === 0) return;
   const { error } = await supabase
