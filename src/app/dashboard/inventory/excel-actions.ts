@@ -693,12 +693,14 @@ export async function importPricingSheetFull(formData: FormData) {
     const batch: any[] = [];
     for (const row of priceRows) {
       const code      = String(row.getCell(2).value || "").trim();
+      const category  = String(row.getCell(5).value || "").trim();
       const cost      = row.getCell(6).value;
       const margin    = row.getCell(7).value;
       const finalP    = row.getCell(9).value;
       const status    = String(row.getCell(10).value || "").trim();
       if (!code) continue;
       const updates: any = {};
+      if (category && category !== "بدون تصنيف") updates.main_category = category;
       if (cost !== null && cost !== undefined && cost !== "") updates.cost_price_cents = Math.round(Number(cost) * 100);
       if (margin !== null && margin !== undefined && margin !== "") updates.profit_margin_percent = Number(margin) * 100;
       if (finalP !== null && finalP !== undefined && finalP !== "") updates.final_selling_price_cents = Math.round(Number(finalP) * 100);
