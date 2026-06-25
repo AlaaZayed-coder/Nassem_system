@@ -226,24 +226,20 @@ export default function ItemDetailPage() {
         </div>
         <div style={{ ...SECTION_BODY, display: "flex", flexDirection: "column", gap: 12 }}>
 
-          {/* تصنيف + وحدة */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 100px", gap: 10 }}>
+          {/* تصنيف + زر إضافة تصنيف */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
             <div>
               <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>التصنيف الرئيسي</label>
               <select style={inputStyle} value={form.main_category || ""} disabled={locked}
                 onChange={e => set("main_category", e.target.value)}>
                 <option value="">— بدون تصنيف —</option>
-                {mainCats.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                {mainCats.map((c: any) => <option key={c.id ?? c.name} value={c.name}>{c.name}</option>)}
               </select>
             </div>
-            <div>
-              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>الوحدة</label>
-              <select style={inputStyle} value={form.unit_of_measure || "قطعة"} disabled={locked}
-                onChange={e => set("unit_of_measure", e.target.value)}>
-                <option value="قطعة">قطعة</option>
-                <option value="متر">متر</option>
-              </select>
-            </div>
+            <a href="/dashboard/inventory/categories"
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: "var(--border-radius-sm, 6px)", border: "0.5px dashed #1D9E75", background: "#F0FDF4", color: "#1D9E75", fontSize: 12, fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" }}>
+              + تصنيف جديد
+            </a>
           </div>
 
           {/* الاسم الأصلي — pill للقراءة */}
@@ -261,8 +257,8 @@ export default function ItemDetailPage() {
             </div>
           </div>
 
-          {/* ملحق الاسم + الاسم المعتمد جنباً لجنب */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {/* ملحق الاسم + الاسم المعتمد + الوحدة */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 90px", gap: 10 }}>
             <div>
               <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>ملحق الاسم</label>
               <input style={inputStyle} value={form.name_suffix || ""} disabled={locked}
@@ -274,6 +270,14 @@ export default function ItemDetailPage() {
               <input style={inputStyle} value={form.approved_name || ""} disabled={locked}
                 placeholder="الاسم النهائي للعرض..."
                 onChange={e => set("approved_name", e.target.value)} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>الوحدة</label>
+              <select style={inputStyle} value={form.unit_of_measure || "قطعة"} disabled={locked}
+                onChange={e => set("unit_of_measure", e.target.value)}>
+                <option value="قطعة">قطعة</option>
+                <option value="متر">متر</option>
+              </select>
             </div>
           </div>
         </div>
