@@ -419,50 +419,289 @@ export async function exportPricingSheet() {
       }
     });
 
-    // Data validation: status dropdown
+    // Data validation: status dropdown (no مؤجّل)
     ws.getCell(`J${rowNum}`).dataValidation = {
       type: "list",
       allowBlank: false,
-      formulae: ['"قيد المراجعة,معتمد,مجمد,مؤجّل,غير مسعّر"'],
+      formulae: ['"قيد المراجعة,معتمد,مجمد,غير مسعّر"'],
       showErrorMessage: true,
       errorTitle: "قيمة غير صحيحة",
-      error: "اختر من القائمة: قيد المراجعة، معتمد، مجمد، مؤجّل، غير مسعّر",
+      error: "اختر من القائمة: قيد المراجعة، معتمد، مجمد، غير مسعّر",
     };
   });
 
-  // ── Instructions sheet ────────────────────────────────────────────────────
-  const info = wb.addWorksheet("تعليمات", { views: [{ rightToLeft: "rtl" as any }] });
-  info.columns = [{ width: 70 }];
-  const instructions = [
-    ["نظام الحوكمة — تعليمات إدخال الأسعار"],
-    [""],
-    ["الأعمدة المطلوبة للتعديل:"],
-    ["  • التكلفة ₪ — أدخل سعر التكلفة بالشيكل"],
-    ["  • الهامش % — أدخل نسبة الهامش (مثال: 0.35 يعني 35%)"],
-    ["  • السعر النهائي ₪ — يمكنك تجاوز السعر المقترح وكتابة سعر مختلف"],
-    ["  • الحالة — اختر من القائمة المنسدلة: قيد المراجعة / معتمد / مجمد / مؤجّل"],
-    [""],
-    ["الأعمدة الرمادية (الكود، الاسم، التصنيف) للعرض فقط ولا تُعدَّل."],
-    [""],
-    ["ملاحظة: عمود 'المقترح ₪' يُحسب تلقائياً من التكلفة × (1 + الهامش)."],
-    ["بعد الانتهاء من الإدخال، احفظ الملف وارفعه من صفحة الأصناف."],
+  // ── Sheet 2: إدارة التصنيفات ──────────────────────────────────────────────
+  const { data: cats } = await supabase.from("erp_categories").select("name").order("name");
+  const catList = (cats || []).map((c: any) => c.name);
+
+  const wsCat = wb.addWorksheet("إدارة التصنيفات", { views: [{ rightToLeft: "rtl" as any }] });
+  wsCat.columns = [
+    { key: "action",   width: 18 },
+    { key: "current",  width: 32 },
+    { key: "newname",  width: 32 },
   ];
-  instructions.forEach((r, i) => {
-    const row = info.addRow(r);
-    row.height = i === 0 ? 26 : 18;
+
+  // Header
+  const catHeader = wsCat.addRow(["الإجراء", "اسم التصنيف الحالي", "الاسم الجديد (للتعديل فقط)"]);
+  catHeader.height = 22;
+  catHeader.eachCell(cell => {
+    cell.font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A3C5E" } };
+    cell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+    cell.border = { bottom: { style: "medium", color: { argb: "FF1A3C5E" } } };
+  });
+
+  // Populate existing categories
+  catList.forEach((name: string, i: number) => {
+    const row = wsCat.addRow(["", name, ""]);
+    row.height = 18;
+    const bg = i % 2 === 0 ? "FFFFFFFF" : "FFF5F7FA";
+    row.eachCell({ includeEmpty: true }, (cell, col) => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+      cell.font = { name: "Arial", size: 10 };
+      cell.alignment = { readingOrder: "rtl", vertical: "middle" };
+      cell.border = { bottom: { style: "thin", color: { argb: "FFE0E0E0" } } };
+      if (col === 2) cell.font = { name: "Arial", size: 10, bold: true };
+    });
+    // Action dropdown
+    row.getCell(1).dataValidation = {
+      type: "list", allowBlank: true,
+      formulae: ['"إضافة,تعديل اسم,حذف"'],
+      showErrorMessage: true, errorTitle: "خطأ", error: "اختر: إضافة، تعديل اسم، حذف",
+    };
+  });
+
+  // Empty rows for adding new categories
+  for (let i = 0; i < 10; i++) {
+    const rowNum2 = catList.length + 2 + i;
+    const row = wsCat.addRow(["إضافة", "", ""]);
+    row.height = 18;
+    row.eachCell({ includeEmpty: true }, cell => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0FDF4" } };
+      cell.font = { name: "Arial", size: 10 };
+      cell.alignment = { readingOrder: "rtl", vertical: "middle" };
+      cell.border = { bottom: { style: "thin", color: { argb: "FFD1FAE5" } } };
+    });
+    wsCat.getCell(`A${rowNum2}`).dataValidation = {
+      type: "list", allowBlank: true,
+      formulae: ['"إضافة,تعديل اسم,حذف"'],
+    };
+    wsCat.getCell(`A${rowNum2}`).font = { name: "Arial", size: 10, color: { argb: "FF15803D" } };
+  }
+
+  // ── Sheet 3: إضافة وحذف أصناف ────────────────────────────────────────────
+  const wsItems2 = wb.addWorksheet("إضافة وحذف أصناف", { views: [{ rightToLeft: "rtl" as any }] });
+  wsItems2.columns = [
+    { key: "action",   width: 14 },
+    { key: "code",     width: 16 },
+    { key: "name",     width: 34 },
+    { key: "suffix",   width: 18 },
+    { key: "category", width: 28 },
+    { key: "unit",     width: 12 },
+  ];
+
+  const itemsHeader = wsItems2.addRow(["الإجراء", "الكود *", "اسم الصنف *", "ملحق الاسم", "التصنيف", "الوحدة"]);
+  itemsHeader.height = 22;
+  itemsHeader.eachCell(cell => {
+    cell.font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1D9E75" } };
+    cell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+    cell.border = { bottom: { style: "medium", color: { argb: "FF0F6E56" } } };
+  });
+
+  // Note row
+  const noteRow2 = wsItems2.addRow(["", "← الكود إلزامي للحذف", "← الاسم إلزامي للإضافة", "", "← اختر من القائمة", "قطعة/متر"]);
+  noteRow2.height = 16;
+  noteRow2.eachCell(cell => {
+    cell.font = { name: "Arial", size: 9, italic: true, color: { argb: "FF888888" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9FAFB" } };
+  });
+
+  // 20 blank editable rows
+  for (let i = 0; i < 20; i++) {
+    const rowNum3 = i + 3;
+    const row = wsItems2.addRow(["إضافة", "", "", "", "", "قطعة"]);
+    row.height = 18;
+    const bg = i % 2 === 0 ? "FFFFFFFF" : "FFF5F7FA";
+    row.eachCell({ includeEmpty: true }, cell => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+      cell.font = { name: "Arial", size: 10 };
+      cell.alignment = { readingOrder: "rtl", vertical: "middle" };
+      cell.border = { bottom: { style: "thin", color: { argb: "FFE0E0E0" } } };
+    });
+    wsItems2.getCell(`A${rowNum3}`).dataValidation = {
+      type: "list", allowBlank: false,
+      formulae: ['"إضافة,حذف"'],
+      showErrorMessage: true, errorTitle: "خطأ", error: "اختر: إضافة أو حذف",
+    };
+    wsItems2.getCell(`F${rowNum3}`).dataValidation = {
+      type: "list", allowBlank: true,
+      formulae: ['"قطعة,متر"'],
+    };
+    if (catList.length > 0) {
+      wsItems2.getCell(`E${rowNum3}`).dataValidation = {
+        type: "list", allowBlank: true,
+        formulae: [`"${catList.slice(0, 20).join(",")}"`],
+      };
+    }
+  }
+
+  // ── Sheet 4: تعليمات ──────────────────────────────────────────────────────
+  const info = wb.addWorksheet("تعليمات", { views: [{ rightToLeft: "rtl" as any }] });
+  info.columns = [{ width: 72 }];
+  const instructions: [string, boolean?, number?][] = [
+    ["نظام الحوكمة — دليل استخدام ملف Excel", true, 13],
+    ["", false, 10],
+    ["── Sheet 1: إدخال الأسعار ──", true, 11],
+    ["  • التكلفة ₪ — سعر التكلفة بالشيكل", false, 10],
+    ["  • الهامش % — نسبة الهامش (مثال: 0.35 = 35%)", false, 10],
+    ["  • السعر النهائي ₪ — يمكن تجاوز المقترح", false, 10],
+    ["  • الحالة — اختر: قيد المراجعة / معتمد / مجمد / غير مسعّر", false, 10],
+    ["", false, 10],
+    ["── Sheet 2: إدارة التصنيفات ──", true, 11],
+    ["  • إضافة — اكتب الاسم في خلية 'اسم التصنيف الحالي'", false, 10],
+    ["  • تعديل اسم — اكتب الاسم القديم ثم الجديد في العمود الثالث", false, 10],
+    ["  • حذف — اختر 'حذف' بجانب التصنيف (يجب أن يكون فارغاً)", false, 10],
+    ["", false, 10],
+    ["── Sheet 3: إضافة وحذف أصناف ──", true, 11],
+    ["  • إضافة — اكتب الكود والاسم والتصنيف والوحدة", false, 10],
+    ["  • حذف — اكتب الكود واختر 'حذف' (يحذف الصنف نهائياً)", false, 10],
+    ["", false, 10],
+    ["بعد الانتهاء: احفظ الملف وارفعه من لوحة المعلومات ← استيراد الأسعار", false, 10],
+  ];
+  instructions.forEach(([text, bold, size]) => {
+    const row = info.addRow([text]);
+    row.height = bold ? 24 : 17;
     const cell = row.getCell(1);
-    cell.font = i === 0
-      ? { name: "Arial", size: 13, bold: true, color: { argb: "FF1A3C5E" } }
-      : i === 2
-      ? { name: "Arial", size: 11, bold: true }
-      : { name: "Arial", size: 10 };
+    cell.font = { name: "Arial", size: size || 10, bold: !!bold, color: { argb: bold ? "FF1A3C5E" : "FF333333" } };
     cell.alignment = { readingOrder: "rtl" };
+    if (bold && text.startsWith("──")) {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0F4F8" } };
+    }
   });
 
   // ── Write to buffer ───────────────────────────────────────────────────────
   const buffer = await wb.xlsx.writeBuffer();
   const base64 = Buffer.from(buffer).toString("base64");
   return { success: true, data: base64, count: allItems.length };
+}
+
+// ─── Import pricing sheet with all actions ────────────────────────────────────
+export async function importPricingSheetFull(formData: FormData) {
+  const file = formData.get("file") as File;
+  if (!file) throw new Error("لم يتم إرفاق أي ملف");
+
+  const bytes = await file.arrayBuffer();
+  const wb2 = new ExcelJS.Workbook();
+  await wb2.xlsx.load(bytes);
+
+  let priceUpdated = 0, catAdded = 0, catRenamed = 0, catDeleted = 0;
+  let itemAdded = 0, itemDeleted = 0;
+  const errors: string[] = [];
+
+  // ── Sheet 2: إدارة التصنيفات ─────────────────────────────────────────────
+  const wsCat = wb2.getWorksheet("إدارة التصنيفات");
+  if (wsCat) {
+    wsCat.eachRow((row, rn) => {
+      if (rn === 1) return; // header
+      const action = String(row.getCell(1).value || "").trim();
+      const current = String(row.getCell(2).value || "").trim();
+      const newName = String(row.getCell(3).value || "").trim();
+      if (!action || !current) return;
+      (async () => {
+        try {
+          if (action === "إضافة" && current) {
+            await supabase.from("erp_categories").insert({ name: current, type: "main", is_active: true });
+            catAdded++;
+          } else if (action === "تعديل اسم" && current && newName) {
+            await supabase.from("erp_categories").update({ name: newName }).eq("name", current);
+            await supabase.from("erp_items").update({ main_category: newName }).eq("main_category", current);
+            catRenamed++;
+          } else if (action === "حذف" && current) {
+            const { count } = await supabase.from("erp_items").select("*", { count: "exact", head: true }).eq("main_category", current);
+            if (count && count > 0) { errors.push(`لا يمكن حذف "${current}": يوجد ${count} صنف`); return; }
+            await supabase.from("erp_categories").delete().eq("name", current);
+            catDeleted++;
+          }
+        } catch (e: any) { errors.push(e.message); }
+      })();
+    });
+  }
+
+  // ── Sheet 3: إضافة وحذف أصناف ───────────────────────────────────────────
+  const wsItems3 = wb2.getWorksheet("إضافة وحذف أصناف");
+  if (wsItems3) {
+    const itemRows: any[] = [];
+    wsItems3.eachRow((row, rn) => { if (rn > 2) itemRows.push(row); });
+    for (const row of itemRows) {
+      const action = String(row.getCell(1).value || "").trim();
+      const code   = String(row.getCell(2).value || "").trim();
+      const name   = String(row.getCell(3).value || "").trim();
+      const suffix = String(row.getCell(4).value || "").trim();
+      const cat    = String(row.getCell(5).value || "").trim();
+      const unit   = String(row.getCell(6).value || "قطعة").trim();
+      if (!action || !code) continue;
+      try {
+        if (action === "إضافة" && code && name) {
+          const { error } = await supabase.from("erp_items").insert({
+            item_code: code, original_name: name,
+            name_suffix: suffix || null, main_category: cat || null,
+            unit_of_measure: unit, pricing_status: "غير مسعّر", is_active: true,
+          });
+          if (error) errors.push(`إضافة ${code}: ${error.message}`);
+          else itemAdded++;
+        } else if (action === "حذف" && code) {
+          await supabase.from("erp_inventory").delete().eq("item_code", code);
+          const { error } = await supabase.from("erp_items").delete().eq("item_code", code);
+          if (error) errors.push(`حذف ${code}: ${error.message}`);
+          else itemDeleted++;
+        }
+      } catch (e: any) { errors.push(e.message); }
+    }
+  }
+
+  // ── Sheet 1: إدخال الأسعار ───────────────────────────────────────────────
+  const ws1 = wb2.getWorksheet("إدخال الأسعار");
+  if (ws1) {
+    const priceRows: any[] = [];
+    ws1.eachRow((row, rn) => { if (rn > 2) priceRows.push(row); });
+    const batch: any[] = [];
+    for (const row of priceRows) {
+      const code      = String(row.getCell(2).value || "").trim();
+      const cost      = row.getCell(6).value;
+      const margin    = row.getCell(7).value;
+      const finalP    = row.getCell(9).value;
+      const status    = String(row.getCell(10).value || "").trim();
+      if (!code) continue;
+      const updates: any = {};
+      if (cost !== null && cost !== undefined && cost !== "") updates.cost_price_cents = Math.round(Number(cost) * 100);
+      if (margin !== null && margin !== undefined && margin !== "") updates.profit_margin_percent = Number(margin) * 100;
+      if (finalP !== null && finalP !== undefined && finalP !== "") updates.final_selling_price_cents = Math.round(Number(finalP) * 100);
+      if (status && ["قيد المراجعة","معتمد","مجمد","غير مسعّر"].includes(status)) {
+        updates.pricing_status = status === "مجمد" ? updates.pricing_status : status;
+        updates.is_frozen = status === "مجمد";
+      }
+      if (Object.keys(updates).length > 0) {
+        updates.item_code = code;
+        batch.push(updates);
+      }
+    }
+    for (let i = 0; i < batch.length; i += 100) {
+      const slice = batch.slice(i, i + 100);
+      for (const u of slice) {
+        const { item_code, ...rest } = u;
+        const { error } = await supabase.from("erp_items").update(rest).eq("item_code", item_code);
+        if (!error) priceUpdated++;
+        else errors.push(`${item_code}: ${error.message}`);
+      }
+    }
+  }
+
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/inventory/items");
+  revalidatePath("/dashboard/inventory/categories");
+
+  return { success: true, priceUpdated, catAdded, catRenamed, catDeleted, itemAdded, itemDeleted, errors };
 }
 
 export async function exportItemsToExcel() {
