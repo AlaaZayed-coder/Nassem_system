@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { StatusBadge } from '@/components/legacy-status-badge';
-import { fetchLegacyItems, fetchLegacyCategories, bulkUpdateLegacyItems } from '../legacy-actions';
+import { fetchLegacyItems, fetchUnifiedCategories, bulkUpdateLegacyItems } from '../legacy-actions';
 
 const STATUSES = ['معتمد', 'قيد المراجعة', 'غير مسعّر'];
 
@@ -38,9 +38,9 @@ function ItemsContent() {
     fetchLegacyItems({ ...filters, page: filters.page || 1 }).then((res: any) => setData(res));
   }, [filters]);
 
-  useEffect(() => { 
-    load(); 
-    fetchLegacyCategories().then(setCategories); 
+  useEffect(() => {
+    load();
+    fetchUnifiedCategories().then(setCategories);
   }, [load]);
 
   useEffect(() => {
@@ -50,7 +50,7 @@ function ItemsContent() {
     }
   }, [toast]);
 
-  const mainCats = categories.filter(c => c.type === 'main' && c.is_active);
+  const mainCats = categories.filter(c => c.is_active !== false);
 
   function toggleSelect(code: string) {
     setSelected(s => s.includes(code) ? s.filter(x => x !== code) : [...s, code]);

@@ -15,6 +15,45 @@ export async function fetchLegacyCategories() {
   return data || [];
 }
 
+/**
+ * Single source of truth: returns unique category names that actually exist
+ * in erp_items, merged with erp_categories records for CRUD operations.
+ * Use this everywhere a category list/dropdown is needed.
+ */
+export async function fetchUnifiedCategories(): Promise<{ id: string | null; name: string; is_active: boolean }[]> {
+  // 1. Get all distinct non-empty category names from actual items
+  const allNames = new Set<string>();
+  let from = 0;
+  while (true) {
+    const { data } = await supabase
+      .from("erp_items")
+      .select("main_category")
+      .not("main_category", "is", null)
+      .neq("main_category", "")
+      .range(from, from + 999);
+    if (!data || data.length === 0) break;
+    data.forEach(r => r.main_category && allNames.add(r.main_category));
+    if (data.length < 1000) break;
+    from += 1000;
+  }
+
+  // 2. Get erp_categories records for id/is_active
+  const { data: cats } = await supabase.from("erp_categories").select("id, name, is_active");
+  const catMap = new Map<string, { id: string; is_active: boolean }>();
+  (cats || []).forEach(c => catMap.set(c.name, { id: c.id, is_active: c.is_active }));
+
+  // 3. Merge: every name from items is included, enriched with cat record if exists
+  const result = Array.from(allNames)
+    .filter(n => n !== "بدون تصنيف")
+    .sort((a, b) => a.localeCompare(b, "ar"))
+    .map(name => {
+      const cat = catMap.get(name);
+      return { id: cat?.id ?? null, name, is_active: cat?.is_active ?? true };
+    });
+
+  return result;
+}
+
 export async function fetchLegacyDashboardStats() {
   // Paginate all items to bypass Supabase 1000-row limit
   const stats: Record<string, { category: string; total: number; approved: number; unpriced: number }> = {};

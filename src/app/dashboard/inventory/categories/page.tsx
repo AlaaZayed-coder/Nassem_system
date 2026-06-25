@@ -5,6 +5,7 @@ import {
   fetchLegacyCategories, fetchLegacyDashboardStats,
   updateLegacyCategory, addLegacyCategory,
   renameLegacyCategory, addLegacyItem, deleteLegacyCategory,
+  fetchUnifiedCategories,
 } from "../legacy-actions";
 import { Plus, Pencil, Check, X, ChevronLeft, Package, Trash2 } from "lucide-react";
 
@@ -31,8 +32,8 @@ export default function CategoriesPage() {
   const [savingItem, setSavingItem] = useState(false);
 
   const load = () =>
-    Promise.all([fetchLegacyCategories(), fetchLegacyDashboardStats()]).then(([c, d]) => {
-      setCats(c);
+    Promise.all([fetchUnifiedCategories(), fetchLegacyDashboardStats()]).then(([c, d]) => {
+      setCats(c as any[]);
       setStats(d.categories || []);
     });
 

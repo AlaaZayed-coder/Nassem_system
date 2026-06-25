@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { PRICING_METHODS } from "@/lib/pricing-service";
 import { saveItemFullAction, lockItemAction, unlockItemAction, freezeItemAction, unfreezeItemAction } from "./actions";
-import { deleteLegacyItem } from "../../legacy-actions";
+import { deleteLegacyItem, fetchUnifiedCategories } from "../../legacy-actions";
 import { getPriceHistory } from "@/lib/audit-data";
 import {
   ArrowRight, Lock, Unlock, CheckCircle, Send,
@@ -72,8 +72,7 @@ export default function ItemDetailPage() {
 
   useEffect(() => {
     loadItem();
-    supabase.from("erp_categories").select("*").eq("type", "main").order("name")
-      .then(({ data }) => setCategories(data || []));
+    fetchUnifiedCategories().then(setCategories);
     getPriceHistory(code).then(setPriceHistory);
     supabase.from("erp_items").select("item_code").order("item_code").then(({ data }) => {
       if (!data) return;
@@ -92,7 +91,7 @@ export default function ItemDetailPage() {
   );
 
   const locked = item.price_locked;
-  const mainCats = categories.filter(c => c.is_active !== false);
+  const mainCats = (categories as any[]).filter(c => c.is_active !== false);
   const showInstallation = (form.main_category || "").match(/أبواب|مواتير/);
 
   function commitCost(val: string) {
