@@ -9,7 +9,7 @@ import { useSearchParams } from 'next/navigation';
 import { StatusBadge } from '@/components/legacy-status-badge';
 import { fetchLegacyItems, fetchLegacyCategories, bulkUpdateLegacyItems } from '../legacy-actions';
 
-const STATUSES = ['معتمد', 'قيد المراجعة', 'بحاجة مراجعة', 'غير مسعّر', 'مؤجّل'];
+const STATUSES = ['معتمد', 'قيد المراجعة', 'غير مسعّر'];
 
 function money(cents: number) {
   if (!cents && cents !== 0) return '';
