@@ -49,6 +49,7 @@ export default function ItemDetailPage() {
   const [form, setForm] = useState<any>({});
   const [costInput, setCostInput] = useState("");
   const [marginInput, setMarginInput] = useState("");
+  const [finalInput, setFinalInput] = useState("");
 
   function set(k: string, v: any) { setForm((f: any) => ({ ...f, [k]: v })); }
   function notify(msg: string, type: "ok" | "err" = "ok") {
@@ -67,6 +68,7 @@ export default function ItemDetailPage() {
       });
       setCostInput(data.cost_price_cents != null ? (data.cost_price_cents / 100).toFixed(2) : "");
       setMarginInput(data.profit_margin_percent != null ? String(data.profit_margin_percent) : "");
+      setFinalInput(data.final_selling_price_cents != null ? (data.final_selling_price_cents / 100).toFixed(2) : "");
     }
   }, [code]);
 
@@ -327,9 +329,13 @@ export default function ItemDetailPage() {
           {/* السعر النهائي — بارز */}
           <div style={{ background: "#EAF3DE", border: "0.5px solid #C0DD97", borderRadius: "var(--border-radius-sm, 6px)", padding: "12px 16px" }}>
             <label style={{ fontSize: 11, color: "#3B6D11", fontWeight: 600, display: "block", marginBottom: 6 }}>السعر النهائي للبيع (₪)</label>
-            <input type="number" step="0.01" dir="ltr" disabled={locked}
-              value={fromCents(form.final_selling_price_cents)}
-              onChange={e => set("final_selling_price_cents", toCents(e.target.value))}
+            <input type="text" inputMode="decimal" dir="ltr" disabled={locked}
+              value={finalInput}
+              onChange={e => setFinalInput(e.target.value)}
+              onBlur={e => {
+                const c = e.target.value ? Math.round(Number(e.target.value) * 100) : null;
+                set("final_selling_price_cents", c);
+              }}
               style={{
                 width: "100%", padding: "9px 14px",
                 border: "1px solid #C0DD97", borderRadius: "var(--border-radius-sm, 6px)",
