@@ -9,56 +9,45 @@ import {
 import { Plus, Pencil, Check, X, ChevronLeft, Package, Trash2 } from "lucide-react";
 
 type Cat = { id: string; name: string; type: string; is_active: boolean };
+type StatRow = { category: string; total: number; approved: number; unpriced: number };
+
+const CARD_COLORS = ["#1D9E75","#378ADD","#EF9F27","#E05252","#7C5ABF","#1D9E75","#378ADD","#EF9F27","#E05252","#7C5ABF","#888780"];
 
 export default function CategoriesPage() {
   const [cats, setCats]   = useState<Cat[]>([]);
-  const [dash, setDash]   = useState<any>(null);
+  const [stats, setStats] = useState<StatRow[]>([]);
   const [toast, setToast] = useState({ msg: "", ok: true });
 
-  // ── Add category modal ────────────────────────────────────────────────────
   const [showAddCat, setShowAddCat] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [savingCat, setSavingCat]   = useState(false);
 
-  // ── Edit category (inline) ────────────────────────────────────────────────
-  const [editingId, setEditingId]     = useState<string | null>(null);
-  const [editingName, setEditingName] = useState("");
-  const [savingEdit, setSavingEdit]   = useState(false);
+  const [editingName, setEditingName]   = useState<string | null>(null); // category name being edited
+  const [editingValue, setEditingValue] = useState("");
+  const [savingEdit, setSavingEdit]     = useState(false);
 
-  // ── Delete category ───────────────────────────────────────────────────────
-  async function handleDeleteCategory(cat: Cat) {
-    const s = stats[cat.name] || { total: 0 };
-    if (s.total > 0) {
-      notify(`لا يمكن الحذف — يوجد ${s.total} صنف مرتبط بهذا التصنيف. أعد تصنيفها أولاً.`, false);
-      return;
-    }
-    if (!confirm(`هل تريد حذف تصنيف "${cat.name}" نهائياً؟`)) return;
-    try {
-      await deleteLegacyCategory(cat.id);
-      notify("تم حذف التصنيف ✓");
-      load();
-    } catch (e: any) { notify(e.message, false); }
-  }
-
-  // ── Add item modal ────────────────────────────────────────────────────────
-  const [addItemCat, setAddItemCat]   = useState<string | null>(null); // category name
-  const [itemForm, setItemForm]       = useState({ item_code: "", original_name: "", name_suffix: "", unit_of_measure: "قطعة" });
-  const [savingItem, setSavingItem]   = useState(false);
+  const [addItemCat, setAddItemCat] = useState<string | null>(null);
+  const [itemForm, setItemForm]     = useState({ item_code: "", original_name: "", name_suffix: "", unit_of_measure: "قطعة" });
+  const [savingItem, setSavingItem] = useState(false);
 
   const load = () =>
     Promise.all([fetchLegacyCategories(), fetchLegacyDashboardStats()]).then(([c, d]) => {
       setCats(c);
-      setDash(d);
+      setStats(d.categories || []);
     });
 
   useEffect(() => { load(); }, []);
 
   function notify(msg: string, ok = true) {
     setToast({ msg, ok });
-    setTimeout(() => setToast({ msg: "", ok: true }), 3000);
+    setTimeout(() => setToast({ msg: "", ok: true }), 3500);
   }
 
-  // ── Add category ──────────────────────────────────────────────────────────
+  // resolve cat record by name
+  function catByName(name: string) {
+    return cats.find(c => c.name === name) || null;
+  }
+
   async function handleAddCategory() {
     if (!newCatName.trim()) return;
     setSavingCat(true);
@@ -70,23 +59,41 @@ export default function CategoriesPage() {
     setSavingCat(false);
   }
 
-  // ── Rename category ───────────────────────────────────────────────────────
-  function startEdit(cat: Cat) {
-    setEditingId(cat.id);
-    setEditingName(cat.name);
-  }
-  async function saveEdit(id: string) {
-    if (!editingName.trim()) return;
+  async function saveEdit(oldName: string) {
+    if (!editingValue.trim() || !oldName) return;
     setSavingEdit(true);
+    const cat = catByName(oldName);
     try {
-      await renameLegacyCategory(id, editingName.trim());
-      notify("تم تعديل اسم التصنيف وتحديث الأصناف ✓");
-      setEditingId(null); load();
+      if (cat) {
+        await renameLegacyCategory(cat.id, editingValue.trim());
+      } else {
+        // category exists only in items — just rename via SQL update on items
+        // We use addLegacyCategory first, then bulk rename
+        await addLegacyCategory({ name: editingValue.trim(), type: "main" });
+        // update items
+        const { supabase } = await import("@/lib/supabase");
+        await supabase.from("erp_items").update({ main_category: editingValue.trim() }).eq("main_category", oldName);
+      }
+      notify("تم تعديل اسم التصنيف ✓");
+      setEditingName(null); load();
     } catch (e: any) { notify(e.message, false); }
     setSavingEdit(false);
   }
 
-  // ── Add item ──────────────────────────────────────────────────────────────
+  async function handleDeleteCategory(name: string) {
+    const row = stats.find(s => s.category === name);
+    if (row && row.total > 0) {
+      notify(`لا يمكن الحذف — يوجد ${row.total} صنف مرتبط. أعد تصنيفها أولاً.`, false);
+      return;
+    }
+    if (!confirm(`هل تريد حذف تصنيف "${name}" نهائياً؟`)) return;
+    const cat = catByName(name);
+    if (cat) {
+      try { await deleteLegacyCategory(cat.id); notify("تم الحذف ✓"); load(); }
+      catch (e: any) { notify(e.message, false); }
+    }
+  }
+
   async function handleAddItem() {
     if (!itemForm.item_code.trim() || !itemForm.original_name.trim() || !addItemCat) return;
     setSavingItem(true);
@@ -99,10 +106,12 @@ export default function CategoriesPage() {
     setSavingItem(false);
   }
 
-  const stats   = Object.fromEntries((dash?.categories || []).map((r: any) => [r.category, r]));
-  const mainCats = cats.filter(c => c.type === "main" && c.is_active);
-
-  const CARD_COLORS = ["#1D9E75","#378ADD","#EF9F27","#E05252","#7C5ABF","#1D9E75","#378ADD","#EF9F27","#E05252","#7C5ABF","#888780"];
+  // Sort: by total descending, push "بدون تصنيف" to end
+  const sorted = [...stats].sort((a, b) => {
+    if (a.category === "بدون تصنيف") return 1;
+    if (b.category === "بدون تصنيف") return -1;
+    return b.total - a.total;
+  });
 
   const inputSt: React.CSSProperties = {
     width: "100%", padding: "7px 10px", borderRadius: 6,
@@ -117,75 +126,71 @@ export default function CategoriesPage() {
         <div className="toast" style={{ background: toast.ok ? "#1D9E75" : "#E05252" }}>{toast.msg}</div>
       )}
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <h3 className="section-title" style={{ margin: 0 }}>التصنيفات</h3>
+        <h3 className="section-title" style={{ margin: 0 }}>
+          التصنيفات
+          <span style={{ fontSize: 12, color: "var(--color-text-tertiary)", fontWeight: 400, marginRight: 8 }}>
+            ({sorted.filter(s => s.category !== "بدون تصنيف").length} تصنيف)
+          </span>
+        </h3>
         <div style={{ display: "flex", gap: 8 }}>
-          <button
-            onClick={() => window.location.href = "/dashboard/inventory/items?no_category=1"}
-            className="btn">
+          <button className="btn"
+            onClick={() => window.location.href = "/dashboard/inventory/items?no_category=1"}>
             أصناف بدون تصنيف
           </button>
-          <button
-            onClick={() => { setShowAddCat(true); setNewCatName(""); }}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "6px 14px", borderRadius: 8,
-              border: "none", background: "#1D9E75", color: "#fff",
-              fontSize: 13, fontWeight: 600, cursor: "pointer",
-            }}>
+          <button onClick={() => { setShowAddCat(true); setNewCatName(""); }}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, border: "none", background: "#1D9E75", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
             <Plus size={15} /> تصنيف جديد
           </button>
         </div>
       </div>
 
-      {/* ── Category cards ── */}
+      {/* Category cards — from actual item data */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 10, marginBottom: 20 }}>
-        {mainCats.map((c, i) => {
-          const s   = stats[c.name] || { total: 0, approved: 0, unpriced: 0 };
-          const pct = s.total ? Math.round((s.approved || 0) / s.total * 100) : 0;
-          const col = CARD_COLORS[i % CARD_COLORS.length];
-          const isEditing = editingId === c.id;
+        {sorted.map((s, i) => {
+          const isNoCat  = s.category === "بدون تصنيف";
+          const pct      = s.total ? Math.round((s.approved || 0) / s.total * 100) : 0;
+          const col      = isNoCat ? "#888780" : CARD_COLORS[i % (CARD_COLORS.length - 1)];
+          const isEditing = editingName === s.category;
+          const hasCatRecord = !!catByName(s.category);
 
           return (
-            <div key={c.id} style={{
-              border: "0.5px solid var(--color-border-tertiary)",
-              borderRadius: 10, background: "var(--color-background-primary)",
-              overflow: "hidden",
-            }}>
+            <div key={s.category} style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, background: "var(--color-background-primary)", overflow: "hidden" }}>
               {/* Card header */}
-              <div style={{ background: col, padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ background: col, padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
                 {isEditing ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
-                    <input
-                      autoFocus
-                      value={editingName}
-                      onChange={e => setEditingName(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter") saveEdit(c.id); if (e.key === "Escape") setEditingId(null); }}
-                      style={{ ...inputSt, fontSize: 12, padding: "4px 8px", flex: 1, fontWeight: 600, color: "#fff", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.5)" }}
-                    />
-                    <button onClick={() => saveEdit(c.id)} disabled={savingEdit}
+                    <input autoFocus value={editingValue}
+                      onChange={e => setEditingValue(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") saveEdit(s.category); if (e.key === "Escape") setEditingName(null); }}
+                      style={{ ...inputSt, fontSize: 12, padding: "4px 8px", flex: 1, color: "#fff", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.5)" }} />
+                    <button onClick={() => saveEdit(s.category)} disabled={savingEdit}
                       style={{ background: "rgba(255,255,255,0.25)", border: "none", borderRadius: 6, padding: "4px 6px", cursor: "pointer", color: "#fff" }}>
                       {savingEdit ? "…" : <Check size={14} />}
                     </button>
-                    <button onClick={() => setEditingId(null)}
+                    <button onClick={() => setEditingName(null)}
                       style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 6, padding: "4px 6px", cursor: "pointer", color: "#fff" }}>
                       <X size={14} />
                     </button>
                   </div>
                 ) : (
                   <>
-                    <span style={{ fontWeight: 600, fontSize: 13, color: "#fff" }}>{c.name}</span>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <button onClick={() => startEdit(c)} title="تعديل الاسم"
-                        style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 6, padding: "3px 6px", cursor: "pointer", color: "#fff" }}>
-                        <Pencil size={12} />
-                      </button>
-                      <button onClick={() => handleDeleteCategory(c)} title="حذف التصنيف"
-                        style={{ background: "rgba(255,0,0,0.25)", border: "none", borderRadius: 6, padding: "3px 6px", cursor: "pointer", color: "#fff" }}>
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
+                    <span style={{ fontWeight: 600, fontSize: 13, color: "#fff", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.category}</span>
+                    {!isNoCat && (
+                      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                        <button onClick={() => { setEditingName(s.category); setEditingValue(s.category); }} title="تعديل"
+                          style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 6, padding: "3px 6px", cursor: "pointer", color: "#fff" }}>
+                          <Pencil size={12} />
+                        </button>
+                        {hasCatRecord && s.total === 0 && (
+                          <button onClick={() => handleDeleteCategory(s.category)} title="حذف"
+                            style={{ background: "rgba(255,0,0,0.3)", border: "none", borderRadius: 6, padding: "3px 6px", cursor: "pointer", color: "#fff" }}>
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -193,7 +198,7 @@ export default function CategoriesPage() {
               {/* Card body */}
               <div style={{ padding: "10px 12px" }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
-                  <span style={{ fontSize: 22, fontWeight: 700, color: "var(--color-text-primary)" }}>{s.total}</span>
+                  <span style={{ fontSize: 22, fontWeight: 700, color: "var(--color-text-primary)" }}>{s.total.toLocaleString("en")}</span>
                   <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>صنف</span>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginBottom: 8 }}>
@@ -204,15 +209,20 @@ export default function CategoriesPage() {
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button
-                    onClick={() => window.location.href = `/dashboard/inventory/items?main_category=${encodeURIComponent(c.name)}`}
+                    onClick={() => window.location.href =
+                      isNoCat
+                        ? "/dashboard/inventory/items?no_category=1"
+                        : `/dashboard/inventory/items?main_category=${encodeURIComponent(s.category)}`}
                     style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "5px 0", borderRadius: 6, border: "0.5px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", cursor: "pointer" }}>
                     <ChevronLeft size={12} /> عرض الأصناف
                   </button>
-                  <button
-                    onClick={() => { setAddItemCat(c.name); setItemForm({ item_code: "", original_name: "", name_suffix: "", unit_of_measure: "قطعة" }); }}
-                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "5px 0", borderRadius: 6, border: "none", background: col + "22", fontSize: 11, fontWeight: 600, color: col, cursor: "pointer" }}>
-                    <Plus size={12} /> إضافة صنف
-                  </button>
+                  {!isNoCat && (
+                    <button
+                      onClick={() => { setAddItemCat(s.category); setItemForm({ item_code: "", original_name: "", name_suffix: "", unit_of_measure: "قطعة" }); }}
+                      style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "5px 0", borderRadius: 6, border: "none", background: col + "22", fontSize: 11, fontWeight: 600, color: col, cursor: "pointer" }}>
+                      <Plus size={12} /> إضافة صنف
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -220,32 +230,7 @@ export default function CategoriesPage() {
         })}
       </div>
 
-      {/* ── Disabled categories table ── */}
-      {cats.filter(c => !c.is_active).length > 0 && (
-        <div style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: 8, overflow: "hidden", marginBottom: 16 }}>
-          <div style={{ padding: "8px 14px", background: "var(--color-background-secondary)", fontSize: 12, fontWeight: 600, color: "var(--color-text-tertiary)" }}>
-            تصنيفات معطّلة
-          </div>
-          <table className="tbl" style={{ margin: 0 }}>
-            <tbody>
-              {cats.filter(c => !c.is_active).map(r => (
-                <tr key={r.id}>
-                  <td style={{ color: "var(--color-text-tertiary)" }}>{r.name}</td>
-                  <td style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{r.type === "main" ? "رئيسي" : "فرعي"}</td>
-                  <td>
-                    <button className="btn btn-ghost" style={{ fontSize: 11, padding: "3px 8px" }}
-                      onClick={async () => { await updateLegacyCategory(r.id, { is_active: true }); load(); }}>
-                      تفعيل
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* ══════════ Modal: إضافة تصنيف ══════════ */}
+      {/* ══ Modal: تصنيف جديد ══ */}
       {showAddCat && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
           onClick={() => setShowAddCat(false)}>
@@ -265,7 +250,7 @@ export default function CategoriesPage() {
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={handleAddCategory} disabled={savingCat || !newCatName.trim()}
-                  style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "none", background: savingCat || !newCatName.trim() ? "#ccc" : "#1D9E75", color: "#fff", fontWeight: 700, fontSize: 13, cursor: savingCat || !newCatName.trim() ? "not-allowed" : "pointer" }}>
+                  style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "none", background: savingCat || !newCatName.trim() ? "#ccc" : "#1D9E75", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                   {savingCat ? "جاري الحفظ…" : "حفظ التصنيف"}
                 </button>
                 <button onClick={() => setShowAddCat(false)}
@@ -278,13 +263,12 @@ export default function CategoriesPage() {
         </div>
       )}
 
-      {/* ══════════ Modal: إضافة صنف ══════════ */}
+      {/* ══ Modal: إضافة صنف ══ */}
       {addItemCat && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
           onClick={() => setAddItemCat(null)}>
           <div onClick={e => e.stopPropagation()} dir="rtl"
             style={{ background: "var(--color-background-primary)", borderRadius: 12, width: "100%", maxWidth: 460, boxShadow: "0 8px 40px rgba(0,0,0,0.18)", overflow: "hidden" }}>
-            {/* Header */}
             <div style={{ padding: "14px 18px", borderBottom: "0.5px solid var(--color-border-tertiary)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Package size={16} color="#1D9E75" />
@@ -295,9 +279,7 @@ export default function CategoriesPage() {
               </div>
               <button onClick={() => setAddItemCat(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-tertiary)" }}><X size={18} /></button>
             </div>
-            {/* Body */}
             <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
-              {/* Code + Unit */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 100px", gap: 10 }}>
                 <div>
                   <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>كود الصنف *</label>
@@ -314,35 +296,26 @@ export default function CategoriesPage() {
                   </select>
                 </div>
               </div>
-              {/* Name */}
               <div>
                 <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>اسم الصنف *</label>
                 <input style={inputSt} value={itemForm.original_name}
                   onChange={e => setItemForm(f => ({ ...f, original_name: e.target.value }))}
-                  placeholder="الاسم الأصلي من ERP" />
+                  placeholder="الاسم الأصلي" />
               </div>
-              {/* Suffix */}
               <div>
                 <label style={{ fontSize: 11, color: "var(--color-text-tertiary)", display: "block", marginBottom: 4 }}>ملحق الاسم</label>
                 <input style={inputSt} value={itemForm.name_suffix}
                   onChange={e => setItemForm(f => ({ ...f, name_suffix: e.target.value }))}
-                  placeholder="مثال: كبير، 6م... (اختياري)" />
+                  placeholder="اختياري" />
               </div>
-              {/* Category badge */}
-              <div style={{ background: "var(--color-background-secondary)", borderRadius: 6, padding: "8px 12px", display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>سيُضاف إلى تصنيف:</span>
+              <div style={{ background: "var(--color-background-secondary)", borderRadius: 6, padding: "8px 12px", display: "flex", gap: 6 }}>
+                <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>سيُضاف إلى:</span>
                 <span style={{ fontSize: 12, fontWeight: 700, color: "#1D9E75" }}>{addItemCat}</span>
               </div>
-              {/* Actions */}
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={handleAddItem}
                   disabled={savingItem || !itemForm.item_code.trim() || !itemForm.original_name.trim()}
-                  style={{
-                    flex: 1, padding: "8px 0", borderRadius: 8, border: "none",
-                    background: savingItem || !itemForm.item_code.trim() || !itemForm.original_name.trim() ? "#ccc" : "#1D9E75",
-                    color: "#fff", fontWeight: 700, fontSize: 13,
-                    cursor: savingItem || !itemForm.item_code.trim() || !itemForm.original_name.trim() ? "not-allowed" : "pointer",
-                  }}>
+                  style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "none", background: savingItem || !itemForm.item_code.trim() || !itemForm.original_name.trim() ? "#ccc" : "#1D9E75", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                   {savingItem ? "جاري الحفظ…" : "إضافة الصنف"}
                 </button>
                 <button onClick={() => setAddItemCat(null)}
