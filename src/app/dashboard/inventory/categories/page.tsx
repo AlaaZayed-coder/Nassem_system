@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import {
   fetchLegacyCategories, fetchLegacyDashboardStats,
   updateLegacyCategory, addLegacyCategory,
-  renameLegacyCategory, addLegacyItem,
+  renameLegacyCategory, addLegacyItem, deleteLegacyCategory,
 } from "../legacy-actions";
-import { Plus, Pencil, Check, X, ChevronLeft, Package } from "lucide-react";
+import { Plus, Pencil, Check, X, ChevronLeft, Package, Trash2 } from "lucide-react";
 
 type Cat = { id: string; name: string; type: string; is_active: boolean };
 
@@ -24,6 +24,21 @@ export default function CategoriesPage() {
   const [editingId, setEditingId]     = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [savingEdit, setSavingEdit]   = useState(false);
+
+  // ── Delete category ───────────────────────────────────────────────────────
+  async function handleDeleteCategory(cat: Cat) {
+    const s = stats[cat.name] || { total: 0 };
+    if (s.total > 0) {
+      notify(`لا يمكن الحذف — يوجد ${s.total} صنف مرتبط بهذا التصنيف. أعد تصنيفها أولاً.`, false);
+      return;
+    }
+    if (!confirm(`هل تريد حذف تصنيف "${cat.name}" نهائياً؟`)) return;
+    try {
+      await deleteLegacyCategory(cat.id);
+      notify("تم حذف التصنيف ✓");
+      load();
+    } catch (e: any) { notify(e.message, false); }
+  }
 
   // ── Add item modal ────────────────────────────────────────────────────────
   const [addItemCat, setAddItemCat]   = useState<string | null>(null); // category name
@@ -161,10 +176,16 @@ export default function CategoriesPage() {
                 ) : (
                   <>
                     <span style={{ fontWeight: 600, fontSize: 13, color: "#fff" }}>{c.name}</span>
-                    <button onClick={() => startEdit(c)} title="تعديل الاسم"
-                      style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 6, padding: "3px 6px", cursor: "pointer", color: "#fff" }}>
-                      <Pencil size={12} />
-                    </button>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button onClick={() => startEdit(c)} title="تعديل الاسم"
+                        style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 6, padding: "3px 6px", cursor: "pointer", color: "#fff" }}>
+                        <Pencil size={12} />
+                      </button>
+                      <button onClick={() => handleDeleteCategory(c)} title="حذف التصنيف"
+                        style={{ background: "rgba(255,0,0,0.25)", border: "none", borderRadius: 6, padding: "3px 6px", cursor: "pointer", color: "#fff" }}>
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </>
                 )}
               </div>

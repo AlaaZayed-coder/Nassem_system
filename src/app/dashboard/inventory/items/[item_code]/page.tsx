@@ -4,10 +4,11 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { PRICING_METHODS } from "@/lib/pricing-service";
 import { saveItemFullAction, lockItemAction, unlockItemAction, freezeItemAction, unfreezeItemAction } from "./actions";
+import { deleteLegacyItem } from "../../legacy-actions";
 import { getPriceHistory } from "@/lib/audit-data";
 import {
   ArrowRight, Lock, Unlock, CheckCircle, Send,
-  ChevronDown, ChevronUp, ChevronRight, History, ChevronLeft, Tag, Calculator, FileText, Wrench, Snowflake,
+  ChevronDown, ChevronUp, ChevronRight, History, ChevronLeft, Tag, Calculator, FileText, Wrench, Snowflake, Trash2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -140,6 +141,14 @@ export default function ItemDetailPage() {
   async function handleUnfreeze() {
     const fd = new FormData(); fd.append("item_code", code);
     await unfreezeItemAction(fd); await loadItem(); notify("تم إلغاء التجميد ✓");
+  }
+
+  async function handleDelete() {
+    if (!confirm(`هل تريد حذف الصنف "${item.original_name}" نهائياً؟ لا يمكن التراجع.`)) return;
+    try {
+      await deleteLegacyItem(code);
+      router.push("/dashboard/inventory/items");
+    } catch (e: any) { notify(e.message, "err"); }
   }
 
   const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
@@ -442,6 +451,16 @@ export default function ItemDetailPage() {
               fontSize: 12, cursor: "pointer",
             }}>
               <Lock size={13} /> قفل
+            </button>
+
+            <button onClick={handleDelete} style={{
+              display: "flex", alignItems: "center", gap: 5,
+              padding: "6px 12px", borderRadius: 8,
+              border: "0.5px solid #FCA5A5",
+              background: "#FEF2F2", color: "#DC2626",
+              fontSize: 12, cursor: "pointer",
+            }}>
+              <Trash2 size={13} /> حذف
             </button>
           </div>
         </div>

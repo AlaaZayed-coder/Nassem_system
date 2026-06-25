@@ -16,29 +16,49 @@ export async function fetchLegacyCategories() {
 }
 
 export async function fetchLegacyDashboardStats() {
-  // We need to count items per category, and how many are approved/unpriced
-  const { data: items, error } = await supabase
-    .from("erp_items")
-    .select("main_category, pricing_status");
-
-  if (error) {
-    console.error("Error fetching stats:", error);
-    return { categories: [] };
-  }
-
+  // Paginate all items to bypass Supabase 1000-row limit
   const stats: Record<string, { category: string; total: number; approved: number; unpriced: number }> = {};
-
-  (items || []).forEach(item => {
-    const cat = item.main_category || "بدون تصنيف";
-    if (!stats[cat]) {
-      stats[cat] = { category: cat, total: 0, approved: 0, unpriced: 0 };
-    }
-    stats[cat].total++;
-    if (item.pricing_status === "معتمد") stats[cat].approved++;
-    if (item.pricing_status === "غير مسعّر") stats[cat].unpriced++;
-  });
-
+  let from = 0;
+  const ps = 1000;
+  while (true) {
+    const { data, error } = await supabase
+      .from("erp_items")
+      .select("main_category, pricing_status")
+      .range(from, from + ps - 1);
+    if (error) { console.error("Error fetching stats:", error); break; }
+    (data || []).forEach(item => {
+      const cat = item.main_category || "بدون تصنيف";
+      if (!stats[cat]) stats[cat] = { category: cat, total: 0, approved: 0, unpriced: 0 };
+      stats[cat].total++;
+      if (item.pricing_status === "معتمد")    stats[cat].approved++;
+      if (item.pricing_status === "غير مسعّر") stats[cat].unpriced++;
+    });
+    if (!data || data.length < ps) break;
+    from += ps;
+  }
   return { categories: Object.values(stats) };
+}
+
+export async function deleteLegacyCategory(id: string) {
+  // Check if any items still use this category
+  const { data: cat } = await supabase.from("erp_categories").select("name").eq("id", id).single();
+  if (cat?.name) {
+    const { count } = await supabase.from("erp_items")
+      .select("*", { count: "exact", head: true })
+      .eq("main_category", cat.name);
+    if (count && count > 0) throw new Error(`يوجد ${count} صنف مرتبط بهذا التصنيف. أعد تصنيف الأصناف أولاً.`);
+  }
+  const { error } = await supabase.from("erp_categories").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  return true;
+}
+
+export async function deleteLegacyItem(item_code: string) {
+  // Delete inventory records first
+  await supabase.from("erp_inventory").delete().eq("item_code", item_code);
+  const { error } = await supabase.from("erp_items").delete().eq("item_code", item_code);
+  if (error) throw new Error(error.message);
+  return true;
 }
 
 export async function fetchLegacyItems(filters: any) {
