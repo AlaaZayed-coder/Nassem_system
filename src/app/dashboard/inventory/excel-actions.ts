@@ -288,6 +288,19 @@ export async function exportPricingSheet() {
   wb.creator = "نظام الحوكمة";
   wb.created = new Date();
 
+  // ── Hidden sheet: قوائم — contains category names for dropdowns ───────────
+  const { data: catsForDropdown } = await supabase.from("erp_categories").select("name").order("name");
+  const catNames = (catsForDropdown || []).map((c: any) => c.name);
+
+  const wsLists = wb.addWorksheet("قوائم");
+  wsLists.state = "veryHidden"; // hidden from user
+  wsLists.getColumn(1).width = 40;
+  // Write category names — 50 rows total (extra rows for categories added in Sheet 2)
+  for (let i = 0; i < 50; i++) {
+    wsLists.getCell(`A${i + 1}`).value = catNames[i] || "";
+  }
+  // Named range helper: we'll reference قوائم!$A$1:$A$50 in data validation
+
   const ws = wb.addWorksheet("إدخال الأسعار", {
     views: [{ state: "frozen", ySplit: 2, rightToLeft: "rtl" as any }],
   });
@@ -391,12 +404,16 @@ export async function exportPricingSheet() {
         right:  { style: "thin", color: { argb: "FFE0E0E0" } },
       };
 
-      // Locked (read-only styled) columns: #, code, name, suffix, category
-      if (colNum <= 5) {
+      // Locked columns: #, code, name, suffix (cols 1-4); category (col 5) is editable
+      if (colNum <= 4) {
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
         cell.font = { name: "Arial", size: 10, color: { argb: "FF333333" } };
         if (colNum === 1) cell.font = { ...cell.font, color: { argb: "FF888888" } };
         if (colNum === 2) cell.font = { ...cell.font, bold: true, color: { argb: "FF1A3C5E" } };
+      } else if (colNum === 5) {
+        // التصنيف — editable dropdown, light purple tint
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEEF2FF" } };
+        cell.font = { name: "Arial", size: 10, color: { argb: "FF3730A3" } };
       } else {
         cell.fill = editableFill;
       }
@@ -418,6 +435,14 @@ export async function exportPricingSheet() {
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF8F8F8" } };
       }
     });
+
+    // Data validation: category dropdown (references hidden قوائم sheet)
+    ws.getCell(`E${rowNum}`).dataValidation = {
+      type: "list",
+      allowBlank: true,
+      formulae: ["قوائم!$A$1:$A$50"],
+      showErrorMessage: false, // allow typing new values too
+    };
 
     // Data validation: status dropdown (no مؤجّل)
     ws.getCell(`J${rowNum}`).dataValidation = {
