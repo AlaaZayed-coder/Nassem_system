@@ -71,12 +71,13 @@ export type SalesOrderLine = {
 };
 
 export async function getSalesOrderDetail(orderId: string) {
-  const [{ data: order }, { data: lines }, { data: productionOrders }, { data: maintenanceRequests }, { data: purchaseRequests }] = await Promise.all([
+  const [{ data: order }, { data: lines }, { data: productionOrders }, { data: maintenanceRequests }, { data: purchaseRequests }, { data: doorOrders }] = await Promise.all([
     supabase.from("erp_sales_orders").select("*, erp_customers(*)").eq("id", orderId).single(),
     supabase.from("erp_sales_order_lines").select("*, erp_items(original_name)").eq("sales_order_id", orderId).order("created_at", { ascending: true }),
     supabase.from("erp_production_orders").select("*").eq("sales_order_id", orderId),
     supabase.from("erp_maintenance_requests").select("*").eq("sales_order_id", orderId),
     supabase.from("erp_purchase_requests").select("*").eq("sales_order_id", orderId),
+    supabase.from("erp_door_orders").select("*").eq("sales_order_id", orderId),
   ]);
 
   return {
@@ -85,5 +86,6 @@ export async function getSalesOrderDetail(orderId: string) {
     productionOrders: productionOrders || [],
     maintenanceRequests: maintenanceRequests || [],
     purchaseRequests: purchaseRequests || [],
+    doorOrders: doorOrders || [],
   };
 }

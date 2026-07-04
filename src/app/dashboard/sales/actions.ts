@@ -71,18 +71,18 @@ export async function createSalesOpportunityAction(formData: FormData) {
   // Insert lines
   const linesToInsert = lines.map((l: any) => ({
     sales_order_id: order.id,
-    item_code: l.type === 'product' ? l.itemCode : null,
+    item_code: l.type === 'product' || l.type === 'door' ? l.itemCode : null,
     quantity: l.quantity,
     unit_price_cents: l.unitPriceCents,
     total_price_cents: l.quantity * l.unitPriceCents,
     line_type: l.type,
     description: l.description || null,
-    line_notes: l.lineNotes || null
+    line_notes: l.lineNotes || null,
+    door_specs: l.type === 'door' ? l.doorSpecs : null
   }));
 
-  for (const l of linesToInsert) {
-    await supabase.from("erp_sales_order_lines").insert([l]);
-  }
+  const { error: linesError } = await supabase.from("erp_sales_order_lines").insert(linesToInsert);
+  if (linesError) throw new Error(linesError.message);
 
   revalidatePath("/dashboard/sales");
   return order;

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getSalesOrderDetail } from "@/lib/sales-data";
 import { formatCurrency } from "@/lib/format";
-import { ArrowRight, Target, Wrench, Factory, ShoppingCart, Package } from "lucide-react";
+import { ArrowRight, Target, Wrench, Factory, ShoppingCart, Package, DoorClosed } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +9,7 @@ const LINE_TYPE_LABEL: Record<string, string> = {
   product: "صنف جاهز",
   manufacturing: "تصنيع مخصص",
   maintenance: "صيانة",
+  door: "طلب باب رول",
 };
 
 const FULFILLMENT_LABEL: Record<string, { label: string; color: string }> = {
@@ -18,10 +19,11 @@ const FULFILLMENT_LABEL: Record<string, { label: string; color: string }> = {
   manufacturing: { label: "قيد التصنيع", color: "bg-indigo-100 text-indigo-700" },
   purchasing: { label: "قيد الشراء", color: "bg-amber-100 text-amber-700" },
   maintenance: { label: "لدى فريق الصيانة", color: "bg-orange-100 text-orange-700" },
+  door: { label: "لدى فريق الإنتاج (باب)", color: "bg-emerald-100 text-emerald-700" },
 };
 
 export default async function SalesOrderDetailPage({ params }: { params: { id: string } }) {
-  const { order, lines, productionOrders, maintenanceRequests, purchaseRequests } = await getSalesOrderDetail(params.id);
+  const { order, lines, productionOrders, maintenanceRequests, purchaseRequests, doorOrders } = await getSalesOrderDetail(params.id);
 
   if (!order) {
     return (
@@ -58,6 +60,7 @@ export default async function SalesOrderDetailPage({ params }: { params: { id: s
                   {line.line_type === "maintenance" && <Wrench className="h-5 w-5 text-orange-500" />}
                   {line.line_type === "manufacturing" && <Factory className="h-5 w-5 text-indigo-500" />}
                   {line.line_type === "product" && <Package className="h-5 w-5 text-emerald-500" />}
+                  {line.line_type === "door" && <DoorClosed className="h-5 w-5 text-emerald-500" />}
                   <div>
                     <div className="font-bold text-slate-800">
                       {line.erp_items?.original_name || line.description || LINE_TYPE_LABEL[line.line_type]}
@@ -76,7 +79,7 @@ export default async function SalesOrderDetailPage({ params }: { params: { id: s
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
           <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Factory className="h-5 w-5 text-indigo-500" /> أوامر الإنتاج</h3>
           <div className="space-y-2">
@@ -113,6 +116,18 @@ export default async function SalesOrderDetailPage({ params }: { params: { id: s
               </div>
             ))}
             {purchaseRequests.length === 0 && <div className="text-slate-400 text-sm text-center py-2">لا يوجد</div>}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><DoorClosed className="h-5 w-5 text-emerald-500" /> طلبيات الأبواب</h3>
+          <div className="space-y-2">
+            {doorOrders.map((d: any) => (
+              <Link key={d.id} href={`/dashboard/production/door-orders/${d.id}`} className="block p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition text-sm">
+                <div className="font-bold text-slate-700">#{d.id.slice(0, 8)} · {d.status}</div>
+              </Link>
+            ))}
+            {doorOrders.length === 0 && <div className="text-slate-400 text-sm text-center py-2">لا يوجد</div>}
           </div>
         </div>
       </div>

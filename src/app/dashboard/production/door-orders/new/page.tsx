@@ -156,6 +156,12 @@ export default function NewDoorOrderPage() {
         </Link>
       </div>
 
+      <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-6 text-sm text-amber-800">
+        <strong>الطريقة المعتادة:</strong> أضف طلب باب كسطر ضمن{" "}
+        <Link href="/dashboard/sales/new" className="font-bold underline hover:text-amber-900">طلبية مبيعات جديدة</Link>
+        {" "}ليظهر ضمن سجل العميل ويُوجَّه تلقائياً هنا عند الاعتماد. استخدم هذا النموذج فقط لحالات استثنائية داخلية بدون طلب مبيعات رسمي.
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-8 bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
         {/* Customer Section */}
         <div className="space-y-6">

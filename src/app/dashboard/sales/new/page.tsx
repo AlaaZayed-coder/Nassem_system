@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import { createSalesOpportunityAction, createCustomerAction } from "@/app/dashboard/sales/actions";
 import { getCustomers, Customer } from "@/lib/sales-data";
 import { supabase } from "@/lib/supabase";
-import { Target, UserPlus, Save, ArrowRight, Plus, Trash2, Wrench, Factory } from "lucide-react";
+import { Target, UserPlus, Save, ArrowRight, Plus, Trash2, Wrench, Factory, DoorClosed } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -24,7 +24,13 @@ export default function NewSalesOpportunityPage() {
   const [custAddress, setCustAddress] = useState("");
 
   // Order Items State
-  const [lines, setLines] = useState<{ id: string, type: 'product' | 'maintenance' | 'manufacturing', itemCode: string, quantity: number, unitPriceCents: number, description: string, lineNotes: string, unit: string }[]>([]);
+  const [lines, setLines] = useState<{
+    id: string, type: 'product' | 'maintenance' | 'manufacturing' | 'door', itemCode: string, quantity: number, unitPriceCents: number, description: string, lineNotes: string, unit: string,
+    doorColor: string, doorLengthMm: string, doorHeightMm: string, doorProfileItemCode: string,
+    doorHasCover: boolean, doorCoverWidthMm: string, doorCoverHeightMm: string,
+    doorHasBox: boolean, doorBoxLengthMm: string, doorBoxHeightMm: string,
+    doorGuidesSent: boolean, doorIsIndustrial: boolean, doorPipeLengthInch: string,
+  }[]>([]);
   
   // Order State
   const [notes, setNotes] = useState("");
@@ -37,16 +43,20 @@ export default function NewSalesOpportunityPage() {
     });
   }, []);
 
-  const addLine = (type: 'product' | 'maintenance' | 'manufacturing') => {
-    setLines([...lines, { 
-      id: Math.random().toString(), 
-      type, 
-      itemCode: "", 
-      quantity: 1, 
+  const addLine = (type: 'product' | 'maintenance' | 'manufacturing' | 'door') => {
+    setLines([...lines, {
+      id: Math.random().toString(),
+      type,
+      itemCode: "",
+      quantity: 1,
       unitPriceCents: 0,
       description: "",
       lineNotes: "",
-      unit: "وحدة"
+      unit: "وحدة",
+      doorColor: "", doorLengthMm: "", doorHeightMm: "", doorProfileItemCode: "",
+      doorHasCover: false, doorCoverWidthMm: "", doorCoverHeightMm: "",
+      doorHasBox: false, doorBoxLengthMm: "", doorBoxHeightMm: "",
+      doorGuidesSent: false, doorIsIndustrial: false, doorPipeLengthInch: "",
     }]);
   };
 
@@ -95,7 +105,30 @@ export default function NewSalesOpportunityPage() {
           finalCustomerId = newCust.id;
         }
 
-        const linesJson = JSON.stringify(lines);
+        const linesForSubmit = lines.map((l) => {
+          if (l.type !== "door") return l;
+          return {
+            ...l,
+            doorSpecs: {
+              item_code: l.itemCode,
+              color: l.doorColor,
+              length_mm: l.doorLengthMm ? Number(l.doorLengthMm) : undefined,
+              height_mm: l.doorHeightMm ? Number(l.doorHeightMm) : undefined,
+              profile_item_code: l.doorProfileItemCode || undefined,
+              has_cover: l.doorHasCover,
+              cover_width_mm: l.doorHasCover && l.doorCoverWidthMm ? Number(l.doorCoverWidthMm) : undefined,
+              cover_height_mm: l.doorHasCover && l.doorCoverHeightMm ? Number(l.doorCoverHeightMm) : undefined,
+              has_box: l.doorHasBox,
+              box_length_mm: l.doorHasBox && l.doorBoxLengthMm ? Number(l.doorBoxLengthMm) : undefined,
+              box_height_mm: l.doorHasBox && l.doorBoxHeightMm ? Number(l.doorBoxHeightMm) : undefined,
+              guides_sent: l.doorGuidesSent,
+              item_notes: l.lineNotes || undefined,
+              is_industrial: l.doorIsIndustrial,
+              pipe_length_inch: l.doorIsIndustrial && l.doorPipeLengthInch ? Number(l.doorPipeLengthInch) : undefined,
+            },
+          };
+        });
+        const linesJson = JSON.stringify(linesForSubmit);
 
         // Create Order
         const oppData = new FormData();
@@ -195,12 +228,15 @@ export default function NewSalesOpportunityPage() {
               <button type="button" onClick={() => addLine('maintenance')} className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-lg text-sm font-bold flex items-center gap-1 hover:bg-amber-100 transition">
                 <Wrench className="h-4 w-4" /> طلب صيانة
               </button>
+              <button type="button" onClick={() => addLine('door')} className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-sm font-bold flex items-center gap-1 hover:bg-emerald-100 transition">
+                <DoorClosed className="h-4 w-4" /> طلب باب رول
+              </button>
             </div>
           </div>
 
           {lines.length === 0 ? (
             <div className="text-center py-8 text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-              يرجى إضافة صنف مبيعات، تصنيع، أو صيانة للبدء
+              يرجى إضافة صنف مبيعات، تصنيع، صيانة، أو طلب باب للبدء
             </div>
           ) : (
             <div className="space-y-3">
@@ -212,7 +248,116 @@ export default function NewSalesOpportunityPage() {
                 <div className="col-span-1"></div>
               </div>
               
-              {lines.map((line) => (
+              {lines.map((line) => line.type === 'door' ? (
+                <div key={line.id} className="bg-slate-50 p-5 rounded-2xl border border-emerald-200 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded w-fit bg-emerald-100 text-emerald-700">طلب باب رول</span>
+                    <button type="button" onClick={() => removeLine(line.id)} className="p-1.5 text-rose-400 hover:text-rose-600 bg-white hover:bg-rose-50 rounded-lg transition border border-slate-200">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-slate-600 mb-1">نوع الباب/الدنجل/الوجه (Item No.)</label>
+                      <select required value={line.itemCode} onChange={e => updateLine(line.id, 'itemCode', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none">
+                        <option value="">اختر صنفاً...</option>
+                        {availableItems.map(i => (
+                          <option key={i.item_code} value={i.item_code}>{i.approved_name || i.original_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">اللون</label>
+                      <input type="text" value={line.doorColor} onChange={e => updateLine(line.id, 'doorColor', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none" />
+                    </div>
+                    <div className="flex items-end pb-2 gap-2">
+                      <label className="flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer">
+                        <input type="checkbox" checked={line.doorGuidesSent} onChange={e => updateLine(line.id, 'doorGuidesSent', e.target.checked)} className="h-4 w-4" />
+                        المجاري بالورشة
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">الطول L (مم)</label>
+                      <input type="number" value={line.doorLengthMm} onChange={e => updateLine(line.id, 'doorLengthMm', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none dir-ltr text-center" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">الارتفاع H (مم)</label>
+                      <input type="number" value={line.doorHeightMm} onChange={e => updateLine(line.id, 'doorHeightMm', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none dir-ltr text-center" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-slate-600 mb-1">البروفيل (اختياري)</label>
+                      <select value={line.doorProfileItemCode} onChange={e => updateLine(line.id, 'doorProfileItemCode', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none">
+                        <option value="">-- بدون بروفيل --</option>
+                        {availableItems.map(i => (
+                          <option key={i.item_code} value={i.item_code}>{i.approved_name || i.original_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-2 text-xs font-bold text-amber-800 cursor-pointer">
+                      <input type="checkbox" checked={line.doorIsIndustrial} onChange={e => updateLine(line.id, 'doorIsIndustrial', e.target.checked)} className="h-4 w-4" />
+                      باب صناعي (Industrial Door) — بدون احتساب زنبركات
+                    </label>
+                    {line.doorIsIndustrial && (
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-amber-800">طول الماسورة (إنش)</label>
+                        <input type="number" value={line.doorPipeLengthInch} onChange={e => updateLine(line.id, 'doorPipeLengthInch', e.target.value)} className="w-28 px-2 py-1.5 rounded-lg border border-amber-200 outline-none text-sm dir-ltr text-center" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                      <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                        <input type="checkbox" checked={line.doorHasCover} onChange={e => updateLine(line.id, 'doorHasCover', e.target.checked)} className="h-4 w-4" />
+                        إضافة شاشية (Cover)
+                      </label>
+                      {line.doorHasCover && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <input type="number" placeholder="العرض (مم)" value={line.doorCoverWidthMm} onChange={e => updateLine(line.id, 'doorCoverWidthMm', e.target.value)} className="px-2 py-1.5 rounded-lg border border-slate-300 outline-none text-sm dir-ltr text-center" />
+                          <input type="number" placeholder="الارتفاع (مم)" value={line.doorCoverHeightMm} onChange={e => updateLine(line.id, 'doorCoverHeightMm', e.target.value)} className="px-2 py-1.5 rounded-lg border border-slate-300 outline-none text-sm dir-ltr text-center" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                      <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                        <input type="checkbox" checked={line.doorHasBox} onChange={e => updateLine(line.id, 'doorHasBox', e.target.checked)} className="h-4 w-4" />
+                        إضافة صندوق (Box)
+                      </label>
+                      {line.doorHasBox && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <input type="number" placeholder="الطول (مم)" value={line.doorBoxLengthMm} onChange={e => updateLine(line.id, 'doorBoxLengthMm', e.target.value)} className="px-2 py-1.5 rounded-lg border border-slate-300 outline-none text-sm dir-ltr text-center" />
+                          <input type="number" placeholder="الارتفاع (مم)" value={line.doorBoxHeightMm} onChange={e => updateLine(line.id, 'doorBoxHeightMm', e.target.value)} className="px-2 py-1.5 rounded-lg border border-slate-300 outline-none text-sm dir-ltr text-center" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">ملاحظات الصنف</label>
+                    <textarea rows={2} value={line.lineNotes} onChange={e => updateLine(line.id, 'lineNotes', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none resize-none" placeholder="أي تفاصيل إضافية خاصة بهذا الصنف..." />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">سعر الباب (₪)</label>
+                      <input required type="number" step="0.01" value={line.unitPriceCents / 100} onChange={e => updateLine(line.id, 'unitPriceCents', Math.round(Number(e.target.value) * 100))} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none text-center dir-ltr" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">الإجمالي</label>
+                      <div className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-center font-mono font-bold text-slate-800 dir-ltr">
+                        {(line.unitPriceCents / 100).toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
                 <div key={line.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start bg-slate-50 p-4 rounded-xl border border-slate-200">
                   <div className="md:col-span-5 flex flex-col gap-2">
                     {line.type === 'product' ? (
