@@ -162,9 +162,14 @@ function ItemsContent() {
               {mainCats.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
             <select style={{ fontSize: 12, padding: '3px 6px', border: '0.5px solid var(--color-border-secondary)', borderRadius: 'var(--border-radius-md)' }}
-              onChange={e => e.target.value && bulkAction({ pricing_status: e.target.value })}>
+              onChange={e => {
+                const v = e.target.value;
+                if (!v) return;
+                bulkAction(v === 'مجمد' ? { is_frozen: true } : { pricing_status: v });
+              }}>
               <option value="">تغيير حالة</option>
               {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+              <option value="مجمد">مجمد</option>
             </select>
           </div>
         </div>

@@ -98,138 +98,71 @@ export async function updateOpportunityStatusAction(orderId: string, newStatus: 
 
   if (!order) throw new Error("الطلب غير موجود");
 
-  const { error } = await supabase
-    .from("erp_sales_orders")
-    .update({ status: newStatus })
-    .eq("id", orderId);
-
-  if (error) throw new Error(error.message);
-
-  // SMART FULFILLMENT AUTOMATION: If status changed to 'معتمد' (Approved)
   if (newStatus === "معتمد" && order.status !== "معتمد") {
-    
-    // Fetch all lines
-    const { data: lines } = await supabase.from("erp_sales_order_lines").select("*").eq("sales_order_id", orderId);
-    
-    if (lines && lines.length > 0) {
-      let createdProduction = false;
+    // SMART FULFILLMENT AUTOMATION: routes every line (product / manufacturing /
+    // maintenance) to the responsible department atomically in one DB transaction.
+    const { data: result, error: rpcError } = await supabase
+      .rpc("approve_sales_order", { p_order_id: orderId })
+      .single();
 
-      for (const line of lines) {
-        if (line.line_type === 'maintenance') {
-          // Create Maintenance Ticket (just a log for now)
-          await supabase.from("erp_maintenance_logs").insert([{
-            machine_id: null, // General maintenance
-            maintenance_date: new Date().toISOString(),
-            description: `تذكرة صيانة للعميل ${order.erp_customers?.name} بناءً على الطلب #${orderId.slice(0,8)}`,
-            cost_cents: line.total_price_cents,
-            performed_by: "فريق الصيانة"
-          }]);
-          continue;
-        }
+    if (rpcError) throw new Error(rpcError.message);
 
-        if (line.line_type === 'manufacturing') {
-          // Direct to Production - No inventory check
-          await supabase.from("erp_production_orders").insert([{
-            sales_order_id: order.id,
-            item_code: null, // Custom item
-            quantity: line.quantity,
-            status: "مخطط",
-            priority: "عالي",
-            notes: `تصنيع مخصص: ${line.description || 'بدون وصف'}` // we'll use description column from line if we had one, wait, line doesn't have description in db.
-            // Oh, wait! I didn't add description to erp_sales_order_lines.
-            // We need a place for this. Let's just put it in notes.
-          }]);
-          await supabase.from("erp_sales_order_lines").update({ fulfillment_status: 'manufacturing' }).eq("id", line.id);
-          createdProduction = true;
-          continue;
-        }
+    await notifyDepartments(order, result as { needs_production: boolean; needs_maintenance: boolean; needs_purchasing: boolean });
+  } else {
+    const { error } = await supabase
+      .from("erp_sales_orders")
+      .update({ status: newStatus })
+      .eq("id", orderId);
 
-        if (line.line_type === 'product' && line.item_code) {
-          // Fetch Item Details to know its source
-          const { data: itemData } = await supabase.from("erp_items").select("item_source").eq("item_code", line.item_code).single();
-          const isPurchased = itemData?.item_source === 'purchased';
+    if (error) throw new Error(error.message);
+  }
 
-          // Check Inventory First
-          const { data: invData } = await supabase
-            .from("erp_inventory")
-            .select("warehouse_id, quantity")
-            .eq("item_code", line.item_code);
-            
-          let availableQty = 0;
-          let primaryWarehouse = null;
-          
-          if (invData && invData.length > 0) {
-            availableQty = invData.reduce((sum, w) => sum + Number(w.quantity), 0);
-            primaryWarehouse = invData[0].warehouse_id;
-          }
+  revalidatePath("/dashboard/sales");
+}
 
-          const requiredQty = line.quantity;
+async function notifyDepartments(
+  order: { id: string; erp_customers?: { name?: string } | null },
+  routing: { needs_production: boolean; needs_maintenance: boolean; needs_purchasing: boolean }
+) {
+  const customerName = order.erp_customers?.name || "غير محدد";
+  const orderRef = order.id.split("-")[0];
 
-          if (availableQty >= requiredQty) {
-            // We have enough in stock! Just deduct it.
-            if (primaryWarehouse) {
-              const newQty = availableQty - requiredQty; // simplified deduction from first warehouse
-              await supabase.from("erp_inventory").update({ quantity: newQty }).eq("item_code", line.item_code).eq("warehouse_id", primaryWarehouse);
-              await supabase.from("erp_sales_order_lines").update({ fulfillment_status: 'completed' }).eq("id", line.id);
-            }
-          } else {
-            // Deduct whatever we have
-            let missingQty = requiredQty;
-            if (availableQty > 0 && primaryWarehouse) {
-              await supabase.from("erp_inventory").update({ quantity: 0 }).eq("item_code", line.item_code).eq("warehouse_id", primaryWarehouse);
-              missingQty = requiredQty - availableQty;
-            }
+  const departments: { role: string; condition: boolean; message: string }[] = [
+    {
+      role: "production",
+      condition: routing.needs_production,
+      message: `🔔 أوامر تصنيع جديدة!\n\nتم اعتماد طلب المبيعات رقم: #${orderRef}\nللعميل: ${customerName}\nتتضمن أصناف تحتاج للتصنيع.\nالرجاء متابعة لوحة الإنتاج.`,
+    },
+    {
+      role: "maintenance",
+      condition: routing.needs_maintenance,
+      message: `🔔 تذكرة صيانة جديدة!\n\nتم اعتماد طلب المبيعات رقم: #${orderRef}\nللعميل: ${customerName}\nيتضمن طلب صيانة.\nالرجاء متابعة قائمة تذاكر الصيانة.`,
+    },
+    {
+      role: "purchasing",
+      condition: routing.needs_purchasing,
+      message: `🔔 طلب شراء جديد!\n\nتم اعتماد طلب المبيعات رقم: #${orderRef}\nللعميل: ${customerName}\nيتضمن نواقص تحتاج للشراء.\nالرجاء متابعة قائمة طلبات الشراء.`,
+    },
+  ];
 
-            if (isPurchased) {
-              // Create Purchase Request for the missing quantity
-              await supabase.from("erp_purchase_requests").insert([{
-                sales_order_id: order.id,
-                item_code: line.item_code,
-                quantity: missingQty,
-                status: "قيد الانتظار",
-                priority: "عالي",
-                notes: `مطلوب استيفاء لطلب المبيعات (متوفر في المخزن: ${availableQty})`
-              }]);
-              await supabase.from("erp_sales_order_lines").update({ fulfillment_status: 'purchasing' }).eq("id", line.id);
-            } else {
-              // Create Production Order for the missing quantity
-              await supabase.from("erp_production_orders").insert([{
-                sales_order_id: order.id,
-                item_code: line.item_code,
-                quantity: missingQty,
-                status: "مخطط",
-                priority: "عالي",
-                notes: `تم الإنشاء آلياً لاستيفاء نقص المخزون. (متوفر: ${availableQty})`
-              }]);
-              await supabase.from("erp_sales_order_lines").update({ fulfillment_status: 'manufacturing' }).eq("id", line.id);
-              createdProduction = true;
-            }
-          }
-        }
-      }
+  for (const dept of departments) {
+    if (!dept.condition) continue;
 
-      // Notify Production Staff if any production order was created
-      if (createdProduction) {
-        const { data: prodStaff } = await supabase
-          .from("erp_staff")
-          .select("telegram_chat_id")
-          .eq("role", "production")
-          .eq("is_active", true)
-          .not("telegram_chat_id", "is", null);
+    const { data: staff } = await supabase
+      .from("erp_staff")
+      .select("telegram_chat_id")
+      .eq("role", dept.role)
+      .eq("is_active", true)
+      .not("telegram_chat_id", "is", null);
 
-        if (prodStaff && prodStaff.length > 0) {
-          const message = `🔔 أوامر تصنيع جديدة!\n\nتم اعتماد طلب المبيعات رقم: #${order.id.split("-")[0]}\nللعميل: ${order.erp_customers?.name || "غير محدد"}\nتتضمن نواقص تحتاج للتصنيع.\nالرجاء متابعة لوحة الإنتاج (Mini App).`;
-          for (const staff of prodStaff) {
-            if (staff.telegram_chat_id) {
-              await sendTelegramMessage(staff.telegram_chat_id, message);
-            }
-          }
+    if (staff) {
+      for (const member of staff) {
+        if (member.telegram_chat_id) {
+          await sendTelegramMessage(member.telegram_chat_id, dept.message);
         }
       }
     }
   }
-
-  revalidatePath("/dashboard/sales");
 }
 
 async function sendTelegramMessage(chatId: string, text: string) {

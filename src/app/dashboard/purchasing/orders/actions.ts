@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
+import { markPurchaseRequestOrdered } from "@/lib/purchasing-data";
 
 export async function createPurchaseOrderAction(formData: FormData) {
   try {
@@ -100,4 +101,15 @@ export async function receivePurchaseOrderAction(poId: string, warehouseId: stri
   } catch (error: any) {
     return { success: false, message: error.message };
   }
+}
+
+export async function markPurchaseRequestOrderedAction(requestId: string) {
+  try {
+    await markPurchaseRequestOrdered(requestId);
+  } catch (error: any) {
+    throw new Error("فشل تحديث حالة طلب الشراء");
+  }
+
+  revalidatePath("/dashboard/purchasing/requests");
+  revalidatePath("/dashboard/purchasing");
 }

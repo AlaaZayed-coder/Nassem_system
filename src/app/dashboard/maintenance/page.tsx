@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Wrench, Cog, ActivitySquare, AlertTriangle } from "lucide-react";
-import { getMachines, getMaintenanceLogs } from "@/lib/maintenance-data";
+import { Wrench, Cog, ActivitySquare, AlertTriangle, Ticket } from "lucide-react";
+import { getMachines, getMaintenanceLogs, getMaintenanceRequests } from "@/lib/maintenance-data";
 
 export default async function MaintenanceDashboardPage() {
   const machines = await getMachines();
   const logs = await getMaintenanceLogs();
+  const pendingRequests = await getMaintenanceRequests("قيد الانتظار");
 
   const workingMachines = machines.filter((m) => m.status === "تعمل").length;
   const brokenMachines = machines.filter((m) => m.status === "متعطلة" || m.status === "صيانة").length;
@@ -18,7 +19,7 @@ export default async function MaintenanceDashboardPage() {
         <p className="text-slate-500 mt-2">راقب حالة آلات المصنع، سجل الأعطال، وجدول عمليات الصيانة الدورية.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="bg-emerald-100 p-4 rounded-2xl text-emerald-600">
             <ActivitySquare className="w-8 h-8" />
@@ -48,6 +49,16 @@ export default async function MaintenanceDashboardPage() {
             <div className="text-slate-500 font-medium">عملية صيانة مسجلة</div>
           </div>
         </div>
+
+        <Link href="/dashboard/maintenance/requests" className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition">
+          <div className="bg-orange-100 p-4 rounded-2xl text-orange-600">
+            <Ticket className="w-8 h-8" />
+          </div>
+          <div>
+            <div className="text-3xl font-black text-slate-800">{pendingRequests.length}</div>
+            <div className="text-slate-500 font-medium">تذاكر صيانة بانتظار المعالجة</div>
+          </div>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

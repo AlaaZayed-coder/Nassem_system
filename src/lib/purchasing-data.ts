@@ -66,7 +66,38 @@ export async function updatePurchaseOrderStatus(id: string, status: string) {
 // Retrieves items that have inventory below their min_stock_level
 export async function getLowStockAlerts() {
   // We need to fetch all items with min_stock_level, then check their inventory.
-  // Since inventory is calculated dynamically from movements, we can use getInventorySummary() 
+  // Since inventory is calculated dynamically from movements, we can use getInventorySummary()
   // from inventory-data.ts and filter it.
   return []; // We will implement this in the page component directly using getInventorySummary
+}
+
+export async function getPurchaseRequests(status?: string) {
+  let query = supabase
+    .from("erp_purchase_requests")
+    .select("*, erp_items(original_name, approved_name), erp_sales_orders(id)")
+    .order("created_at", { ascending: false });
+
+  if (status) {
+    query = query.eq("status", status);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching purchase requests:", error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function markPurchaseRequestOrdered(id: string) {
+  const { data, error } = await supabase
+    .from("erp_purchase_requests")
+    .update({ status: "مكتمل", updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 }

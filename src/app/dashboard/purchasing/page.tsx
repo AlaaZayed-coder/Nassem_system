@@ -1,16 +1,17 @@
-import { ShoppingCart, Users, AlertTriangle, ArrowRightLeft, PackageOpen } from "lucide-react";
+import { ShoppingCart, Users, AlertTriangle, ArrowRightLeft, PackageOpen, ClipboardList } from "lucide-react";
 import Link from "next/link";
 import { getInventorySummary } from "@/lib/inventory-data";
-import { getPurchaseOrders, getSuppliers } from "@/lib/purchasing-data";
+import { getPurchaseOrders, getSuppliers, getPurchaseRequests } from "@/lib/purchasing-data";
 import { formatCurrency } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function PurchasingDashboard() {
-  const [inventory, orders, suppliers] = await Promise.all([
+  const [inventory, orders, suppliers, pendingRequests] = await Promise.all([
     getInventorySummary(),
     getPurchaseOrders(),
-    getSuppliers()
+    getSuppliers(),
+    getPurchaseRequests("قيد الانتظار")
   ]);
 
   // Find low stock items (where total inventory <= min_stock_level)
@@ -35,7 +36,7 @@ export default async function PurchasingDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-rose-600 rounded-3xl p-6 text-white shadow-lg shadow-rose-200">
           <h3 className="text-rose-100 font-medium mb-1">إجمالي المشتريات (المستلمة)</h3>
           <p className="text-3xl font-black font-mono" dir="ltr">{formatCurrency(totalPurchases / 100)}</p>
@@ -58,6 +59,15 @@ export default async function PurchasingDashboard() {
             <PackageOpen className="h-7 w-7" />
           </div>
         </div>
+        <Link href="/dashboard/purchasing/requests" className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition">
+          <div>
+            <h3 className="text-slate-500 font-medium mb-1">طلبات من المبيعات</h3>
+            <p className="text-3xl font-black text-slate-800 font-mono" dir="ltr">{pendingRequests.length}</p>
+          </div>
+          <div className="h-14 w-14 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center">
+            <ClipboardList className="h-7 w-7" />
+          </div>
+        </Link>
       </div>
 
       {/* Main Navigation */}

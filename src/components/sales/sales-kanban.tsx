@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { SalesOrder } from "@/lib/sales-data";
 import { updateOpportunityStatusAction } from "@/app/dashboard/sales/actions";
 import { formatCurrency } from "@/lib/format";
@@ -76,7 +77,13 @@ export function SalesKanban({ initialOrders }: { initialOrders: SalesOrder[] }) 
                   className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing hover:shadow-md transition group"
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs font-mono text-slate-400">#{order.id.split("-")[0]}</span>
+                    <Link
+                      href={`/dashboard/sales/${order.id}`}
+                      className="text-xs font-mono text-slate-400 hover:text-indigo-600 hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      #{order.id.split("-")[0]}
+                    </Link>
                     <span className="px-2 py-0.5 rounded-full bg-slate-100 text-xs font-bold text-slate-600">
                       {order.win_probability_percent || 0}% فوز
                     </span>

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { addMachine, updateMachineStatus, addMaintenanceLog } from "@/lib/maintenance-data";
+import { addMachine, updateMachineStatus, addMaintenanceLog, resolveMaintenanceRequest } from "@/lib/maintenance-data";
 import { redirect } from "next/navigation";
 
 export async function createMachineAction(formData: FormData) {
@@ -63,4 +63,20 @@ export async function logMaintenanceAction(formData: FormData) {
   revalidatePath("/dashboard/maintenance");
   revalidatePath("/dashboard/maintenance/machines");
   redirect("/dashboard/maintenance");
+}
+
+export async function resolveMaintenanceRequestAction(formData: FormData) {
+  const requestId = formData.get("request_id") as string;
+  const technician_name = formData.get("technician_name") as string;
+  const cost = Number(formData.get("cost"));
+
+  try {
+    await resolveMaintenanceRequest(requestId, technician_name, cost ? Math.round(cost * 100) : 0);
+  } catch (error) {
+    console.error("Failed to resolve maintenance request:", error);
+    throw new Error("فشل إغلاق تذكرة الصيانة");
+  }
+
+  revalidatePath("/dashboard/maintenance/requests");
+  revalidatePath("/dashboard/maintenance");
 }

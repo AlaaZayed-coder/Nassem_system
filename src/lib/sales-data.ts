@@ -54,3 +54,36 @@ export async function getSalesOpportunities(): Promise<SalesOrder[]> {
   }
   return data || [];
 }
+
+export type SalesOrderLine = {
+  id: string;
+  sales_order_id: string;
+  item_code: string | null;
+  quantity: number;
+  unit_price_cents: number;
+  total_price_cents: number;
+  line_type: string;
+  fulfillment_status: string;
+  description: string | null;
+  line_notes: string | null;
+  created_at: string;
+  erp_items?: { original_name: string } | null;
+};
+
+export async function getSalesOrderDetail(orderId: string) {
+  const [{ data: order }, { data: lines }, { data: productionOrders }, { data: maintenanceRequests }, { data: purchaseRequests }] = await Promise.all([
+    supabase.from("erp_sales_orders").select("*, erp_customers(*)").eq("id", orderId).single(),
+    supabase.from("erp_sales_order_lines").select("*, erp_items(original_name)").eq("sales_order_id", orderId).order("created_at", { ascending: true }),
+    supabase.from("erp_production_orders").select("*").eq("sales_order_id", orderId),
+    supabase.from("erp_maintenance_requests").select("*").eq("sales_order_id", orderId),
+    supabase.from("erp_purchase_requests").select("*").eq("sales_order_id", orderId),
+  ]);
+
+  return {
+    order: order || null,
+    lines: (lines || []) as SalesOrderLine[],
+    productionOrders: productionOrders || [],
+    maintenanceRequests: maintenanceRequests || [],
+    purchaseRequests: purchaseRequests || [],
+  };
+}
