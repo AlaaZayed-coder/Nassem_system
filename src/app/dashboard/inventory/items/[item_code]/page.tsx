@@ -95,6 +95,7 @@ export default function ItemDetailPage() {
   const locked = item.price_locked;
   const mainCats = (categories as any[]).filter(c => c.is_active !== false);
   const showInstallation = (form.main_category || "").match(/أبواب|مواتير/);
+  const showDoorWeight = (form.main_category || "").match(/أبواب/);
 
   function commitCost(val: string) {
     const c = val ? Math.round(Number(val) * 100) : null;
@@ -371,6 +372,19 @@ export default function ItemDetailPage() {
                     onChange={e => set("price_with_installation", e.target.value)} />
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* وزن الباب لكل م² — يُستخدم في محرك الحسابات الهندسية لطلبيات الأبواب */}
+          {showDoorWeight && (
+            <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 12, marginTop: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                <Calculator size={13} color="#7C5ABF" />
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#5A3FA0" }}>وزن الباب لكل م² (كغم)</span>
+              </div>
+              <input style={{ ...inputStyle, fontFamily: "monospace", maxWidth: 160 }} type="number" step="0.01" dir="ltr" disabled={locked}
+                value={form.weight_per_m2_kg ?? ""}
+                onChange={e => set("weight_per_m2_kg", e.target.value)} />
             </div>
           )}
         </div>

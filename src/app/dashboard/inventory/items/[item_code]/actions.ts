@@ -47,6 +47,7 @@ export async function saveItemFullAction(formData: FormData) {
     final_selling_price_cents: finalPriceCents,
     supplier: formData.get("supplier") || null,
     notes: formData.get("notes") || null,
+    weight_per_m2_kg: formData.get("weight_per_m2_kg") ? Number(formData.get("weight_per_m2_kg")) : null,
     last_modified_by: "system",
     last_modified_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
