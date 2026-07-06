@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, Suspense } from "react";
 import { createSalesOpportunityAction, createCustomerAction, linkSubmissionAndNotifySubmitterAction } from "@/app/dashboard/sales/actions";
 import { getCustomers, Customer } from "@/lib/sales-data";
 import { supabase } from "@/lib/supabase";
@@ -9,6 +9,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function NewSalesOpportunityPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewSalesOpportunityPageInner />
+    </Suspense>
+  );
+}
+
+function NewSalesOpportunityPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const submissionId = searchParams.get("submission_id");
