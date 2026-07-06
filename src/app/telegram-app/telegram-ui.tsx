@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Factory, ShieldCheck, LogOut, CheckCircle2, Clock, PlayCircle, AlertTriangle, Briefcase, ShoppingCart, TrendingUp } from "lucide-react";
+import { Factory, ShieldCheck, LogOut, CheckCircle2, Clock, PlayCircle, AlertTriangle, Briefcase, ShoppingCart, TrendingUp, Inbox } from "lucide-react";
 import { updateProductionOrderStatus, getTelegramDashboardDataAction } from "./actions";
 
 export function TelegramUI() {
@@ -89,6 +89,7 @@ export function TelegramUI() {
     production: { label: "الإنتاج", color: "bg-indigo-600" },
     sales: { label: "المبيعات", color: "bg-purple-600" },
     purchasing: { label: "المشتريات", color: "bg-rose-600" },
+    order_processor: { label: "معالج الطلبيات", color: "bg-teal-600" },
     manager: { label: "الإدارة", color: "bg-slate-800" },
   };
 
@@ -193,6 +194,28 @@ export function TelegramUI() {
                 <div className="mt-2 text-sm text-slate-600">القيمة: <span className="font-bold text-rose-600" dir="ltr">{(po.total_amount_cents / 100).toFixed(2)}</span></div>
               </div>
             ))}
+          </>
+        )}
+
+        {/* ORDER PROCESSOR VIEW */}
+        {staffData?.role === "order_processor" && (
+          <>
+            <h2 className="font-bold text-slate-800 flex items-center gap-2 px-1">
+              <Inbox className="h-5 w-5 text-teal-600" />
+              صندوق وارد الطلبيات
+            </h2>
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 text-center">
+              <div className="text-4xl font-black text-teal-600 mb-1">{staffData.data?.pendingSubmissions || 0}</div>
+              <div className="text-sm font-bold text-slate-500">طلبية بانتظار المراجعة</div>
+            </div>
+            <a
+              href="https://nassem-system.vercel.app/dashboard/sales/submissions"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 bg-teal-600 text-white font-bold py-3.5 rounded-xl active:bg-teal-700 transition"
+            >
+              فتح لوحة المعالجة الكاملة
+            </a>
           </>
         )}
 

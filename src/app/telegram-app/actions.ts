@@ -62,6 +62,13 @@ export async function getTelegramDashboardDataAction(telegramChatId: string) {
         .order("created_at", { ascending: false });
       dashboardData.pendingPos = pos || [];
     }
+    else if (role === "order_processor") {
+      const { count } = await supabase
+        .from("erp_order_submissions")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "قيد المراجعة");
+      dashboardData.pendingSubmissions = count || 0;
+    }
     else if (role === "manager") {
       // Basic stats for manager
       const [{ count: salesCount }, { count: prodCount }, { count: poCount }] = await Promise.all([

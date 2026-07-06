@@ -2,6 +2,7 @@
 
 import { supabase } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
+import { sendTelegramMessage } from "@/lib/telegram";
 
 export async function createCustomerAction(formData: FormData) {
   const name = formData.get("name") as string;
@@ -159,30 +160,9 @@ async function notifyDepartments(
     if (staff) {
       for (const member of staff) {
         if (member.telegram_chat_id) {
-          await sendTelegramMessage(member.telegram_chat_id, dept.message);
+          await sendTelegramMessage(member.telegram_chat_id, dept.message, true);
         }
       }
     }
   }
-}
-
-async function sendTelegramMessage(chatId: string, text: string) {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  if (!botToken) return;
-
-  try {
-    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: text,
-        reply_markup: {
-          inline_keyboard: [[
-            { text: "فتح تطبيق المصنع", web_app: { url: "https://nassem-system.vercel.app/telegram-app" } }
-          ]]
-        }
-      })
-    });
-  } catch (err) {}
 }

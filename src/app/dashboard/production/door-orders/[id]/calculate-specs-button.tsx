@@ -16,7 +16,8 @@ export function CalculateSpecsButton({ itemId }: { itemId: string }) {
           startTransition(async () => {
             setError("");
             try {
-              await calculateDoorItemSpecsAction(itemId);
+              const result = await calculateDoorItemSpecsAction(itemId);
+              if (result?.error) setError(result.error);
             } catch (err: any) {
               setError(err.message);
             }

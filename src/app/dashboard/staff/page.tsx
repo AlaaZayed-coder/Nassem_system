@@ -12,6 +12,7 @@ export default async function StaffPage() {
     'sales': { label: 'مبيعات', color: 'bg-blue-100 text-blue-800' },
     'production': { label: 'إنتاج ومصنع', color: 'bg-indigo-100 text-indigo-800' },
     'purchasing': { label: 'مشتريات', color: 'bg-amber-100 text-amber-800' },
+    'order_processor': { label: 'معالج الطلبيات', color: 'bg-teal-100 text-teal-800' },
     'manager': { label: 'مدير النظام', color: 'bg-purple-100 text-purple-800' },
   };
 

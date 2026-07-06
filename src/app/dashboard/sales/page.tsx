@@ -1,6 +1,6 @@
 import { getCustomers, getSalesOpportunities } from "@/lib/sales-data";
 import { SalesKanban } from "@/components/sales/sales-kanban";
-import { Users, Target, CircleDollarSign, Plus, LayoutDashboard } from "lucide-react";
+import { Users, Target, CircleDollarSign, Plus, LayoutDashboard, Inbox } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/format";
 
@@ -27,6 +27,10 @@ export default async function SalesDashboardPage() {
           <p className="text-slate-500 mt-2 text-lg">تتبع مسار المبيعات، الفرص البيعية، وقاعدة بيانات العملاء.</p>
         </div>
         <div className="flex items-center gap-3">
+          <Link href="/dashboard/sales/submissions" className="inline-flex items-center gap-2 bg-white text-slate-700 px-5 py-2.5 rounded-xl font-bold hover:bg-slate-50 transition shadow-sm border border-slate-200">
+            <Inbox className="h-5 w-5" />
+            صندوق وارد الطلبيات
+          </Link>
           <Link href="/dashboard/sales/new" className="inline-flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition shadow">
             <Plus className="h-5 w-5" />
             إضافة فرصة بيعية

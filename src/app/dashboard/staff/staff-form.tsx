@@ -35,6 +35,7 @@ export function StaffForm() {
           <option value="sales">مبيعات</option>
           <option value="production">إنتاج ومصنع</option>
           <option value="purchasing">مشتريات</option>
+          <option value="order_processor">معالج الطلبيات</option>
           <option value="manager">مدير النظام</option>
         </select>
       </div>

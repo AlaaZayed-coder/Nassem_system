@@ -87,15 +87,18 @@ export async function addDoorOrderElectronicsAction(formData: FormData) {
   revalidatePath(`/dashboard/production/door-orders/${door_order_id}`);
 }
 
-export async function calculateDoorItemSpecsAction(itemId: string) {
+export async function calculateDoorItemSpecsAction(itemId: string): Promise<{ error?: string }> {
+  // ملاحظة: نُعيد { error } بدل throw لرسائل التحقق المتوقعة، لأن Next.js
+  // يُخفي نص أي خطأ يُرمى داخل Server Action في بيئة الإنتاج (production build)
+  // ويستبدله برسالة عامة — حتى لو كانت الرسالة الأصلية موجّهة للمستخدم عمداً.
   const { data: item, error: itemError } = await supabase
     .from("erp_door_order_items")
     .select("*")
     .eq("id", itemId)
     .single();
 
-  if (itemError || !item) throw new Error("الصنف غير موجود");
-  if (!item.length_mm || !item.height_mm) throw new Error("يجب إدخال الطول والارتفاع قبل الاحتساب");
+  if (itemError || !item) return { error: "الصنف غير موجود" };
+  if (!item.length_mm || !item.height_mm) return { error: "يجب إدخال الطول والارتفاع قبل الاحتساب" };
 
   const { data: catalogItem, error: catalogError } = await supabase
     .from("erp_items")
@@ -104,7 +107,7 @@ export async function calculateDoorItemSpecsAction(itemId: string) {
     .single();
 
   if (catalogError || !catalogItem?.weight_per_m2_kg) {
-    throw new Error("لم يُحدَّد وزن هذا الصنف (كغم/م²) في كتالوج الأصناف بعد");
+    return { error: "لم يُحدَّد وزن هذا الصنف (كغم/م²) في كتالوج الأصناف بعد" };
   }
 
   const result = calculateDoorEngineering({
@@ -114,7 +117,7 @@ export async function calculateDoorItemSpecsAction(itemId: string) {
     isIndustrial: !!item.is_industrial,
   });
 
-  if (!result) throw new Error("تعذّر الاحتساب بالبيانات المتوفرة");
+  if (!result) return { error: "تعذّر الاحتساب بالبيانات المتوفرة" };
 
   const { error: updateError } = await supabase
     .from("erp_door_order_items")
@@ -130,9 +133,10 @@ export async function calculateDoorItemSpecsAction(itemId: string) {
     })
     .eq("id", itemId);
 
-  if (updateError) throw new Error(updateError.message);
+  if (updateError) return { error: updateError.message };
 
   revalidatePath(`/dashboard/production/door-orders/${item.door_order_id}`);
+  return {};
 }
 
 export async function updateDoorOrderStatusAction(orderId: string, newStatus: string) {
