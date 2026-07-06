@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import { createSalesOpportunityAction, createCustomerAction } from "@/app/dashboard/sales/actions";
 import { getCustomers, Customer } from "@/lib/sales-data";
 import { supabase } from "@/lib/supabase";
-import { Target, UserPlus, Save, ArrowRight, Plus, Trash2, Wrench, Factory, DoorClosed } from "lucide-react";
+import { Target, UserPlus, Save, ArrowRight, Plus, Trash2, Wrench, Factory, DoorClosed, Layers, ChevronDown, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -25,12 +25,17 @@ export default function NewSalesOpportunityPage() {
 
   // Order Items State
   const [lines, setLines] = useState<{
-    id: string, type: 'product' | 'maintenance' | 'manufacturing' | 'door', itemCode: string, quantity: number, unitPriceCents: number, description: string, lineNotes: string, unit: string,
+    id: string, type: 'product' | 'maintenance' | 'manufacturing' | 'door' | 'slat', itemCode: string, quantity: number, unitPriceCents: number, description: string, lineNotes: string, unit: string,
     doorColor: string, doorLengthMm: string, doorHeightMm: string, doorProfileItemCode: string,
     doorHasCover: boolean, doorCoverWidthMm: string, doorCoverHeightMm: string,
     doorHasBox: boolean, doorBoxLengthMm: string, doorBoxHeightMm: string,
     doorGuidesSent: boolean, doorIsIndustrial: boolean, doorPipeLengthInch: string,
+    slatColor: string, slatWidthMm: string, slatFinCount: string, slatFrontageCount: string,
+    // ملحقات الباب (Parent-Child): ريش/جبهة وماتور مرتبطان بنفس طلبية التصنيع
+    accNeedsSlat: boolean, accSlatQty: string,
+    accNeedsMotor: boolean, accMotorMode: 'catalog' | 'new', accMotorItemCode: string, accMotorFreeText: string, accMotorQty: string,
   }[]>([]);
+  const [manufacturingMenuOpen, setManufacturingMenuOpen] = useState(false);
   
   // Order State
   const [notes, setNotes] = useState("");
@@ -43,7 +48,7 @@ export default function NewSalesOpportunityPage() {
     });
   }, []);
 
-  const addLine = (type: 'product' | 'maintenance' | 'manufacturing' | 'door') => {
+  const addLine = (type: 'product' | 'maintenance' | 'manufacturing' | 'door' | 'slat') => {
     setLines([...lines, {
       id: Math.random().toString(),
       type,
@@ -57,7 +62,11 @@ export default function NewSalesOpportunityPage() {
       doorHasCover: false, doorCoverWidthMm: "", doorCoverHeightMm: "",
       doorHasBox: false, doorBoxLengthMm: "", doorBoxHeightMm: "",
       doorGuidesSent: false, doorIsIndustrial: false, doorPipeLengthInch: "",
+      slatColor: "", slatWidthMm: "", slatFinCount: "", slatFrontageCount: "",
+      accNeedsSlat: false, accSlatQty: "",
+      accNeedsMotor: false, accMotorMode: 'catalog', accMotorItemCode: "", accMotorFreeText: "", accMotorQty: "1",
     }]);
+    setManufacturingMenuOpen(false);
   };
 
   const removeLine = (id: string) => {
@@ -106,6 +115,18 @@ export default function NewSalesOpportunityPage() {
         }
 
         const linesForSubmit = lines.map((l) => {
+          if (l.type === "slat") {
+            return {
+              ...l,
+              slatSpecs: {
+                color: l.slatColor || undefined,
+                width_mm: l.slatWidthMm ? Number(l.slatWidthMm) : undefined,
+                fin_count: l.slatFinCount || undefined,
+                frontage_count: l.slatFrontageCount ? Number(l.slatFrontageCount) : undefined,
+                notes: l.lineNotes || undefined,
+              },
+            };
+          }
           if (l.type !== "door") return l;
           return {
             ...l,
@@ -125,6 +146,13 @@ export default function NewSalesOpportunityPage() {
               item_notes: l.lineNotes || undefined,
               is_industrial: l.doorIsIndustrial,
               pipe_length_inch: l.doorIsIndustrial && l.doorPipeLengthInch ? Number(l.doorPipeLengthInch) : undefined,
+              accessories: {
+                needs_slat: l.accNeedsSlat,
+                slat_qty: l.accNeedsSlat && l.accSlatQty ? Number(l.accSlatQty) : undefined,
+                motor_item_code: l.accNeedsMotor && l.accMotorMode === 'catalog' ? l.accMotorItemCode || undefined : undefined,
+                motor_free_text: l.accNeedsMotor && l.accMotorMode === 'new' ? l.accMotorFreeText || undefined : undefined,
+                motor_quantity: l.accNeedsMotor && l.accMotorQty ? Number(l.accMotorQty) : undefined,
+              },
             },
           };
         });
@@ -220,16 +248,34 @@ export default function NewSalesOpportunityPage() {
             </h2>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => addLine('product')} className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-bold flex items-center gap-1 hover:bg-indigo-100 transition">
-                <Plus className="h-4 w-4" /> صنف جاهز (مبيعات)
+                <Plus className="h-4 w-4" /> صنف جاهز
               </button>
-              <button type="button" onClick={() => addLine('manufacturing')} className="px-3 py-1.5 bg-sky-50 text-sky-600 rounded-lg text-sm font-bold flex items-center gap-1 hover:bg-sky-100 transition">
-                <Factory className="h-4 w-4" /> طلب تصنيع
-              </button>
+
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setManufacturingMenuOpen((v) => !v)}
+                  className="px-3 py-1.5 bg-sky-50 text-sky-600 rounded-lg text-sm font-bold flex items-center gap-1 hover:bg-sky-100 transition"
+                >
+                  <Factory className="h-4 w-4" /> تصنيع <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+                {manufacturingMenuOpen && (
+                  <div className="absolute z-10 mt-1 bg-white rounded-xl shadow-lg border border-slate-200 p-1.5 w-48 flex flex-col gap-1">
+                    <button type="button" onClick={() => addLine('door')} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-emerald-700 hover:bg-emerald-50 transition text-right">
+                      <DoorClosed className="h-4 w-4" /> باب رول (+ملحقاته)
+                    </button>
+                    <button type="button" onClick={() => addLine('manufacturing')} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-sky-700 hover:bg-sky-50 transition text-right">
+                      <Factory className="h-4 w-4" /> تصنيع عام آخر
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <button type="button" onClick={() => addLine('maintenance')} className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-lg text-sm font-bold flex items-center gap-1 hover:bg-amber-100 transition">
                 <Wrench className="h-4 w-4" /> طلب صيانة
               </button>
-              <button type="button" onClick={() => addLine('door')} className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-sm font-bold flex items-center gap-1 hover:bg-emerald-100 transition">
-                <DoorClosed className="h-4 w-4" /> طلب باب رول
+              <button type="button" onClick={() => addLine('slat')} className="px-3 py-1.5 bg-teal-50 text-teal-600 rounded-lg text-sm font-bold flex items-center gap-1 hover:bg-teal-100 transition">
+                <Layers className="h-4 w-4" /> ريش / جبهة (بدون باب)
               </button>
             </div>
           </div>
@@ -248,7 +294,55 @@ export default function NewSalesOpportunityPage() {
                 <div className="col-span-1"></div>
               </div>
               
-              {lines.map((line) => line.type === 'door' ? (
+              {lines.map((line) => line.type === 'slat' ? (
+                <div key={line.id} className="bg-slate-50 p-5 rounded-2xl border border-teal-200 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded w-fit bg-teal-100 text-teal-700">ريش / جبهة</span>
+                    <button type="button" onClick={() => removeLine(line.id)} className="p-1.5 text-rose-400 hover:text-rose-600 bg-white hover:bg-rose-50 rounded-lg transition border border-slate-200">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">اللون</label>
+                      <input type="text" value={line.slatColor} onChange={e => updateLine(line.id, 'slatColor', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">عرض الريشة/الجبهة (مم)</label>
+                      <input type="number" value={line.slatWidthMm} onChange={e => updateLine(line.id, 'slatWidthMm', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none dir-ltr text-center" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">عدد الريش</label>
+                      <input type="text" placeholder="مثال: 18+2+18+1" value={line.slatFinCount} onChange={e => updateLine(line.id, 'slatFinCount', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none dir-ltr text-center" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">عدد الجبهات</label>
+                      <input type="number" value={line.slatFrontageCount} onChange={e => updateLine(line.id, 'slatFrontageCount', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none dir-ltr text-center" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">ملاحظات (لون مختلف، موقع الريش، طريقة التركيب...)</label>
+                    <textarea rows={2} value={line.lineNotes} onChange={e => updateLine(line.id, 'lineNotes', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none resize-none" placeholder="مثال: ريشتان بلون مختلف في المنتصف // تركيب خارجي" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">الكمية (م²)</label>
+                      <input required type="number" step="0.01" min="0.01" value={line.quantity || ''} onChange={e => updateLine(line.id, 'quantity', Number(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none text-center dir-ltr" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">سعر المتر المربع (₪)</label>
+                      <input required type="number" step="0.01" value={line.unitPriceCents / 100} onChange={e => updateLine(line.id, 'unitPriceCents', Math.round(Number(e.target.value) * 100))} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none text-center dir-ltr" />
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-xs text-slate-500">الإجمالي</span>
+                    <span className="font-mono font-bold text-slate-800" dir="ltr">{((line.quantity * line.unitPriceCents) / 100).toFixed(2)}</span>
+                  </div>
+                </div>
+              ) : line.type === 'door' ? (
                 <div key={line.id} className="bg-slate-50 p-5 rounded-2xl border border-emerald-200 space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded w-fit bg-emerald-100 text-emerald-700">طلب باب رول</span>
@@ -342,6 +436,74 @@ export default function NewSalesOpportunityPage() {
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">ملاحظات الصنف</label>
                     <textarea rows={2} value={line.lineNotes} onChange={e => updateLine(line.id, 'lineNotes', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none resize-none" placeholder="أي تفاصيل إضافية خاصة بهذا الصنف..." />
+                  </div>
+
+                  {/* ملحقات الباب: ريش/جبهة وماتور — Parent-Child مرتبط بنفس طلبية التصنيع */}
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 space-y-3">
+                    <div className="text-xs font-bold text-indigo-900">ملحقات الباب (اختياري)</div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                        <input type="checkbox" checked={line.accNeedsSlat} onChange={e => updateLine(line.id, 'accNeedsSlat', e.target.checked)} className="h-4 w-4" />
+                        <Layers className="h-3.5 w-3.5 text-teal-600" /> يحتاج ريش / جبهة
+                      </label>
+                      {line.accNeedsSlat && (
+                        <input
+                          type="number"
+                          placeholder="الكمية"
+                          value={line.accSlatQty}
+                          onChange={e => updateLine(line.id, 'accSlatQty', e.target.value)}
+                          className="w-24 px-2 py-1.5 rounded-lg border border-slate-300 outline-none text-xs dir-ltr text-center"
+                        />
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                        <input type="checkbox" checked={line.accNeedsMotor} onChange={e => updateLine(line.id, 'accNeedsMotor', e.target.checked)} className="h-4 w-4" />
+                        <Zap className="h-3.5 w-3.5 text-amber-600" /> يحتاج ماتور
+                      </label>
+                    </div>
+
+                    {line.accNeedsMotor && (
+                      <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-2">
+                        <div className="flex bg-slate-100 p-0.5 rounded-lg w-fit">
+                          <button type="button" onClick={() => updateLine(line.id, 'accMotorMode', 'catalog')} className={`px-3 py-1 text-[11px] font-bold rounded-md transition ${line.accMotorMode === 'catalog' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}>
+                            من الكتالوج
+                          </button>
+                          <button type="button" onClick={() => updateLine(line.id, 'accMotorMode', 'new')} className={`px-3 py-1 text-[11px] font-bold rounded-md transition ${line.accMotorMode === 'new' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}>
+                            صنف غير موجود
+                          </button>
+                        </div>
+
+                        {line.accMotorMode === 'catalog' ? (
+                          <select value={line.accMotorItemCode} onChange={e => updateLine(line.id, 'accMotorItemCode', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none text-sm">
+                            <option value="">ابحث واختر الماتور...</option>
+                            {availableItems.map(i => (
+                              <option key={i.item_code} value={i.item_code}>{i.approved_name || i.original_name}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            placeholder="اكتب اسم/موديل الماتور — سيُنشأ طلب شراء تلقائياً"
+                            value={line.accMotorFreeText}
+                            onChange={e => updateLine(line.id, 'accMotorFreeText', e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none text-sm"
+                          />
+                        )}
+                        <input
+                          type="number"
+                          placeholder="الكمية"
+                          value={line.accMotorQty}
+                          onChange={e => updateLine(line.id, 'accMotorQty', e.target.value)}
+                          className="w-24 px-2 py-1.5 rounded-lg border border-slate-300 outline-none text-xs dir-ltr text-center"
+                        />
+                        <p className="text-[10px] text-indigo-700">
+                          يتحقق النظام تلقائياً من توفر الماتور بالمخزون؛ إن لم يتوفر يُنشئ طلب شراء تلقائي لقسم المشتريات.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">

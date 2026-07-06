@@ -6,4 +6,4 @@ ALTER TABLE erp_inventory ALTER COLUMN quantity TYPE NUMERIC(10,2) USING quantit
 ALTER TABLE erp_inventory_transactions ALTER COLUMN quantity TYPE NUMERIC(10,2) USING quantity::NUMERIC;
 ALTER TABLE erp_sales_order_lines ALTER COLUMN quantity TYPE NUMERIC(10,2) USING quantity::NUMERIC;
 ALTER TABLE erp_production_orders ALTER COLUMN quantity TYPE NUMERIC(10,2) USING quantity::NUMERIC;
-ALTER TABLE erp_production_materials ALTER COLUMN quantity TYPE NUMERIC(10,2) USING quantity::NUMERIC;
+-- Note: erp_production_materials uses quantity_used (already NUMERIC), not quantity.

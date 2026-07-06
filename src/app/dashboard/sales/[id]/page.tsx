@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getSalesOrderDetail } from "@/lib/sales-data";
 import { formatCurrency } from "@/lib/format";
-import { ArrowRight, Target, Wrench, Factory, ShoppingCart, Package, DoorClosed } from "lucide-react";
+import { ArrowRight, Target, Wrench, Factory, ShoppingCart, Package, DoorClosed, Layers } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +10,7 @@ const LINE_TYPE_LABEL: Record<string, string> = {
   manufacturing: "تصنيع مخصص",
   maintenance: "صيانة",
   door: "طلب باب رول",
+  slat: "ريش / جبهة",
 };
 
 const FULFILLMENT_LABEL: Record<string, { label: string; color: string }> = {
@@ -53,7 +54,9 @@ export default async function SalesOrderDetailPage({ params }: { params: { id: s
         <h2 className="font-bold text-slate-800 mb-4 text-lg border-b border-slate-100 pb-3">أسطر الطلب وحالة التوجيه</h2>
         <div className="space-y-3">
           {lines.map(line => {
-            const fulfillment = FULFILLMENT_LABEL[line.fulfillment_status] || { label: line.fulfillment_status, color: "bg-slate-100 text-slate-600" };
+            const fulfillment = line.line_type === "slat" && line.fulfillment_status === "completed"
+              ? { label: "منجزة (ريش/جبهة)", color: "bg-teal-100 text-teal-700" }
+              : FULFILLMENT_LABEL[line.fulfillment_status] || { label: line.fulfillment_status, color: "bg-slate-100 text-slate-600" };
             return (
               <div key={line.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50">
                 <div className="flex items-center gap-3">
@@ -61,11 +64,20 @@ export default async function SalesOrderDetailPage({ params }: { params: { id: s
                   {line.line_type === "manufacturing" && <Factory className="h-5 w-5 text-indigo-500" />}
                   {line.line_type === "product" && <Package className="h-5 w-5 text-emerald-500" />}
                   {line.line_type === "door" && <DoorClosed className="h-5 w-5 text-emerald-500" />}
+                  {line.line_type === "slat" && <Layers className="h-5 w-5 text-teal-500" />}
                   <div>
                     <div className="font-bold text-slate-800">
                       {line.erp_items?.original_name || line.description || LINE_TYPE_LABEL[line.line_type]}
                     </div>
                     <div className="text-xs text-slate-500">{LINE_TYPE_LABEL[line.line_type] || line.line_type} · الكمية: {line.quantity}</div>
+                    {line.line_type === "slat" && line.slat_specs && (
+                      <div className="text-xs text-teal-700 mt-1">
+                        {line.slat_specs.color && <>اللون: {line.slat_specs.color} · </>}
+                        {line.slat_specs.width_mm && <>العرض: {line.slat_specs.width_mm} مم · </>}
+                        {line.slat_specs.fin_count && <>الريش: {line.slat_specs.fin_count} · </>}
+                        {line.slat_specs.frontage_count ? <>الجبهات: {line.slat_specs.frontage_count}</> : null}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

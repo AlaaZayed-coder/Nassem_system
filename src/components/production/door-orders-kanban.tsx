@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { DoorOrder } from "@/lib/door-orders-data";
 import { updateDoorOrderStatusAction } from "@/app/dashboard/production/door-orders/actions";
-import { Phone, Building2, UserCircle2 } from "lucide-react";
+import { Phone, Building2, UserCircle2, Package, Printer } from "lucide-react";
 
 const COLUMNS = [
   { id: "عالقة", label: "عالقة", color: "bg-rose-50", textColor: "text-rose-800", borderColor: "border-rose-300" },
@@ -88,7 +88,17 @@ export function DoorOrdersKanban({ initialOrders }: { initialOrders: DoorOrder[]
                     {order.erp_customers?.name}
                   </div>
 
-                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                  <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                    {(order.item_count ?? 0) > 0 && (
+                      <span className="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
+                        <Package className="h-3 w-3" />
+                        {order.item_count} {order.item_count === 1 ? "صنف" : "أصناف"}
+                      </span>
+                    )}
+                    <span className="text-slate-400">{new Date(order.created_at).toLocaleDateString("ar-SA")}</span>
+                  </div>
+
+                  <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                     <div className="flex gap-2">
                       {order.erp_customers?.phone && (
                         <span title={order.erp_customers.phone}>
@@ -96,7 +106,18 @@ export function DoorOrdersKanban({ initialOrders }: { initialOrders: DoorOrder[]
                         </span>
                       )}
                     </div>
-                    {order.erp_staff?.name && <span className="font-bold">{order.erp_staff.name}</span>}
+                    <div className="flex items-center gap-2">
+                      {order.erp_staff?.name && <span className="font-bold">{order.erp_staff.name}</span>}
+                      <Link
+                        href={`/dashboard/production/door-orders/${order.id}/print`}
+                        target="_blank"
+                        className="text-slate-400 hover:text-emerald-600 transition"
+                        title="طباعة المواصفات الفنية"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
                   </div>
                 </div>
               ))}

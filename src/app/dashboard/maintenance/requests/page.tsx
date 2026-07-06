@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { getMaintenanceRequests } from "@/lib/maintenance-data";
+import { getCustomers } from "@/lib/sales-data";
 import { ResolveRequestForm } from "@/components/maintenance/resolve-request-form";
-import { Wrench, ArrowRight } from "lucide-react";
+import { NewFieldReportForm } from "@/components/maintenance/new-field-report-form";
+import { Wrench, ArrowRight, Printer } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function MaintenanceRequestsPage() {
-  const [pending, resolved] = await Promise.all([
+  const [pending, resolved, customers] = await Promise.all([
     getMaintenanceRequests("قيد الانتظار"),
     getMaintenanceRequests("مكتمل"),
+    getCustomers(),
   ]);
 
   return (
@@ -25,6 +28,8 @@ export default async function MaintenanceRequestsPage() {
           <ArrowRight className="h-4 w-4" /> العودة للصيانة
         </Link>
       </div>
+
+      <NewFieldReportForm customers={customers} />
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
         <h2 className="font-bold text-slate-800 mb-4 text-lg border-b border-slate-100 pb-3">بانتظار المعالجة ({pending.length})</h2>
@@ -53,15 +58,39 @@ export default async function MaintenanceRequestsPage() {
         <h2 className="font-bold text-slate-800 mb-4 text-lg border-b border-slate-100 pb-3">مغلقة مؤخراً</h2>
         <div className="space-y-3">
           {resolved.slice(0, 10).map((req: any) => (
-            <div key={req.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50 text-sm">
-              <div>
-                <div className="font-bold text-slate-700">{req.erp_customers?.name || "عميل غير محدد"}</div>
-                <div className="text-slate-500">{req.description}</div>
+            <div key={req.id} className="p-4 rounded-2xl border border-slate-100 bg-slate-50 text-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-slate-700">{req.erp_customers?.name || "عميل غير محدد"}</div>
+                  <div className="text-slate-500">{req.description}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-xs text-slate-500 text-left">
+                    <div>{req.technician_name || "—"}</div>
+                    <div>{req.resolved_at ? new Date(req.resolved_at).toLocaleDateString("ar-SA") : ""}</div>
+                  </div>
+                  <Link
+                    href={`/dashboard/maintenance/requests/${req.id}/print`}
+                    target="_blank"
+                    className="text-slate-400 hover:text-indigo-600 transition shrink-0"
+                    title="طباعة التقرير الميداني"
+                  >
+                    <Printer className="h-4 w-4" />
+                  </Link>
+                </div>
               </div>
-              <div className="text-xs text-slate-500 text-left">
-                <div>{req.technician_name || "—"}</div>
-                <div>{req.resolved_at ? new Date(req.resolved_at).toLocaleDateString("ar-SA") : ""}</div>
-              </div>
+              {(req.field_report_number || req.field_start_time || req.installation_type) && (
+                <div className="mt-2 pt-2 border-t border-slate-200 flex flex-wrap gap-3 text-xs text-indigo-700">
+                  {req.field_report_number && <span>رقم التقرير: {req.field_report_number}</span>}
+                  {req.installation_type && <span>التركيب: {req.installation_type}</span>}
+                  {req.field_start_time && (
+                    <span>
+                      الفترة: {new Date(req.field_start_time).toLocaleString("ar-SA")}
+                      {req.field_end_time ? ` — ${new Date(req.field_end_time).toLocaleString("ar-SA")}` : ""}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           ))}
           {resolved.length === 0 && <div className="text-center text-slate-400 py-4">لا توجد تذاكر مغلقة بعد</div>}

@@ -94,7 +94,66 @@ export async function getMaintenanceRequests(status?: string) {
   return data || [];
 }
 
-export async function resolveMaintenanceRequest(id: string, technician_name: string, cost_cents: number) {
+export async function getMaintenanceRequestDetail(id: string) {
+  const { data, error } = await supabase
+    .from("erp_maintenance_requests")
+    .select("*, erp_customers(name, phone, address, company_name), erp_sales_orders(id)")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    console.error("Error fetching maintenance request detail:", error);
+    return null;
+  }
+  return data;
+}
+
+// تقرير ميداني جديد غير مرتبط بطلبية مبيعات سابقة (تركيب موتور/ريش/صيانة جديدة)
+export async function createStandaloneMaintenanceRequest(input: {
+  customer_id: string;
+  description: string;
+  technician_name?: string;
+  cost_cents?: number;
+  field_report_number?: string;
+  field_start_time?: string;
+  field_end_time?: string;
+  installation_type?: string;
+}) {
+  const { data, error } = await supabase
+    .from("erp_maintenance_requests")
+    .insert([{
+      customer_id: input.customer_id,
+      description: input.description,
+      technician_name: input.technician_name || null,
+      cost_cents: input.cost_cents || 0,
+      field_report_number: input.field_report_number || null,
+      field_start_time: input.field_start_time || null,
+      field_end_time: input.field_end_time || null,
+      installation_type: input.installation_type || null,
+      status: "مكتمل",
+      resolved_at: new Date().toISOString(),
+    }])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating standalone maintenance request:", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function resolveMaintenanceRequest(
+  id: string,
+  technician_name: string,
+  cost_cents: number,
+  fieldReport?: {
+    field_report_number?: string;
+    field_start_time?: string;
+    field_end_time?: string;
+    installation_type?: string;
+  }
+) {
   const { data, error } = await supabase
     .from("erp_maintenance_requests")
     .update({
@@ -103,6 +162,10 @@ export async function resolveMaintenanceRequest(id: string, technician_name: str
       cost_cents,
       resolved_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      field_report_number: fieldReport?.field_report_number || null,
+      field_start_time: fieldReport?.field_start_time || null,
+      field_end_time: fieldReport?.field_end_time || null,
+      installation_type: fieldReport?.installation_type || null,
     })
     .eq("id", id)
     .select()

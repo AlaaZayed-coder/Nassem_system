@@ -78,7 +78,8 @@ export async function createSalesOpportunityAction(formData: FormData) {
     line_type: l.type,
     description: l.description || null,
     line_notes: l.lineNotes || null,
-    door_specs: l.type === 'door' ? l.doorSpecs : null
+    door_specs: l.type === 'door' ? l.doorSpecs : null,
+    slat_specs: l.type === 'slat' ? l.slatSpecs : null
   }));
 
   const { error: linesError } = await supabase.from("erp_sales_order_lines").insert(linesToInsert);

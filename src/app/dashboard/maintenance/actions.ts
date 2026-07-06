@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { addMachine, updateMachineStatus, addMaintenanceLog, resolveMaintenanceRequest } from "@/lib/maintenance-data";
+import { addMachine, updateMachineStatus, addMaintenanceLog, resolveMaintenanceRequest, createStandaloneMaintenanceRequest } from "@/lib/maintenance-data";
 import { redirect } from "next/navigation";
 
 export async function createMachineAction(formData: FormData) {
@@ -65,13 +65,55 @@ export async function logMaintenanceAction(formData: FormData) {
   redirect("/dashboard/maintenance");
 }
 
+export async function createStandaloneMaintenanceRequestAction(formData: FormData) {
+  const customer_id = formData.get("customer_id") as string;
+  const description = formData.get("description") as string;
+  const technician_name = formData.get("technician_name") as string;
+  const cost = Number(formData.get("cost"));
+  const field_report_number = formData.get("field_report_number") as string;
+  const field_start_time = formData.get("field_start_time") as string;
+  const field_end_time = formData.get("field_end_time") as string;
+  const installation_type = formData.get("installation_type") as string;
+
+  if (!customer_id) throw new Error("يجب اختيار اسم العميل");
+  if (!description) throw new Error("يجب إدخال وصف العمل المُنفَّذ");
+
+  try {
+    await createStandaloneMaintenanceRequest({
+      customer_id,
+      description,
+      technician_name: technician_name || undefined,
+      cost_cents: cost ? Math.round(cost * 100) : 0,
+      field_report_number: field_report_number || undefined,
+      field_start_time: field_start_time || undefined,
+      field_end_time: field_end_time || undefined,
+      installation_type: installation_type || undefined,
+    });
+  } catch (error) {
+    console.error("Failed to create standalone maintenance request:", error);
+    throw new Error("فشل حفظ التقرير الميداني");
+  }
+
+  revalidatePath("/dashboard/maintenance/requests");
+  revalidatePath("/dashboard/maintenance");
+}
+
 export async function resolveMaintenanceRequestAction(formData: FormData) {
   const requestId = formData.get("request_id") as string;
   const technician_name = formData.get("technician_name") as string;
   const cost = Number(formData.get("cost"));
+  const field_report_number = formData.get("field_report_number") as string;
+  const field_start_time = formData.get("field_start_time") as string;
+  const field_end_time = formData.get("field_end_time") as string;
+  const installation_type = formData.get("installation_type") as string;
 
   try {
-    await resolveMaintenanceRequest(requestId, technician_name, cost ? Math.round(cost * 100) : 0);
+    await resolveMaintenanceRequest(requestId, technician_name, cost ? Math.round(cost * 100) : 0, {
+      field_report_number: field_report_number || undefined,
+      field_start_time: field_start_time || undefined,
+      field_end_time: field_end_time || undefined,
+      installation_type: installation_type || undefined,
+    });
   } catch (error) {
     console.error("Failed to resolve maintenance request:", error);
     throw new Error("فشل إغلاق تذكرة الصيانة");

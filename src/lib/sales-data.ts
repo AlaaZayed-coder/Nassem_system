@@ -67,6 +67,7 @@ export type SalesOrderLine = {
   description: string | null;
   line_notes: string | null;
   created_at: string;
+  slat_specs?: { color?: string; width_mm?: number; fin_count?: string; frontage_count?: number; notes?: string } | null;
   erp_items?: { original_name: string } | null;
 };
 

@@ -1,15 +1,16 @@
 import Link from "next/link";
 import { getDoorOrderDetail } from "@/lib/door-orders-data";
 import { supabase } from "@/lib/supabase";
-import { DoorClosed, ArrowRight, User, Calendar } from "lucide-react";
+import { DoorClosed, ArrowRight, User, Calendar, Printer, Layers, Zap, CheckCircle2, ShoppingCart } from "lucide-react";
 import { ElectronicsManager } from "./electronics-manager";
 import { StatusSelect } from "./status-select";
 import { CalculateSpecsButton } from "./calculate-specs-button";
+import { BOMCalculator } from "./bom-calculator";
 
 export const dynamic = "force-dynamic";
 
 export default async function DoorOrderDetailPage({ params }: { params: { id: string } }) {
-  const { order, items, electronics } = await getDoorOrderDetail(params.id);
+  const { order, items, electronics, accessories } = await getDoorOrderDetail(params.id);
   const { data: catalogItems } = await supabase.from("erp_items").select("item_code, original_name, approved_name").eq("is_active", true);
 
   if (!order) {
@@ -31,9 +32,18 @@ export default async function DoorOrderDetailPage({ params }: { params: { id: st
           </h1>
           <p className="text-slate-500 mt-2">{order.erp_customers?.name} {order.customer_name_note ? `(${order.customer_name_note})` : ""}</p>
         </div>
-        <Link href="/dashboard/production/door-orders" className="text-sm font-bold text-slate-500 hover:text-slate-700 flex items-center gap-1 transition bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200">
-          <ArrowRight className="h-4 w-4" /> العودة للقائمة
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/dashboard/production/door-orders/${order.id}/print`}
+            target="_blank"
+            className="text-sm font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 transition bg-emerald-50 px-4 py-2 rounded-xl shadow-sm border border-emerald-200"
+          >
+            <Printer className="h-4 w-4" /> طباعة المواصفات
+          </Link>
+          <Link href="/dashboard/production/door-orders" className="text-sm font-bold text-slate-500 hover:text-slate-700 flex items-center gap-1 transition bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200">
+            <ArrowRight className="h-4 w-4" /> العودة للقائمة
+          </Link>
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 mb-6">
@@ -132,12 +142,57 @@ export default async function DoorOrderDetailPage({ params }: { params: { id: st
                 ) : (
                   <CalculateSpecsButton itemId={item.id} />
                 )}
+                {item.calculated_at && item.length_mm && item.height_mm && item.frame_type && item.jamb_type && (
+                  <BOMCalculator
+                    widthMm={item.length_mm}
+                    heightMm={item.height_mm}
+                    frameType={item.frame_type as any}
+                    jambType={item.jamb_type as any}
+                    springCount={item.spring_count || 0}
+                  />
+                )}
               </div>
             </div>
           ))}
           {items.length === 0 && <div className="text-center text-slate-400 py-4">لا توجد أصناف</div>}
         </div>
       </div>
+
+      {accessories.length > 0 && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 mb-6">
+          <h2 className="font-bold text-slate-800 mb-4 text-lg border-b border-slate-100 pb-3">ملحقات الباب</h2>
+          <div className="space-y-2">
+            {accessories.map((acc) => (
+              <div key={acc.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50 text-sm">
+                <div className="flex items-center gap-2">
+                  {acc.accessory_type === "slat" ? (
+                    <Layers className="h-4 w-4 text-teal-500" />
+                  ) : (
+                    <Zap className="h-4 w-4 text-amber-500" />
+                  )}
+                  <span className="font-bold text-slate-800">
+                    {acc.accessory_type === "slat" ? "ريش / جبهة" : acc.erp_items?.approved_name || acc.erp_items?.original_name || acc.free_text_name || "ماتور"}
+                  </span>
+                  {acc.quantity != null && <span className="text-xs text-slate-500">× {acc.quantity}</span>}
+                </div>
+                {acc.fulfillment_status === "available" && (
+                  <span className="flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> متوفر
+                  </span>
+                )}
+                {acc.fulfillment_status === "purchasing" && (
+                  <span className="flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-100 px-2 py-1 rounded-full">
+                    <ShoppingCart className="h-3.5 w-3.5" /> قيد الشراء
+                  </span>
+                )}
+                {acc.fulfillment_status === "noted" && (
+                  <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-full">مُسجَّل</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <ElectronicsManager doorOrderId={order.id} electronics={electronics} items={catalogItems || []} />
     </div>
