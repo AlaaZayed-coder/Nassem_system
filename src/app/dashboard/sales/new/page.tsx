@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { createSalesOpportunityAction, createCustomerAction } from "@/app/dashboard/sales/actions";
+import { createSalesOpportunityAction, createCustomerAction, linkSubmissionAndNotifySubmitterAction } from "@/app/dashboard/sales/actions";
 import { getCustomers, Customer } from "@/lib/sales-data";
 import { supabase } from "@/lib/supabase";
 import { Target, UserPlus, Save, ArrowRight, Plus, Trash2, Wrench, Factory, DoorClosed, Layers, ChevronDown, Zap } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function NewSalesOpportunityPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const submissionId = searchParams.get("submission_id");
   const [isPending, startTransition] = useTransition();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [availableItems, setAvailableItems] = useState<any[]>([]);
@@ -42,6 +44,8 @@ export default function NewSalesOpportunityPage() {
 
   useEffect(() => {
     getCustomers().then(setCustomers);
+    const preselectCustomerId = searchParams.get("customer_id");
+    if (preselectCustomerId) setCustomerId(preselectCustomerId);
     // Fetch Items for the dropdown
     supabase.from("erp_items").select("item_code, original_name, approved_name, final_selling_price_cents, unit_of_measure").then(({ data }) => {
       if (data) setAvailableItems(data);
@@ -168,7 +172,12 @@ export default function NewSalesOpportunityPage() {
         oppData.append("status", "تسجيل الطلب");
         oppData.append("lines", linesJson);
 
-        await createSalesOpportunityAction(oppData);
+        const createdOrder = await createSalesOpportunityAction(oppData);
+
+        if (submissionId && createdOrder?.id) {
+          await linkSubmissionAndNotifySubmitterAction(submissionId, createdOrder.id);
+        }
+
         router.push("/dashboard/sales");
       } catch (err: any) {
         alert("حدث خطأ: " + err.message);

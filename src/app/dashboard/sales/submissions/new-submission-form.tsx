@@ -8,6 +8,8 @@ export function NewSubmissionForm() {
   const [isPending, setIsPending] = useState(false);
   const [text, setText] = useState("");
   const [name, setName] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -39,6 +41,10 @@ export function NewSubmissionForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!customerName && !customerPhone) {
+      alert("أدخل اسم العميل أو رقم هاتفه على الأقل");
+      return;
+    }
     if (!text && !imageFile && !audioBlob) {
       alert("أضف نصاً أو صورة أو تسجيلاً صوتياً على الأقل");
       return;
@@ -47,6 +53,8 @@ export function NewSubmissionForm() {
     try {
       const formData = new FormData();
       formData.append("submitted_by_name", name);
+      formData.append("customer_name", customerName);
+      formData.append("customer_phone", customerPhone);
       formData.append("text_content", text);
       if (imageFile) formData.append("file", imageFile);
       else if (audioBlob) formData.append("file", new File([audioBlob], "voice.webm", { type: "audio/webm" }));
@@ -56,6 +64,8 @@ export function NewSubmissionForm() {
         alert(result.error);
       } else {
         setText("");
+        setCustomerName("");
+        setCustomerPhone("");
         setImageFile(null);
         setAudioBlob(null);
         setAudioUrl(null);
@@ -71,6 +81,18 @@ export function NewSubmissionForm() {
       <div>
         <label className="block text-xs font-bold text-slate-700 mb-1.5">اسمك</label>
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-300 outline-none" placeholder="اسم المندوب أو المدير" />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+        <div>
+          <label className="block text-xs font-bold text-indigo-900 mb-1.5">اسم العميل</label>
+          <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-300 outline-none" placeholder="اسم العميل" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-indigo-900 mb-1.5">رقم هاتف العميل</label>
+          <input type="text" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-300 outline-none dir-ltr text-left" placeholder="059..." />
+        </div>
+        <p className="col-span-full text-[11px] text-indigo-700">مطلوب أحدهما على الأقل — لربط الطلبية بسجل العميل التاريخي.</p>
       </div>
 
       <div>

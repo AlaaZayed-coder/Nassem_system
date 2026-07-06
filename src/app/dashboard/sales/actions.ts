@@ -2,7 +2,9 @@
 
 import { supabase } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
-import { sendTelegramMessage } from "@/lib/telegram";
+import { approveSalesOrderAndNotify } from "@/lib/order-notifications";
+import { getSalesOrderDetail } from "@/lib/sales-data";
+import { updateOrderSubmissionStatus } from "@/lib/order-submissions-data";
 
 export async function createCustomerAction(formData: FormData) {
   const name = formData.get("name") as string;
@@ -103,13 +105,7 @@ export async function updateOpportunityStatusAction(orderId: string, newStatus: 
   if (newStatus === "معتمد" && order.status !== "معتمد") {
     // SMART FULFILLMENT AUTOMATION: routes every line (product / manufacturing /
     // maintenance) to the responsible department atomically in one DB transaction.
-    const { data: result, error: rpcError } = await supabase
-      .rpc("approve_sales_order", { p_order_id: orderId })
-      .single();
-
-    if (rpcError) throw new Error(rpcError.message);
-
-    await notifyDepartments(order, result as { needs_production: boolean; needs_maintenance: boolean; needs_purchasing: boolean });
+    await approveSalesOrderAndNotify(orderId);
   } else {
     const { error } = await supabase
       .from("erp_sales_orders")
@@ -122,47 +118,64 @@ export async function updateOpportunityStatusAction(orderId: string, newStatus: 
   revalidatePath("/dashboard/sales");
 }
 
-async function notifyDepartments(
-  order: { id: string; erp_customers?: { name?: string } | null },
-  routing: { needs_production: boolean; needs_maintenance: boolean; needs_purchasing: boolean }
-) {
-  const customerName = order.erp_customers?.name || "غير محدد";
+// بعد إدخال معالج الطلبيات لطلبية واردة (من البوت أو الويب) في النظام الفعلي،
+// نرسل تفاصيلها الكاملة إلى نفس الشخص الذي أرسلها أصلاً (عبر تيليجرام) مع زر
+// "اعتماد الطلبية" — الاعتماد يتم من طرف المُرسِل نفسه بعد تأكده من صحة الإدخال.
+export async function linkSubmissionAndNotifySubmitterAction(submissionId: string, orderId: string) {
+  const { data: submission } = await supabase
+    .from("erp_order_submissions")
+    .select("*, erp_staff(telegram_chat_id, name)")
+    .eq("id", submissionId)
+    .single();
+
+  await supabase
+    .from("erp_order_submissions")
+    .update({ linked_sales_order_id: orderId })
+    .eq("id", submissionId);
+
+  await updateOrderSubmissionStatus(submissionId, "تمت المعالجة");
+
+  const chatId = submission?.erp_staff?.telegram_chat_id;
+  if (!chatId) return; // لا يمكن إرسال تفاصيل إن لم يكن المُرسِل موظفاً مسجلاً بمعرف تيليجرام
+
+  const { order, lines } = await getSalesOrderDetail(orderId);
+  if (!order) return;
+
+  const lineTypeLabel: Record<string, string> = {
+    product: "صنف جاهز",
+    manufacturing: "تصنيع مخصص",
+    maintenance: "صيانة",
+    door: "طلب باب رول",
+    slat: "ريش / جبهة",
+  };
+
+  const linesText = lines
+    .map((l: any, i: number) => `${i + 1}. ${lineTypeLabel[l.line_type] || l.line_type} — الكمية: ${l.quantity} — ₪${(l.total_price_cents / 100).toFixed(2)}`)
+    .join("\n");
+
+  const totalText = `₪${(order.total_amount_cents / 100).toFixed(2)}`;
   const orderRef = order.id.split("-")[0];
 
-  const departments: { role: string; condition: boolean; message: string }[] = [
-    {
-      role: "production",
-      condition: routing.needs_production,
-      message: `🔔 أوامر تصنيع جديدة!\n\nتم اعتماد طلب المبيعات رقم: #${orderRef}\nللعميل: ${customerName}\nتتضمن أصناف تحتاج للتصنيع.\nالرجاء متابعة لوحة الإنتاج.`,
-    },
-    {
-      role: "maintenance",
-      condition: routing.needs_maintenance,
-      message: `🔔 تذكرة صيانة جديدة!\n\nتم اعتماد طلب المبيعات رقم: #${orderRef}\nللعميل: ${customerName}\nيتضمن طلب صيانة.\nالرجاء متابعة قائمة تذاكر الصيانة.`,
-    },
-    {
-      role: "purchasing",
-      condition: routing.needs_purchasing,
-      message: `🔔 طلب شراء جديد!\n\nتم اعتماد طلب المبيعات رقم: #${orderRef}\nللعميل: ${customerName}\nيتضمن نواقص تحتاج للشراء.\nالرجاء متابعة قائمة طلبات الشراء.`,
-    },
-  ];
+  const message =
+    `تم إدخال طلبيتك في النظام. راجع التفاصيل قبل الاعتماد:\n\n` +
+    `طلب #${orderRef}\n` +
+    `العميل: ${order.erp_customers?.name || "غير محدد"}\n\n` +
+    `الأصناف:\n${linesText}\n\n` +
+    `الإجمالي: ${totalText}\n\n` +
+    `اضغط "اعتماد الطلبية" أدناه إن كانت التفاصيل صحيحة.`;
 
-  for (const dept of departments) {
-    if (!dept.condition) continue;
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) return;
 
-    const { data: staff } = await supabase
-      .from("erp_staff")
-      .select("telegram_chat_id")
-      .eq("role", dept.role)
-      .eq("is_active", true)
-      .not("telegram_chat_id", "is", null);
-
-    if (staff) {
-      for (const member of staff) {
-        if (member.telegram_chat_id) {
-          await sendTelegramMessage(member.telegram_chat_id, dept.message, true);
-        }
-      }
-    }
-  }
+  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: message,
+      reply_markup: {
+        inline_keyboard: [[{ text: "✅ اعتماد الطلبية", callback_data: `approve:${order.id}` }]],
+      },
+    }),
+  });
 }

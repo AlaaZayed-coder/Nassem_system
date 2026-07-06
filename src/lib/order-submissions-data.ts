@@ -12,15 +12,91 @@ export type OrderSubmission = {
   status: "قيد المراجعة" | "تمت المعالجة" | "مرفوضة";
   linked_sales_order_id: string | null;
   processor_notes: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  matched_customer_id: string | null;
   created_at: string;
   processed_at: string | null;
   erp_staff?: { name: string; role: string } | null;
+  erp_customers?: { name: string; phone: string | null } | null;
+  erp_order_submission_attachments?: OrderSubmissionAttachment[];
 };
+
+export type OrderSubmissionAttachment = {
+  id: string;
+  submission_id: string;
+  content_type: "image" | "voice" | "text";
+  text_content: string | null;
+  file_url: string | null;
+  added_by_name: string | null;
+  created_at: string;
+};
+
+// يحاول مطابقة رقم هاتف مع عميل موجود مسبقاً لربط الطلبية بسجله التاريخي
+export async function findCustomerByPhone(phone: string) {
+  if (!phone) return null;
+  const { data } = await supabase
+    .from("erp_customers")
+    .select("id, name, phone")
+    .eq("phone", phone)
+    .maybeSingle();
+  return data;
+}
+
+// بحث سهل عن عميل بالاسم أو رقم الهاتف أو مقطع منه، لتصحيح/تعديل ربط الطلبية
+export async function searchCustomers(query: string) {
+  if (!query || query.trim().length < 2) return [];
+  const { data, error } = await supabase
+    .from("erp_customers")
+    .select("id, name, phone, company_name")
+    .or(`name.ilike.%${query}%,phone.ilike.%${query}%`)
+    .limit(10);
+
+  if (error) {
+    console.error("Error searching customers:", error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function updateSubmissionCustomer(
+  submissionId: string,
+  input: { customer_name: string; customer_phone: string | null; matched_customer_id: string | null }
+) {
+  const { error } = await supabase
+    .from("erp_order_submissions")
+    .update({
+      customer_name: input.customer_name,
+      customer_phone: input.customer_phone,
+      matched_customer_id: input.matched_customer_id,
+    })
+    .eq("id", submissionId);
+
+  if (error) throw error;
+}
+
+export async function addSubmissionAttachment(input: {
+  submission_id: string;
+  content_type: "image" | "voice" | "text";
+  text_content?: string | null;
+  file_url?: string | null;
+  added_by_name?: string | null;
+}) {
+  const { error } = await supabase.from("erp_order_submission_attachments").insert([{
+    submission_id: input.submission_id,
+    content_type: input.content_type,
+    text_content: input.text_content || null,
+    file_url: input.file_url || null,
+    added_by_name: input.added_by_name || null,
+  }]);
+
+  if (error) throw error;
+}
 
 export async function getOrderSubmissions(status?: string): Promise<OrderSubmission[]> {
   let query = supabase
     .from("erp_order_submissions")
-    .select("*, erp_staff(name, role)")
+    .select("*, erp_staff(name, role), erp_customers(name, phone), erp_order_submission_attachments(*)")
     .order("created_at", { ascending: false });
 
   if (status) query = query.eq("status", status);
@@ -53,6 +129,9 @@ export async function createOrderSubmission(input: {
   text_content?: string | null;
   file_url?: string | null;
   telegram_file_id?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  matched_customer_id?: string | null;
 }) {
   const { data, error } = await supabase
     .from("erp_order_submissions")
@@ -64,6 +143,9 @@ export async function createOrderSubmission(input: {
       text_content: input.text_content || null,
       file_url: input.file_url || null,
       telegram_file_id: input.telegram_file_id || null,
+      customer_name: input.customer_name || null,
+      customer_phone: input.customer_phone || null,
+      matched_customer_id: input.matched_customer_id || null,
     }])
     .select()
     .single();
@@ -73,6 +155,31 @@ export async function createOrderSubmission(input: {
     throw error;
   }
   return data;
+}
+
+// محادثة تيليجرام من خطوتين: أولاً هوية العميل، ثم محتوى الطلبية نفسها
+export async function getPendingTelegramSubmission(chatId: string) {
+  const { data } = await supabase
+    .from("erp_telegram_pending_submissions")
+    .select("*")
+    .eq("chat_id", chatId)
+    .maybeSingle();
+  return data;
+}
+
+export async function startPendingTelegramSubmission(chatId: string) {
+  await supabase.from("erp_telegram_pending_submissions").upsert([{ chat_id: chatId, customer_name: null, customer_phone: null }]);
+}
+
+export async function setPendingTelegramCustomer(chatId: string, customerName: string, customerPhone: string | null) {
+  await supabase
+    .from("erp_telegram_pending_submissions")
+    .update({ customer_name: customerName, customer_phone: customerPhone })
+    .eq("chat_id", chatId);
+}
+
+export async function clearPendingTelegramSubmission(chatId: string) {
+  await supabase.from("erp_telegram_pending_submissions").delete().eq("chat_id", chatId);
 }
 
 export async function updateOrderSubmissionStatus(id: string, status: string, processor_notes?: string) {
