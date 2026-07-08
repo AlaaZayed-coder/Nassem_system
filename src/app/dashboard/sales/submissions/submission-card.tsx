@@ -97,7 +97,11 @@ export function SubmissionCard({ submission, readOnly = false }: { submission: O
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap gap-2">
             <Link
-              href={`/dashboard/sales/new?submission_id=${submission.id}${submission.matched_customer_id ? `&customer_id=${submission.matched_customer_id}` : ""}`}
+              href={`/dashboard/sales/new?submission_id=${submission.id}${
+                submission.matched_customer_id
+                  ? `&customer_id=${submission.matched_customer_id}`
+                  : `&new_customer_name=${encodeURIComponent(submission.customer_name || "")}&new_customer_phone=${encodeURIComponent(submission.customer_phone || "")}&new_customer_address=${encodeURIComponent(submission.customer_address || "")}`
+              }`}
               target="_blank"
               className="flex-1 text-center px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition"
             >

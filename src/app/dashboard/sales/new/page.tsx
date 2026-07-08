@@ -54,6 +54,14 @@ function NewSalesOpportunityPageInner() {
     getCustomers().then(setCustomers);
     const preselectCustomerId = searchParams.get("customer_id");
     if (preselectCustomerId) setCustomerId(preselectCustomerId);
+
+    const newCustomerName = searchParams.get("new_customer_name");
+    if (newCustomerName) {
+      setIsNewCustomer(true);
+      setCustName(newCustomerName);
+      setCustPhone(searchParams.get("new_customer_phone") || "");
+      setCustAddress(searchParams.get("new_customer_address") || "");
+    }
     // Fetch Items for the dropdown
     supabase.from("erp_items").select("item_code, original_name, approved_name, final_selling_price_cents, unit_of_measure").then(({ data }) => {
       if (data) setAvailableItems(data);
