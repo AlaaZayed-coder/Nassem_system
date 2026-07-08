@@ -9,6 +9,9 @@ import {
   startPendingTelegramSubmission,
   setPendingTelegramStage,
   setPendingTelegramCustomer,
+  setPendingNewCustomerName,
+  setPendingNewCustomerPhone,
+  setPendingNewCustomerAddress,
   clearPendingTelegramSubmission,
 } from "@/lib/order-submissions-data";
 import { approveSalesOrderAndNotify } from "@/lib/order-notifications";
@@ -87,13 +90,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    if (pending.stage === "awaiting_customer_new_name") {
+    // فورم واضح لإدخال عميل جديد: ثلاث خطوات منفصلة (الاسم، ثم الهاتف، ثم العنوان)
+    if (pending.stage === "awaiting_new_name") {
       if (!message.text || message.text.startsWith("/")) {
-        await sendTelegramMessage(chatId, "الرجاء إرسال اسم العميل أو رقم هاتفه نصاً.");
+        await sendTelegramMessage(chatId, "الرجاء إرسال اسم العميل نصاً.");
         return NextResponse.json({ ok: true });
       }
-      const phone = extractPhone(message.text);
-      await setPendingTelegramCustomer(chatId, message.text, phone, null);
+      await setPendingNewCustomerName(chatId, message.text);
+      await sendTelegramMessage(chatId, "رقم هاتف العميل؟ (اكتب \"تخطي\" إن لم يتوفر)");
+      return NextResponse.json({ ok: true });
+    }
+
+    if (pending.stage === "awaiting_new_phone") {
+      if (!message.text) {
+        await sendTelegramMessage(chatId, "الرجاء إرسال رقم الهاتف نصاً، أو \"تخطي\".");
+        return NextResponse.json({ ok: true });
+      }
+      const skip = message.text.trim() === "تخطي";
+      await setPendingNewCustomerPhone(chatId, skip ? null : (extractPhone(message.text) || message.text));
+      await sendTelegramMessage(chatId, "عنوان العميل؟ (اكتب \"تخطي\" إن لم يتوفر)");
+      return NextResponse.json({ ok: true });
+    }
+
+    if (pending.stage === "awaiting_new_address") {
+      if (!message.text) {
+        await sendTelegramMessage(chatId, "الرجاء إرسال العنوان نصاً، أو \"تخطي\".");
+        return NextResponse.json({ ok: true });
+      }
+      const skip = message.text.trim() === "تخطي";
+      await setPendingNewCustomerAddress(chatId, skip ? null : message.text);
       await sendTelegramMessage(chatId, "تم استلام بيانات العميل الجديد. الآن أرسل تفاصيل الطلبية: نص، صورة، أو تسجيل صوتي.");
       return NextResponse.json({ ok: true });
     }
@@ -102,6 +127,7 @@ export async function POST(req: Request) {
     const customerFields = {
       customer_name: pending.customer_name,
       customer_phone: pending.customer_phone,
+      customer_address: pending.customer_address,
       matched_customer_id: pending.matched_customer_id,
     };
 
@@ -183,9 +209,9 @@ async function handleCallbackQuery(callbackQuery: any) {
   }
 
   if (data === "cust_new") {
-    await setPendingTelegramStage(chatId, "awaiting_customer_new_name");
+    await setPendingTelegramStage(chatId, "awaiting_new_name");
     await answerCallbackQuery(callbackQuery.id);
-    await sendTelegramMessage(chatId, "أرسل اسم العميل الجديد و/أو رقم هاتفه.");
+    await sendTelegramMessage(chatId, "اسم العميل الجديد؟");
     return;
   }
 

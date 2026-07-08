@@ -46,6 +46,7 @@ export function SubmissionCard({ submission, readOnly = false }: { submission: O
           <User className="h-3.5 w-3.5 text-indigo-500" />
           <span className="font-bold text-slate-800">{submission.erp_customers?.name || submission.customer_name || "—"}</span>
           {submission.customer_phone && <span className="text-xs text-slate-500" dir="ltr">{submission.customer_phone}</span>}
+          {submission.customer_address && <span className="text-xs text-slate-400">· {submission.customer_address}</span>}
           {submission.matched_customer_id && (
             <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
               <CheckCircle2 className="h-3 w-3" /> عميل مسجَّل

@@ -14,6 +14,7 @@ export type OrderSubmission = {
   processor_notes: string | null;
   customer_name: string | null;
   customer_phone: string | null;
+  customer_address: string | null;
   matched_customer_id: string | null;
   created_at: string;
   processed_at: string | null;
@@ -61,7 +62,7 @@ export async function searchCustomers(query: string) {
 
 export async function updateSubmissionCustomer(
   submissionId: string,
-  input: { customer_name: string; customer_phone: string | null; matched_customer_id: string | null }
+  input: { customer_name: string; customer_phone: string | null; matched_customer_id: string | null; customer_address?: string | null }
 ) {
   const { error } = await supabase
     .from("erp_order_submissions")
@@ -69,6 +70,7 @@ export async function updateSubmissionCustomer(
       customer_name: input.customer_name,
       customer_phone: input.customer_phone,
       matched_customer_id: input.matched_customer_id,
+      ...(input.customer_address !== undefined ? { customer_address: input.customer_address } : {}),
     })
     .eq("id", submissionId);
 
@@ -131,6 +133,7 @@ export async function createOrderSubmission(input: {
   telegram_file_id?: string | null;
   customer_name?: string | null;
   customer_phone?: string | null;
+  customer_address?: string | null;
   matched_customer_id?: string | null;
 }) {
   const { data, error } = await supabase
@@ -145,6 +148,7 @@ export async function createOrderSubmission(input: {
       telegram_file_id: input.telegram_file_id || null,
       customer_name: input.customer_name || null,
       customer_phone: input.customer_phone || null,
+      customer_address: input.customer_address || null,
       matched_customer_id: input.matched_customer_id || null,
     }])
     .select()
@@ -186,6 +190,28 @@ export async function setPendingTelegramCustomer(
   await supabase
     .from("erp_telegram_pending_submissions")
     .update({ customer_name: customerName, customer_phone: customerPhone, matched_customer_id: matchedCustomerId, stage: "awaiting_content" })
+    .eq("chat_id", chatId);
+}
+
+// فورم واضح لإدخال عميل جديد على ثلاث خطوات منفصلة: الاسم ثم الهاتف ثم العنوان
+export async function setPendingNewCustomerName(chatId: string, name: string) {
+  await supabase
+    .from("erp_telegram_pending_submissions")
+    .update({ customer_name: name, stage: "awaiting_new_phone" })
+    .eq("chat_id", chatId);
+}
+
+export async function setPendingNewCustomerPhone(chatId: string, phone: string | null) {
+  await supabase
+    .from("erp_telegram_pending_submissions")
+    .update({ customer_phone: phone, stage: "awaiting_new_address" })
+    .eq("chat_id", chatId);
+}
+
+export async function setPendingNewCustomerAddress(chatId: string, address: string | null) {
+  await supabase
+    .from("erp_telegram_pending_submissions")
+    .update({ customer_address: address, stage: "awaiting_content" })
     .eq("chat_id", chatId);
 }
 

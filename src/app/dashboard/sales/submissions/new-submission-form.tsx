@@ -10,6 +10,7 @@ export function NewSubmissionForm() {
   const [name, setName] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -55,6 +56,7 @@ export function NewSubmissionForm() {
       formData.append("submitted_by_name", name);
       formData.append("customer_name", customerName);
       formData.append("customer_phone", customerPhone);
+      formData.append("customer_address", customerAddress);
       formData.append("text_content", text);
       if (imageFile) formData.append("file", imageFile);
       else if (audioBlob) formData.append("file", new File([audioBlob], "voice.webm", { type: "audio/webm" }));
@@ -66,6 +68,7 @@ export function NewSubmissionForm() {
         setText("");
         setCustomerName("");
         setCustomerPhone("");
+        setCustomerAddress("");
         setImageFile(null);
         setAudioBlob(null);
         setAudioUrl(null);
@@ -92,7 +95,11 @@ export function NewSubmissionForm() {
           <label className="block text-xs font-bold text-indigo-900 mb-1.5">رقم هاتف العميل</label>
           <input type="text" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-300 outline-none dir-ltr text-left" placeholder="059..." />
         </div>
-        <p className="col-span-full text-[11px] text-indigo-700">مطلوب أحدهما على الأقل — لربط الطلبية بسجل العميل التاريخي.</p>
+        <div className="col-span-full">
+          <label className="block text-xs font-bold text-indigo-900 mb-1.5">عنوان العميل (اختياري)</label>
+          <input type="text" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-300 outline-none" placeholder="المدينة، الحي..." />
+        </div>
+        <p className="col-span-full text-[11px] text-indigo-700">الاسم أو الهاتف مطلوب أحدهما على الأقل — لربط الطلبية بسجل العميل التاريخي.</p>
       </div>
 
       <div>

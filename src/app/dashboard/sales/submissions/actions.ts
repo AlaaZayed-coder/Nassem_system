@@ -15,6 +15,7 @@ export async function createWebSubmissionAction(formData: FormData): Promise<{ e
   const submitted_by_name = (formData.get("submitted_by_name") as string) || null;
   const customer_name = (formData.get("customer_name") as string) || null;
   const customer_phone = (formData.get("customer_phone") as string) || null;
+  const customer_address = (formData.get("customer_address") as string) || null;
   const text_content = (formData.get("text_content") as string) || null;
   const file = formData.get("file") as File | null;
 
@@ -56,6 +57,7 @@ export async function createWebSubmissionAction(formData: FormData): Promise<{ e
       file_url,
       customer_name,
       customer_phone,
+      customer_address,
       matched_customer_id: matchedCustomer?.id || null,
     });
   } catch (err: any) {
