@@ -168,13 +168,24 @@ export async function getPendingTelegramSubmission(chatId: string) {
 }
 
 export async function startPendingTelegramSubmission(chatId: string) {
-  await supabase.from("erp_telegram_pending_submissions").upsert([{ chat_id: chatId, customer_name: null, customer_phone: null }]);
+  await supabase.from("erp_telegram_pending_submissions").upsert([{
+    chat_id: chatId, customer_name: null, customer_phone: null, stage: "awaiting_customer_choice",
+  }]);
 }
 
-export async function setPendingTelegramCustomer(chatId: string, customerName: string, customerPhone: string | null) {
+export async function setPendingTelegramStage(chatId: string, stage: string) {
+  await supabase.from("erp_telegram_pending_submissions").update({ stage }).eq("chat_id", chatId);
+}
+
+export async function setPendingTelegramCustomer(
+  chatId: string,
+  customerName: string,
+  customerPhone: string | null,
+  matchedCustomerId: string | null = null
+) {
   await supabase
     .from("erp_telegram_pending_submissions")
-    .update({ customer_name: customerName, customer_phone: customerPhone })
+    .update({ customer_name: customerName, customer_phone: customerPhone, matched_customer_id: matchedCustomerId, stage: "awaiting_content" })
     .eq("chat_id", chatId);
 }
 

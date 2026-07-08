@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { sendTelegramMessage, getTelegramFileUrl } from "@/lib/telegram";
+import { sendTelegramMessage, sendTelegramInlineKeyboard, getTelegramFileUrl } from "@/lib/telegram";
 import {
   getStaffByTelegramChatId,
   createOrderSubmission,
-  findCustomerByPhone,
+  searchCustomers,
   getPendingTelegramSubmission,
   startPendingTelegramSubmission,
+  setPendingTelegramStage,
   setPendingTelegramCustomer,
   clearPendingTelegramSubmission,
 } from "@/lib/order-submissions-data";
@@ -17,10 +18,20 @@ function extractPhone(text: string): string | null {
   return match ? match[0] : null;
 }
 
+async function askCustomerChoice(chatId: string) {
+  await sendTelegramInlineKeyboard(chatId, "طلبية جديدة. هل العميل مسجَّل مسبقاً؟", [
+    [
+      { text: "🔍 عميل موجود", callback_data: "cust_existing" },
+      { text: "➕ عميل جديد", callback_data: "cust_new" },
+    ],
+  ]);
+}
+
 // نقطة استقبال تحديثات بوت تيليجرام: يستقبل صورة/تسجيل صوتي/نص من مندوب
 // مبيعات أو مدير، ويحفظه في صندوق الوارد (erp_order_submissions) ليراجعه
 // معالج الطلبيات لاحقاً. لا يوجد أي إدخال تلقائي مباشر في نظام الطلبيات.
-// كما يعالج ضغط زر "اعتماد الطلبية" الذي يصل للمُرسِل الأصلي بعد إدخال طلبيته.
+// محادثة ذكية: يسأل البوت أولاً هل العميل موجود (بحث فعلي بأزرار) أو جديد،
+// ثم يطلب محتوى الطلبية، وأخيراً يعالج زر "اعتماد الطلبية".
 export async function POST(req: Request) {
   try {
     const update = await req.json();
@@ -41,32 +52,57 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // محادثة من خطوتين: أولاً هوية العميل، ثم محتوى الطلبية. يبدأ البوت
-    // المحادثة تلقائياً إن لم تكن هناك محادثة قائمة لهذا المُرسِل.
     const pending = await getPendingTelegramSubmission(chatId);
 
     if (!pending) {
       await startPendingTelegramSubmission(chatId);
-      await sendTelegramMessage(chatId, "طلبية جديدة. أرسل أولاً اسم العميل و/أو رقم هاتفه.");
+      await askCustomerChoice(chatId);
       return NextResponse.json({ ok: true });
     }
 
-    if (!pending.customer_name) {
+    if (pending.stage === "awaiting_customer_choice") {
+      await askCustomerChoice(chatId);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (pending.stage === "awaiting_customer_search") {
       if (!message.text || message.text.startsWith("/")) {
-        await sendTelegramMessage(chatId, "الرجاء إرسال اسم العميل أو رقم هاتفه نصاً أولاً.");
+        await sendTelegramMessage(chatId, "الرجاء إرسال جزء من اسم العميل أو رقم هاتفه نصاً.");
+        return NextResponse.json({ ok: true });
+      }
+      const results = await searchCustomers(message.text);
+      if (results.length === 0) {
+        await sendTelegramInlineKeyboard(chatId, "لا يوجد عميل مطابق. جرّب صياغة أخرى، أو أضفه كعميل جديد.", [
+          [{ text: "➕ إضافة كعميل جديد", callback_data: "cust_new" }],
+        ]);
+      } else if (results.length > 6) {
+        await sendTelegramMessage(chatId, `وُجد ${results.length} عميل مطابق، حدّد البحث أكثر (اكتب جزءاً أدق من الاسم أو الهاتف).`);
+      } else {
+        await sendTelegramInlineKeyboard(
+          chatId,
+          "اختر العميل الصحيح:",
+          results.map((c) => [{ text: `${c.name}${c.phone ? " — " + c.phone : ""}`, callback_data: `select_customer:${c.id}` }])
+        );
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    if (pending.stage === "awaiting_customer_new_name") {
+      if (!message.text || message.text.startsWith("/")) {
+        await sendTelegramMessage(chatId, "الرجاء إرسال اسم العميل أو رقم هاتفه نصاً.");
         return NextResponse.json({ ok: true });
       }
       const phone = extractPhone(message.text);
-      await setPendingTelegramCustomer(chatId, message.text, phone);
-      await sendTelegramMessage(chatId, "تم استلام بيانات العميل. الآن أرسل تفاصيل الطلبية: نص، صورة، أو تسجيل صوتي.");
+      await setPendingTelegramCustomer(chatId, message.text, phone, null);
+      await sendTelegramMessage(chatId, "تم استلام بيانات العميل الجديد. الآن أرسل تفاصيل الطلبية: نص، صورة، أو تسجيل صوتي.");
       return NextResponse.json({ ok: true });
     }
 
-    const matchedCustomer = pending.customer_phone ? await findCustomerByPhone(pending.customer_phone) : null;
+    // pending.stage === "awaiting_content"
     const customerFields = {
       customer_name: pending.customer_name,
       customer_phone: pending.customer_phone,
-      matched_customer_id: matchedCustomer?.id || null,
+      matched_customer_id: pending.matched_customer_id,
     };
 
     let submission = null;
@@ -111,9 +147,9 @@ export async function POST(req: Request) {
     await clearPendingTelegramSubmission(chatId);
 
     if (submission) {
-      const matchNote = matchedCustomer ? ` (عميل مسجَّل مسبقاً: ${matchedCustomer.name})` : "";
+      const matchNote = pending.matched_customer_id ? " (عميل مسجَّل مسبقاً)" : "";
       await sendTelegramMessage(chatId, `تم استلام طلبية العميل "${pending.customer_name}"${matchNote} بنجاح، وستصل إلى معالج الطلبيات للمراجعة والإدخال.`);
-      await notifyOrderProcessors(staff.name, pending.customer_name);
+      await notifyOrderProcessors(staff.name, pending.customer_name || "غير محدد");
     }
 
     return NextResponse.json({ ok: true });
@@ -139,22 +175,48 @@ async function handleCallbackQuery(callbackQuery: any) {
   const chatId = String(callbackQuery.message?.chat?.id);
   const data: string = callbackQuery.data || "";
 
-  if (!data.startsWith("approve:")) {
+  if (data === "cust_existing") {
+    await setPendingTelegramStage(chatId, "awaiting_customer_search");
     await answerCallbackQuery(callbackQuery.id);
+    await sendTelegramMessage(chatId, "اكتب جزءاً من اسم العميل أو رقم هاتفه.");
     return;
   }
 
-  const orderId = data.replace("approve:", "");
-
-  try {
-    const order = await approveSalesOrderAndNotify(orderId);
-    await answerCallbackQuery(callbackQuery.id, "تم اعتماد الطلبية");
-    const orderRef = order.id.split("-")[0];
-    await sendTelegramMessage(chatId, `تم اعتماد الطلبية #${orderRef} بنجاح، وتوجيهها تلقائياً للأقسام المعنية.`);
-  } catch (err: any) {
-    await answerCallbackQuery(callbackQuery.id, "فشل الاعتماد");
-    await sendTelegramMessage(chatId, `تعذّر اعتماد الطلبية: ${err.message || "خطأ غير متوقع"}`);
+  if (data === "cust_new") {
+    await setPendingTelegramStage(chatId, "awaiting_customer_new_name");
+    await answerCallbackQuery(callbackQuery.id);
+    await sendTelegramMessage(chatId, "أرسل اسم العميل الجديد و/أو رقم هاتفه.");
+    return;
   }
+
+  if (data.startsWith("select_customer:")) {
+    const customerId = data.replace("select_customer:", "");
+    const { data: customer } = await supabase.from("erp_customers").select("id, name, phone").eq("id", customerId).single();
+    if (!customer) {
+      await answerCallbackQuery(callbackQuery.id, "تعذّر إيجاد العميل");
+      return;
+    }
+    await setPendingTelegramCustomer(chatId, customer.name, customer.phone, customer.id);
+    await answerCallbackQuery(callbackQuery.id, "تم اختيار العميل");
+    await sendTelegramMessage(chatId, `تم اختيار العميل: ${customer.name}. الآن أرسل تفاصيل الطلبية: نص، صورة، أو تسجيل صوتي.`);
+    return;
+  }
+
+  if (data.startsWith("approve:")) {
+    const orderId = data.replace("approve:", "");
+    try {
+      const order = await approveSalesOrderAndNotify(orderId);
+      await answerCallbackQuery(callbackQuery.id, "تم اعتماد الطلبية");
+      const orderRef = order.id.split("-")[0];
+      await sendTelegramMessage(chatId, `تم اعتماد الطلبية #${orderRef} بنجاح، وتوجيهها تلقائياً للأقسام المعنية.`);
+    } catch (err: any) {
+      await answerCallbackQuery(callbackQuery.id, "فشل الاعتماد");
+      await sendTelegramMessage(chatId, `تعذّر اعتماد الطلبية: ${err.message || "خطأ غير متوقع"}`);
+    }
+    return;
+  }
+
+  await answerCallbackQuery(callbackQuery.id);
 }
 
 async function uploadTelegramFileToStorage(fileId: string, ext: string): Promise<string | null> {

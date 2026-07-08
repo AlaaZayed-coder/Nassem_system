@@ -19,6 +19,23 @@ export async function sendTelegramMessage(chatId: string, text: string, withMini
   } catch (err) {}
 }
 
+export async function sendTelegramInlineKeyboard(
+  chatId: string,
+  text: string,
+  buttons: { text: string; callback_data: string }[][]
+) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) return;
+
+  try {
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text, reply_markup: { inline_keyboard: buttons } }),
+    });
+  } catch (err) {}
+}
+
 export async function getTelegramFileUrl(fileId: string): Promise<string | null> {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!botToken) return null;
