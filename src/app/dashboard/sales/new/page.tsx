@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect, Suspense } from "react";
 import { createSalesOpportunityAction, createCustomerAction, linkSubmissionAndNotifySubmitterAction } from "@/app/dashboard/sales/actions";
 import { getCustomers, Customer } from "@/lib/sales-data";
 import { supabase } from "@/lib/supabase";
-import { Target, UserPlus, Save, ArrowRight, Plus, Trash2, Wrench, Factory, DoorClosed, Layers, ChevronDown, Zap } from "lucide-react";
+import { Target, UserPlus, Save, ArrowRight, Plus, Trash2, Wrench, DoorClosed, Layers, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -45,8 +45,6 @@ function NewSalesOpportunityPageInner() {
     accNeedsSlat: boolean, accSlatQty: string,
     accNeedsMotor: boolean, accMotorMode: 'catalog' | 'new', accMotorItemCode: string, accMotorFreeText: string, accMotorQty: string,
   }[]>([]);
-  const [manufacturingMenuOpen, setManufacturingMenuOpen] = useState(false);
-  
   // Order State
   const [notes, setNotes] = useState("");
 
@@ -86,7 +84,6 @@ function NewSalesOpportunityPageInner() {
       accNeedsSlat: false, accSlatQty: "",
       accNeedsMotor: false, accMotorMode: 'catalog', accMotorItemCode: "", accMotorFreeText: "", accMotorQty: "1",
     }]);
-    setManufacturingMenuOpen(false);
   };
 
   const removeLine = (id: string) => {
@@ -276,25 +273,9 @@ function NewSalesOpportunityPageInner() {
                 <Plus className="h-4 w-4" /> صنف جاهز
               </button>
 
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setManufacturingMenuOpen((v) => !v)}
-                  className="px-3 py-1.5 bg-sky-50 text-sky-600 rounded-lg text-sm font-bold flex items-center gap-1 hover:bg-sky-100 transition"
-                >
-                  <Factory className="h-4 w-4" /> تصنيع <ChevronDown className="h-3.5 w-3.5" />
-                </button>
-                {manufacturingMenuOpen && (
-                  <div className="absolute z-10 mt-1 bg-white rounded-xl shadow-lg border border-slate-200 p-1.5 w-48 flex flex-col gap-1">
-                    <button type="button" onClick={() => addLine('door')} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-emerald-700 hover:bg-emerald-50 transition text-right">
-                      <DoorClosed className="h-4 w-4" /> باب رول (+ملحقاته)
-                    </button>
-                    <button type="button" onClick={() => addLine('manufacturing')} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-sky-700 hover:bg-sky-50 transition text-right">
-                      <Factory className="h-4 w-4" /> تصنيع عام آخر
-                    </button>
-                  </div>
-                )}
-              </div>
+              <button type="button" onClick={() => addLine('door')} className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-sm font-bold flex items-center gap-1 hover:bg-emerald-100 transition">
+                <DoorClosed className="h-4 w-4" /> تصنيع (باب رول + ملحقاته)
+              </button>
 
               <button type="button" onClick={() => addLine('maintenance')} className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-lg text-sm font-bold flex items-center gap-1 hover:bg-amber-100 transition">
                 <Wrench className="h-4 w-4" /> طلب صيانة
