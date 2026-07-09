@@ -6,6 +6,7 @@ import { ElectronicsManager } from "./electronics-manager";
 import { StatusSelect } from "./status-select";
 import { CalculateSpecsButton } from "./calculate-specs-button";
 import { BOMCalculator } from "./bom-calculator";
+import { FieldReportForm } from "./field-report-form";
 
 export const dynamic = "force-dynamic";
 
@@ -195,6 +196,46 @@ export default async function DoorOrderDetailPage({ params }: { params: { id: st
       )}
 
       <ElectronicsManager doorOrderId={order.id} electronics={electronics} items={catalogItems || []} />
+
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 mt-6">
+        <h2 className="font-bold text-slate-800 mb-4 text-lg border-b border-slate-100 pb-3">التقرير الميداني (التركيب)</h2>
+        {order.field_report_number || order.field_start_time || order.field_technician_name ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            {order.field_report_number && (
+              <div>
+                <span className="text-slate-500 text-xs block mb-1">رقم التقرير</span>
+                <span className="font-bold text-slate-800">{order.field_report_number}</span>
+              </div>
+            )}
+            {order.installation_type && (
+              <div>
+                <span className="text-slate-500 text-xs block mb-1">نوع التركيب</span>
+                <span className="font-bold text-slate-800">{order.installation_type}</span>
+              </div>
+            )}
+            {order.field_start_time && (
+              <div>
+                <span className="text-slate-500 text-xs block mb-1">وقت البداية</span>
+                <span className="font-bold text-slate-800">{new Date(order.field_start_time).toLocaleString("ar-SA")}</span>
+              </div>
+            )}
+            {order.field_end_time && (
+              <div>
+                <span className="text-slate-500 text-xs block mb-1">وقت النهاية</span>
+                <span className="font-bold text-slate-800">{new Date(order.field_end_time).toLocaleString("ar-SA")}</span>
+              </div>
+            )}
+            {order.field_technician_name && (
+              <div className="col-span-2 md:col-span-4">
+                <span className="text-slate-500 text-xs block mb-1">أسماء الفنيين</span>
+                <span className="font-bold text-slate-800">{order.field_technician_name}</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <FieldReportForm orderId={order.id} />
+        )}
+      </div>
     </div>
   );
 }

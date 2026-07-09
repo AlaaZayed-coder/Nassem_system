@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { updateDoorOrderStatusAction } from "../actions";
 
-const STATUSES = ["عالقة", "قيد الانتظار", "معلقة", "قيد الإنتاج", "جاهزة"];
+const STATUSES = ["عالقة", "قيد الانتظار", "معلقة", "قيد الإنتاج", "تم التوريد", "جاهزة"];
 
 export function StatusSelect({ orderId, currentStatus }: { orderId: string; currentStatus: string }) {
   const [isPending, startTransition] = useTransition();

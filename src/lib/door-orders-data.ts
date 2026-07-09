@@ -13,6 +13,11 @@ export type DoorOrder = {
   erp_customers?: { name: string; company_name: string | null; phone: string | null };
   erp_staff?: { name: string } | null;
   item_count?: number;
+  field_report_number: string | null;
+  field_start_time: string | null;
+  field_end_time: string | null;
+  field_technician_name: string | null;
+  installation_type: string | null;
 };
 
 export type DoorOrderItem = {

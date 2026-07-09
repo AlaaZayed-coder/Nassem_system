@@ -11,6 +11,7 @@ const COLUMNS = [
   { id: "قيد الانتظار", label: "قيد الانتظار", color: "bg-slate-100", textColor: "text-slate-800", borderColor: "border-slate-300" },
   { id: "معلقة", label: "معلقة", color: "bg-amber-50", textColor: "text-amber-800", borderColor: "border-amber-300" },
   { id: "قيد الإنتاج", label: "قيد الإنتاج", color: "bg-sky-50", textColor: "text-sky-800", borderColor: "border-sky-300" },
+  { id: "تم التوريد", label: "تم التوريد", color: "bg-violet-50", textColor: "text-violet-800", borderColor: "border-violet-300" },
   { id: "جاهزة", label: "جاهزة", color: "bg-emerald-50", textColor: "text-emerald-800", borderColor: "border-emerald-300" },
 ];
 
