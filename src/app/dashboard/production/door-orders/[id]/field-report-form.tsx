@@ -64,7 +64,7 @@ export function FieldReportForm({ orderId }: { orderId: string }) {
           </div>
         </div>
 
-        <p className="text-[11px] text-violet-700">عند الحفظ، ستنتقل حالة الطلبية تلقائياً إلى "جاهزة".</p>
+        <p className="text-[11px] text-violet-700">عند الحفظ، ستنتقل حالة الطلبية تلقائياً إلى &quot;جاهزة&quot;.</p>
 
         <div className="flex gap-2">
           <button
