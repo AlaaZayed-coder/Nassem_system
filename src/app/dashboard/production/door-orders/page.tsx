@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getDoorOrders } from "@/lib/door-orders-data";
-import { DoorOrdersKanban } from "@/components/production/door-orders-kanban";
+import { DoorOrdersTable } from "@/components/production/door-orders-table";
 import { DoorClosed, Plus, ArrowRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export default async function DoorOrdersPage() {
         </div>
       </div>
 
-      <DoorOrdersKanban initialOrders={orders} />
+      <DoorOrdersTable initialOrders={orders} />
     </div>
   );
 }

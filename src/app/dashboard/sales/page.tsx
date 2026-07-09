@@ -1,5 +1,5 @@
 import { getCustomers, getSalesOpportunities } from "@/lib/sales-data";
-import { SalesKanban } from "@/components/sales/sales-kanban";
+import { SalesTable } from "@/components/sales/sales-table";
 import { Users, Target, CircleDollarSign, Plus, LayoutDashboard, Inbox } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/format";
@@ -70,9 +70,9 @@ export default async function SalesDashboardPage() {
       <div className="pt-4 border-t border-slate-100">
         <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
           <LayoutDashboard className="h-6 w-6 text-slate-400" />
-          لوحة مسار المبيعات (Pipeline)
+          طلبات المبيعات
         </h2>
-        <SalesKanban initialOrders={opportunities} />
+        <SalesTable initialOrders={opportunities} />
       </div>
     </div>
   );
