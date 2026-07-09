@@ -53,7 +53,7 @@ export default async function PurchaseOrderDetailsPage({ params }: { params: { i
         </div>
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
           <h3 className="text-slate-500 font-medium mb-1 flex items-center gap-2"><Calendar className="h-4 w-4"/> تاريخ الإنشاء</h3>
-          <p className="text-xl font-bold text-slate-800" dir="ltr">{new Date(order.created_at).toLocaleDateString("ar-SA")}</p>
+          <p className="text-xl font-bold text-slate-800" dir="ltr">{new Date(order.created_at).toLocaleDateString("en-GB")}</p>
         </div>
       </div>
 

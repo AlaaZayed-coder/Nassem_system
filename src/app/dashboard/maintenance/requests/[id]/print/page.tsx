@@ -15,14 +15,14 @@ function SpecRow({ label, value }: { label: string; value: React.ReactNode }) {
 
 function formatDateTime(value: string | null) {
   if (!value) return null;
-  return new Date(value).toLocaleString("ar-SA", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(value).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
 }
 
 export default async function MaintenanceFieldReportPrintPage({ params }: { params: { id: string } }) {
   const req = await getMaintenanceRequestDetail(params.id);
   if (!req) notFound();
 
-  const printDate = new Date().toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+  const printDate = new Date().toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" });
   const hasFieldReport = req.field_report_number || req.field_start_time || req.installation_type;
 
   return (
@@ -78,7 +78,7 @@ export default async function MaintenanceFieldReportPrintPage({ params }: { para
               ) : (
                 <SpecRow label="طلب المبيعات المرتبط" value={<span className="tag tag-indigo">تقرير ميداني مستقل</span>} />
               )}
-              <SpecRow label="تاريخ الإنشاء" value={new Date(req.created_at).toLocaleDateString("ar-SA")} />
+              <SpecRow label="تاريخ الإنشاء" value={new Date(req.created_at).toLocaleDateString("en-GB")} />
             </tbody>
           </table>
         </div>

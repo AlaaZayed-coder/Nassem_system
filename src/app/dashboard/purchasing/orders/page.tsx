@@ -64,7 +64,7 @@ export default async function PurchaseOrdersPage() {
                 <td className="p-4 text-slate-500 text-xs">
                   <div className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    {new Date(order.created_at).toLocaleDateString("ar-SA")}
+                    {new Date(order.created_at).toLocaleDateString("en-GB")}
                   </div>
                 </td>
                 <td className="p-4 font-black text-rose-600 font-mono text-base" dir="ltr">

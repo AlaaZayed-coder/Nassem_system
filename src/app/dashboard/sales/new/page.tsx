@@ -39,7 +39,7 @@ function NewSalesOpportunityPageInner() {
     doorColor: string, doorLengthMm: string, doorHeightMm: string, doorProfileItemCode: string,
     doorHasCover: boolean, doorCoverWidthMm: string, doorCoverHeightMm: string,
     doorHasBox: boolean, doorBoxLengthMm: string, doorBoxHeightMm: string,
-    doorGuidesSent: boolean, doorIsIndustrial: boolean, doorPipeLengthInch: string,
+    doorGuidesSent: boolean, doorIsIndustrial: boolean, doorPipeLengthInch: string, doorGuidesOnly: boolean,
     slatColor: string, slatWidthMm: string, slatFinCount: string, slatFrontageCount: string,
     // ملحقات الباب (Parent-Child): ريش/جبهة وماتور مرتبطان بنفس طلبية التصنيع
     accNeedsSlat: boolean, accSlatQty: string,
@@ -79,7 +79,7 @@ function NewSalesOpportunityPageInner() {
       doorColor: "", doorLengthMm: "", doorHeightMm: "", doorProfileItemCode: "",
       doorHasCover: false, doorCoverWidthMm: "", doorCoverHeightMm: "",
       doorHasBox: false, doorBoxLengthMm: "", doorBoxHeightMm: "",
-      doorGuidesSent: false, doorIsIndustrial: false, doorPipeLengthInch: "",
+      doorGuidesSent: false, doorIsIndustrial: false, doorPipeLengthInch: "", doorGuidesOnly: false,
       slatColor: "", slatWidthMm: "", slatFinCount: "", slatFrontageCount: "",
       accNeedsSlat: false, accSlatQty: "",
       accNeedsMotor: false, accMotorMode: 'catalog', accMotorItemCode: "", accMotorFreeText: "", accMotorQty: "1",
@@ -163,6 +163,7 @@ function NewSalesOpportunityPageInner() {
               item_notes: l.lineNotes || undefined,
               is_industrial: l.doorIsIndustrial,
               pipe_length_inch: l.doorIsIndustrial && l.doorPipeLengthInch ? Number(l.doorPipeLengthInch) : undefined,
+              guides_only: l.doorGuidesOnly,
               accessories: {
                 needs_slat: l.accNeedsSlat,
                 slat_qty: l.accNeedsSlat && l.accSlatQty ? Number(l.accSlatQty) : undefined,
@@ -357,6 +358,18 @@ function NewSalesOpportunityPageInner() {
                     </button>
                   </div>
 
+                  <div className="bg-sky-50 p-3 rounded-xl border border-sky-100">
+                    <label className="flex items-center gap-2 text-xs font-bold text-sky-800 cursor-pointer">
+                      <input type="checkbox" checked={line.doorGuidesOnly} onChange={e => updateLine(line.id, 'doorGuidesOnly', e.target.checked)} className="h-4 w-4" />
+                      مجرى فقط الآن (سيُستكمل الباب لاحقاً)
+                    </label>
+                    {line.doorGuidesOnly && (
+                      <p className="text-[11px] text-sky-700 mt-1 mr-6">
+                        يكفي إدخال الارتفاع الآن — تبقى الطلبية &quot;قيد الاستكمال&quot; حتى تُضاف بقية المواصفات لاحقاً على نفس الصنف.
+                      </p>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <div className="md:col-span-2">
                       <label className="block text-xs font-bold text-slate-600 mb-1">نوع الباب/الدنجل/الوجه (Item No.)</label>
@@ -367,10 +380,12 @@ function NewSalesOpportunityPageInner() {
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-600 mb-1">اللون</label>
-                      <input type="text" value={line.doorColor} onChange={e => updateLine(line.id, 'doorColor', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none" />
-                    </div>
+                    {!line.doorGuidesOnly && (
+                      <div>
+                        <label className="block text-xs font-bold text-slate-600 mb-1">اللون</label>
+                        <input type="text" value={line.doorColor} onChange={e => updateLine(line.id, 'doorColor', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none" />
+                      </div>
+                    )}
                     <div className="flex items-end pb-2 gap-2">
                       <label className="flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer">
                         <input type="checkbox" checked={line.doorGuidesSent} onChange={e => updateLine(line.id, 'doorGuidesSent', e.target.checked)} className="h-4 w-4" />
@@ -380,25 +395,31 @@ function NewSalesOpportunityPageInner() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-600 mb-1">الطول L (مم)</label>
-                      <input type="number" value={line.doorLengthMm} onChange={e => updateLine(line.id, 'doorLengthMm', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none dir-ltr text-center" />
-                    </div>
+                    {!line.doorGuidesOnly && (
+                      <div>
+                        <label className="block text-xs font-bold text-slate-600 mb-1">الطول L (مم)</label>
+                        <input type="number" value={line.doorLengthMm} onChange={e => updateLine(line.id, 'doorLengthMm', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none dir-ltr text-center" />
+                      </div>
+                    )}
                     <div>
                       <label className="block text-xs font-bold text-slate-600 mb-1">الارتفاع H (مم)</label>
-                      <input type="number" value={line.doorHeightMm} onChange={e => updateLine(line.id, 'doorHeightMm', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none dir-ltr text-center" />
+                      <input required={line.doorGuidesOnly} type="number" value={line.doorHeightMm} onChange={e => updateLine(line.id, 'doorHeightMm', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none dir-ltr text-center" />
                     </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-slate-600 mb-1">البروفيل (اختياري)</label>
-                      <select value={line.doorProfileItemCode} onChange={e => updateLine(line.id, 'doorProfileItemCode', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none">
-                        <option value="">-- بدون بروفيل --</option>
-                        {availableItems.map(i => (
-                          <option key={i.item_code} value={i.item_code}>{i.approved_name || i.original_name}</option>
-                        ))}
-                      </select>
-                    </div>
+                    {!line.doorGuidesOnly && (
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-bold text-slate-600 mb-1">البروفيل (اختياري)</label>
+                        <select value={line.doorProfileItemCode} onChange={e => updateLine(line.id, 'doorProfileItemCode', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none">
+                          <option value="">-- بدون بروفيل --</option>
+                          {availableItems.map(i => (
+                            <option key={i.item_code} value={i.item_code}>{i.approved_name || i.original_name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
+                  {!line.doorGuidesOnly && (
+                  <>
                   <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex flex-wrap items-center gap-3">
                     <label className="flex items-center gap-2 text-xs font-bold text-amber-800 cursor-pointer">
                       <input type="checkbox" checked={line.doorIsIndustrial} onChange={e => updateLine(line.id, 'doorIsIndustrial', e.target.checked)} className="h-4 w-4" />
@@ -438,6 +459,8 @@ function NewSalesOpportunityPageInner() {
                       )}
                     </div>
                   </div>
+                  </>
+                  )}
 
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">ملاحظات الصنف</label>

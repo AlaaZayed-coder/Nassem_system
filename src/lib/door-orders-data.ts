@@ -13,6 +13,7 @@ export type DoorOrder = {
   erp_customers?: { name: string; company_name: string | null; phone: string | null };
   erp_staff?: { name: string } | null;
   item_count?: number;
+  pending_completion_count?: number;
   field_report_number: string | null;
   field_start_time: string | null;
   field_end_time: string | null;
@@ -27,6 +28,7 @@ export type DoorOrderItem = {
   color: string | null;
   length_mm: number | null;
   height_mm: number | null;
+  guides_height_mm: number | null;
   profile_item_code: string | null;
   has_cover: boolean;
   cover_width_mm: number | null;
@@ -47,6 +49,9 @@ export type DoorOrderItem = {
   spring_match_diff_kg: number | null;
   calculated_at: string | null;
   created_at: string;
+  item_status: "قيد الاستكمال" | "مكتمل";
+  initial_entry_date: string | null;
+  completed_at: string | null;
   erp_items?: { original_name: string; approved_name: string | null };
 };
 
@@ -76,7 +81,7 @@ export type DoorOrderAccessory = {
 export async function getDoorOrders(): Promise<DoorOrder[]> {
   const { data, error } = await supabase
     .from("erp_door_orders")
-    .select("*, erp_customers(name, company_name, phone), erp_staff(name), erp_door_order_items(id)")
+    .select("*, erp_customers(name, company_name, phone), erp_staff(name), erp_door_order_items(id, item_status)")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -87,6 +92,9 @@ export async function getDoorOrders(): Promise<DoorOrder[]> {
   return (data || []).map((o: any) => ({
     ...o,
     item_count: Array.isArray(o.erp_door_order_items) ? o.erp_door_order_items.length : 0,
+    pending_completion_count: Array.isArray(o.erp_door_order_items)
+      ? o.erp_door_order_items.filter((i: any) => i.item_status === "قيد الاستكمال").length
+      : 0,
     erp_door_order_items: undefined,
   }));
 }

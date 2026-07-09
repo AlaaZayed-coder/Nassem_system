@@ -76,7 +76,7 @@ export function KanbanBoard({ initialOrders }: { initialOrders: Order[] }) {
                   
                   <div className="flex items-center gap-1 text-xs text-slate-500 mb-4">
                     <Calendar className="h-3.5 w-3.5" />
-                    {new Date(order.created_at).toLocaleDateString("ar-SA")}
+                    {new Date(order.created_at).toLocaleDateString("en-GB")}
                   </div>
 
                   <div className="flex flex-col gap-2">

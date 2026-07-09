@@ -20,14 +20,16 @@ export function DoorOrdersTable({ initialOrders }: { initialOrders: DoorOrder[] 
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [pendingOnly, setPendingOnly] = useState(false);
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
       const matchesQuery = !query || o.erp_customers?.name?.toLowerCase().includes(query.toLowerCase());
       const matchesStatus = !statusFilter || o.status === statusFilter;
-      return matchesQuery && matchesStatus;
+      const matchesPending = !pendingOnly || (o.pending_completion_count ?? 0) > 0;
+      return matchesQuery && matchesStatus && matchesPending;
     });
-  }, [orders, query, statusFilter]);
+  }, [orders, query, statusFilter, pendingOnly]);
 
   const handleStatusChange = (orderId: string, newStatus: string) => {
     const previousOrders = [...orders];
@@ -68,6 +70,10 @@ export function DoorOrdersTable({ initialOrders }: { initialOrders: DoorOrder[] 
             <option key={s.id} value={s.id}>{s.label}</option>
           ))}
         </select>
+        <label className="flex items-center gap-1.5 text-xs font-bold text-sky-700 bg-sky-50 px-3 py-2 rounded-xl border border-sky-100 cursor-pointer">
+          <input type="checkbox" checked={pendingOnly} onChange={(e) => setPendingOnly(e.target.checked)} className="h-3.5 w-3.5" />
+          بانتظار الاستكمال فقط
+        </label>
       </div>
 
       <div className="overflow-x-auto">
@@ -100,11 +106,18 @@ export function DoorOrdersTable({ initialOrders }: { initialOrders: DoorOrder[] 
                   </td>
                   <td className="px-4 py-3 text-slate-600">{order.order_type}</td>
                   <td className="px-4 py-3">
-                    {(order.item_count ?? 0) > 0 && (
-                      <span className="flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full w-fit">
-                        <Package className="h-3 w-3" /> {order.item_count}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {(order.item_count ?? 0) > 0 && (
+                        <span className="flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full w-fit">
+                          <Package className="h-3 w-3" /> {order.item_count}
+                        </span>
+                      )}
+                      {(order.pending_completion_count ?? 0) > 0 && (
+                        <span className="text-xs font-bold text-sky-700 bg-sky-100 px-2 py-0.5 rounded-full w-fit">
+                          ⏳ {order.pending_completion_count}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-slate-500 text-xs">{order.erp_staff?.name || "غير محدد"}</td>
                   <td className="px-4 py-3">
@@ -121,7 +134,7 @@ export function DoorOrdersTable({ initialOrders }: { initialOrders: DoorOrder[] 
                     </select>
                   </td>
                   <td className="px-4 py-3 text-slate-400 text-xs">
-                    {new Date(order.created_at).toLocaleDateString("ar-SA")}
+                    {new Date(order.created_at).toLocaleDateString("en-GB")}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">

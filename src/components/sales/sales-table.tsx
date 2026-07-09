@@ -118,7 +118,7 @@ export function SalesTable({ initialOrders }: { initialOrders: SalesOrder[] }) {
                     </select>
                   </td>
                   <td className="px-4 py-3 text-slate-400 text-xs">
-                    {new Date(order.created_at).toLocaleDateString("ar-SA")}
+                    {new Date(order.created_at).toLocaleDateString("en-GB")}
                   </td>
                   <td className="px-4 py-3">
                     <Link href={`/dashboard/sales/${order.id}`} className="text-slate-400 hover:text-indigo-600">

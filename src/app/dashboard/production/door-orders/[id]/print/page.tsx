@@ -17,7 +17,7 @@ export default async function DoorOrderPrintPage({ params }: { params: { id: str
   const { order, items, electronics } = await getDoorOrderDetail(params.id);
   if (!order) notFound();
 
-  const printDate = new Date().toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+  const printDate = new Date().toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" });
 
   return (
     <>
@@ -71,7 +71,7 @@ export default async function DoorOrderPrintPage({ params }: { params: { id: str
               <SpecRow label="المسؤول" value={order.erp_staff?.name || "غير محدد"} />
               <SpecRow label="الحالة" value={<span className="tag tag-slate">{order.status}</span>} />
               {order.customer_name_note && <SpecRow label="ملاحظة اسم" value={order.customer_name_note} />}
-              <SpecRow label="تاريخ الإنشاء" value={new Date(order.created_at).toLocaleDateString("ar-SA")} />
+              <SpecRow label="تاريخ الإنشاء" value={new Date(order.created_at).toLocaleDateString("en-GB")} />
             </tbody>
           </table>
           {order.general_notes && (
@@ -115,7 +115,7 @@ export default async function DoorOrderPrintPage({ params }: { params: { id: str
             {item.calculated_at ? (
               <div style={{ borderTop: "1px solid #e2e8f0" }}>
                 <div style={{ padding: "6px 14px", fontSize: 12, fontWeight: 700, color: "#475569", background: "#f8fafc" }}>
-                  ⚙️ المواصفات الهندسية — احتُسبت في {new Date(item.calculated_at).toLocaleDateString("ar-SA")}
+                  ⚙️ المواصفات الهندسية — احتُسبت في {new Date(item.calculated_at).toLocaleDateString("en-GB")}
                 </div>
                 <div className="eng-grid">
                   <div className="eng-box">

@@ -121,7 +121,7 @@ export function OrderMaterialsManager({ orderId, materials, warehouses, inventor
                     {mat.erp_warehouses?.name || 'غير محدد'}
                   </td>
                   <td className="p-3 text-slate-500 text-xs" dir="ltr">
-                    {new Date(mat.created_at).toLocaleString('ar-SA')}
+                    {new Date(mat.created_at).toLocaleString('en-GB')}
                   </td>
                 </tr>
               ))}

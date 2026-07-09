@@ -67,7 +67,7 @@ export default async function MaintenanceRequestsPage() {
                 <div className="flex items-center gap-3">
                   <div className="text-xs text-slate-500 text-left">
                     <div>{req.technician_name || "—"}</div>
-                    <div>{req.resolved_at ? new Date(req.resolved_at).toLocaleDateString("ar-SA") : ""}</div>
+                    <div>{req.resolved_at ? new Date(req.resolved_at).toLocaleDateString("en-GB") : ""}</div>
                   </div>
                   <Link
                     href={`/dashboard/maintenance/requests/${req.id}/print`}
@@ -85,8 +85,8 @@ export default async function MaintenanceRequestsPage() {
                   {req.installation_type && <span>التركيب: {req.installation_type}</span>}
                   {req.field_start_time && (
                     <span>
-                      الفترة: {new Date(req.field_start_time).toLocaleString("ar-SA")}
-                      {req.field_end_time ? ` — ${new Date(req.field_end_time).toLocaleString("ar-SA")}` : ""}
+                      الفترة: {new Date(req.field_start_time).toLocaleString("en-GB")}
+                      {req.field_end_time ? ` — ${new Date(req.field_end_time).toLocaleString("en-GB")}` : ""}
                     </span>
                   )}
                 </div>

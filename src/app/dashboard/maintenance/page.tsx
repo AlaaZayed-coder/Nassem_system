@@ -102,7 +102,7 @@ export default async function MaintenanceDashboardPage() {
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800 text-sm">{log.erp_machines?.name}</span>
                   <span className="text-xs text-slate-500 font-mono">
-                    {new Date(log.maintenance_date).toLocaleDateString("ar-SA")}
+                    {new Date(log.maintenance_date).toLocaleDateString("en-GB")}
                   </span>
                 </div>
                 <p className="text-sm text-slate-600">{log.description}</p>

@@ -33,7 +33,7 @@ export function SubmissionCard({ submission, readOnly = false }: { submission: O
           )}
           <span className="font-bold text-slate-800 text-sm">{senderName}</span>
           <span className="text-xs text-slate-400">
-            {new Date(submission.created_at).toLocaleString("ar-SA")}
+            {new Date(submission.created_at).toLocaleString("en-GB")}
           </span>
         </div>
         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">

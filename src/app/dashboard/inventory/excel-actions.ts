@@ -322,7 +322,7 @@ export async function exportPricingSheet() {
   // ── Row 1: Title banner ───────────────────────────────────────────────────
   ws.mergeCells("A1:J1");
   const titleCell = ws.getCell("A1");
-  titleCell.value = `نظام الحوكمة — ملف إدخال الأسعار   (${new Date().toLocaleDateString("ar-SA")})`;
+  titleCell.value = `نظام الحوكمة — ملف إدخال الأسعار   (${new Date().toLocaleDateString("en-GB")})`;
   titleCell.font   = { name: "Arial", size: 13, bold: true, color: { argb: "FFFFFFFF" } };
   titleCell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A3C5E" } };
   titleCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };

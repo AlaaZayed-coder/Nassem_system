@@ -7,6 +7,7 @@ import { StatusSelect } from "./status-select";
 import { CalculateSpecsButton } from "./calculate-specs-button";
 import { BOMCalculator } from "./bom-calculator";
 import { FieldReportForm } from "./field-report-form";
+import { CompleteDoorItemForm } from "./complete-door-item-form";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +69,7 @@ export default async function DoorOrderDetailPage({ params }: { params: { id: st
           </div>
         </div>
         <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-500 flex items-center gap-1.5">
-          <Calendar className="h-3.5 w-3.5" /> أُنشئت في {new Date(order.created_at).toLocaleDateString("ar-SA")}
+          <Calendar className="h-3.5 w-3.5" /> أُنشئت في {new Date(order.created_at).toLocaleDateString("en-GB")}
         </div>
         {order.general_notes && (
           <div className="mt-4 pt-4 border-t border-slate-100">
@@ -85,11 +86,19 @@ export default async function DoorOrderDetailPage({ params }: { params: { id: st
             <div key={item.id} className="p-4 rounded-2xl border border-slate-100 bg-slate-50">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-bold text-slate-800">{item.erp_items?.approved_name || item.erp_items?.original_name}</span>
-                {item.color && <span className="text-xs bg-slate-200 px-2 py-0.5 rounded-full font-bold text-slate-600">{item.color}</span>}
+                <div className="flex items-center gap-2">
+                  {item.item_status === "قيد الاستكمال" && (
+                    <span className="text-xs font-bold text-sky-700 bg-sky-100 px-2 py-0.5 rounded-full">⏳ بانتظار استكمال الباب</span>
+                  )}
+                  {item.color && <span className="text-xs bg-slate-200 px-2 py-0.5 rounded-full font-bold text-slate-600">{item.color}</span>}
+                </div>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-slate-600">
                 <div>الطول: <span className="font-bold">{item.length_mm ?? "—"}</span> مم</div>
                 <div>الارتفاع: <span className="font-bold">{item.height_mm ?? "—"}</span> مم</div>
+                {item.guides_height_mm != null && (
+                  <div className="text-sky-700">ارتفاع المجرى (مبدئي): <span className="font-bold">{item.guides_height_mm}</span> مم</div>
+                )}
                 <div>المجاري بالورشة: <span className="font-bold">{item.guides_sent ? "نعم" : "لا"}</span></div>
                 {item.profile_item_code && <div>بروفيل: <span className="font-bold">{item.profile_item_code}</span></div>}
               </div>
@@ -106,7 +115,9 @@ export default async function DoorOrderDetailPage({ params }: { params: { id: st
               {item.item_notes && <p className="mt-2 text-xs text-slate-500 whitespace-pre-line">{item.item_notes}</p>}
 
               <div className="mt-3 pt-3 border-t border-slate-200">
-                {item.calculated_at ? (
+                {item.item_status === "قيد الاستكمال" ? (
+                  <CompleteDoorItemForm itemId={item.id} doorOrderId={order.id} guidesHeightMm={item.guides_height_mm} />
+                ) : item.calculated_at ? (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                     <div className="bg-white p-2 rounded-lg border border-slate-200">
                       <span className="text-slate-500 block">الوزن الأساسي</span>
@@ -216,13 +227,13 @@ export default async function DoorOrderDetailPage({ params }: { params: { id: st
             {order.field_start_time && (
               <div>
                 <span className="text-slate-500 text-xs block mb-1">وقت البداية</span>
-                <span className="font-bold text-slate-800">{new Date(order.field_start_time).toLocaleString("ar-SA")}</span>
+                <span className="font-bold text-slate-800">{new Date(order.field_start_time).toLocaleString("en-GB")}</span>
               </div>
             )}
             {order.field_end_time && (
               <div>
                 <span className="text-slate-500 text-xs block mb-1">وقت النهاية</span>
-                <span className="font-bold text-slate-800">{new Date(order.field_end_time).toLocaleString("ar-SA")}</span>
+                <span className="font-bold text-slate-800">{new Date(order.field_end_time).toLocaleString("en-GB")}</span>
               </div>
             )}
             {order.field_technician_name && (

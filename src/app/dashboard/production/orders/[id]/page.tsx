@@ -62,7 +62,7 @@ export default async function ProductionOrderDetailsPage({ params }: { params: {
               </div>
               <div>
                 <span className="text-slate-500 block mb-1">تاريخ الإنشاء</span>
-                <span className="font-bold text-slate-700 flex items-center gap-1.5"><Calendar className="h-4 w-4" /> {new Date(order.created_at).toLocaleDateString("ar-SA")}</span>
+                <span className="font-bold text-slate-700 flex items-center gap-1.5"><Calendar className="h-4 w-4" /> {new Date(order.created_at).toLocaleDateString("en-GB")}</span>
               </div>
               {order.erp_sales_orders && (
                 <div className="bg-amber-50 p-3 rounded-xl border border-amber-100">

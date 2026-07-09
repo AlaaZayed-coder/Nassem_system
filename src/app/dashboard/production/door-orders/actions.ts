@@ -171,6 +171,52 @@ export async function saveDoorOrderFieldReportAction(formData: FormData): Promis
   return {};
 }
 
+// استكمال بيانات صنف "مجرى فقط" — يُحدَّث نفس السطر (لا يُنشأ سطر جديد)،
+// ثم يتحول item_status إلى "مكتمل" ليظهر زر الاحتساب الهندسي.
+export async function completeDoorOrderItemAction(formData: FormData): Promise<{ error?: string }> {
+  const itemId = formData.get("item_id") as string;
+  const doorOrderId = formData.get("door_order_id") as string;
+  const color = (formData.get("color") as string) || null;
+  const length_mm = formData.get("length_mm") ? Number(formData.get("length_mm")) : null;
+  const height_mm = formData.get("height_mm") ? Number(formData.get("height_mm")) : null;
+  const profile_item_code = (formData.get("profile_item_code") as string) || null;
+  const has_cover = formData.get("has_cover") === "on";
+  const cover_width_mm = has_cover && formData.get("cover_width_mm") ? Number(formData.get("cover_width_mm")) : null;
+  const cover_height_mm = has_cover && formData.get("cover_height_mm") ? Number(formData.get("cover_height_mm")) : null;
+  const has_box = formData.get("has_box") === "on";
+  const box_length_mm = has_box && formData.get("box_length_mm") ? Number(formData.get("box_length_mm")) : null;
+  const box_height_mm = has_box && formData.get("box_height_mm") ? Number(formData.get("box_height_mm")) : null;
+  const is_industrial = formData.get("is_industrial") === "on";
+  const pipe_length_inch = is_industrial && formData.get("pipe_length_inch") ? Number(formData.get("pipe_length_inch")) : null;
+  const item_notes = (formData.get("item_notes") as string) || null;
+
+  if (!itemId) return { error: "الصنف غير محدد" };
+  if (!length_mm) return { error: "يجب إدخال الطول لاستكمال الباب" };
+  if (!height_mm) return { error: "يجب إدخال ارتفاع الباب الفعلي (قد يختلف عن ارتفاع المجرى المُدخل مسبقاً)" };
+
+  const { error } = await supabase
+    .from("erp_door_order_items")
+    .update({
+      color, length_mm, height_mm, profile_item_code,
+      has_cover, cover_width_mm, cover_height_mm,
+      has_box, box_length_mm, box_height_mm,
+      is_industrial, pipe_length_inch,
+      item_notes,
+      item_status: "مكتمل",
+      completed_at: new Date().toISOString(),
+    })
+    .eq("id", itemId);
+
+  if (error) return { error: error.message };
+
+  if (doorOrderId) {
+    await supabase.from("erp_door_orders").update({ status: "قيد الانتظار", updated_at: new Date().toISOString() }).eq("id", doorOrderId).eq("status", "معلقة");
+  }
+
+  revalidatePath(`/dashboard/production/door-orders/${doorOrderId}`);
+  return {};
+}
+
 export async function updateDoorOrderStatusAction(orderId: string, newStatus: string) {
   const { error } = await supabase
     .from("erp_door_orders")
