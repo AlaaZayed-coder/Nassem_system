@@ -20,6 +20,7 @@ type DoorOrderItemInput = {
   item_notes?: string;
   is_industrial?: boolean;
   pipe_length_inch?: number;
+  guides_only?: boolean;
 };
 
 export async function createDoorOrderAction(formData: FormData) {
@@ -35,9 +36,10 @@ export async function createDoorOrderAction(formData: FormData) {
   const items = JSON.parse(itemsJson || "[]") as DoorOrderItemInput[];
   if (items.length === 0) throw new Error("يجب إضافة صنف واحد على الأقل للطلبية");
 
+  const hasPendingGuides = items.some((item) => item.guides_only);
   const { data: order, error: orderError } = await supabase
     .from("erp_door_orders")
-    .insert([{ customer_id, order_type, responsible_staff_id, customer_name_note, general_notes }])
+    .insert([{ customer_id, order_type, responsible_staff_id, customer_name_note, general_notes, status: hasPendingGuides ? "معلقة" : undefined }])
     .select()
     .single();
 
@@ -46,20 +48,22 @@ export async function createDoorOrderAction(formData: FormData) {
   const itemsToInsert = items.map((item) => ({
     door_order_id: order.id,
     item_code: item.item_code,
-    color: item.color || null,
-    length_mm: item.length_mm || null,
-    height_mm: item.height_mm || null,
-    profile_item_code: item.profile_item_code || null,
-    has_cover: !!item.has_cover,
-    cover_width_mm: item.has_cover ? item.cover_width_mm || null : null,
-    cover_height_mm: item.has_cover ? item.cover_height_mm || null : null,
-    has_box: !!item.has_box,
-    box_length_mm: item.has_box ? item.box_length_mm || null : null,
-    box_height_mm: item.has_box ? item.box_height_mm || null : null,
+    color: item.guides_only ? null : item.color || null,
+    length_mm: item.guides_only ? null : item.length_mm || null,
+    height_mm: item.guides_only ? null : item.height_mm || null,
+    guides_height_mm: item.guides_only ? item.height_mm || null : null,
+    profile_item_code: item.guides_only ? null : item.profile_item_code || null,
+    has_cover: item.guides_only ? false : !!item.has_cover,
+    cover_width_mm: !item.guides_only && item.has_cover ? item.cover_width_mm || null : null,
+    cover_height_mm: !item.guides_only && item.has_cover ? item.cover_height_mm || null : null,
+    has_box: item.guides_only ? false : !!item.has_box,
+    box_length_mm: !item.guides_only && item.has_box ? item.box_length_mm || null : null,
+    box_height_mm: !item.guides_only && item.has_box ? item.box_height_mm || null : null,
     guides_sent: !!item.guides_sent,
     item_notes: item.item_notes || null,
-    is_industrial: !!item.is_industrial,
-    pipe_length_inch: item.is_industrial ? item.pipe_length_inch || null : null,
+    is_industrial: item.guides_only ? false : !!item.is_industrial,
+    pipe_length_inch: !item.guides_only && item.is_industrial ? item.pipe_length_inch || null : null,
+    item_status: item.guides_only ? "قيد الاستكمال" : "مكتمل",
   }));
 
   const { error: itemsError } = await supabase.from("erp_door_order_items").insert(itemsToInsert);

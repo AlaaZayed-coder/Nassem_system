@@ -29,6 +29,7 @@ type DoorItemRow = {
   item_notes: string;
   is_industrial: boolean;
   pipe_length_inch: string;
+  guides_only: boolean;
 };
 
 function newDoorItemRow(): DoorItemRow {
@@ -49,6 +50,7 @@ function newDoorItemRow(): DoorItemRow {
     item_notes: "",
     is_industrial: false,
     pipe_length_inch: "",
+    guides_only: false,
   };
 }
 
@@ -123,6 +125,7 @@ export default function NewDoorOrderPage() {
           item_notes: d.item_notes,
           is_industrial: d.is_industrial,
           pipe_length_inch: d.pipe_length_inch ? Number(d.pipe_length_inch) : undefined,
+          guides_only: d.guides_only,
         }));
 
         const formData = new FormData();
@@ -253,6 +256,18 @@ export default function NewDoorOrderPage() {
                   )}
                 </div>
 
+                <div className="bg-sky-50 p-3 rounded-xl border border-sky-100">
+                  <label className="flex items-center gap-2 text-xs font-bold text-sky-800 cursor-pointer">
+                    <input type="checkbox" checked={d.guides_only} onChange={(e) => updateDoorItem(d.id, "guides_only", e.target.checked)} className="h-4 w-4" />
+                    مجرى فقط الآن (سيُستكمل الباب لاحقاً)
+                  </label>
+                  {d.guides_only && (
+                    <p className="text-[11px] text-sky-700 mt-1 mr-6">
+                      يكفي إدخال الارتفاع الآن — تبقى الطلبية &quot;قيد الاستكمال&quot; حتى تُضاف بقية المواصفات لاحقاً على نفس الصنف.
+                    </p>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <div className="md:col-span-2">
                     <label className="block text-xs font-bold text-slate-600 mb-1">نوع الباب/الدنجل/الوجه (Item No.)</label>
@@ -263,10 +278,12 @@ export default function NewDoorOrderPage() {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1">اللون</label>
-                    <input type="text" value={d.color} onChange={(e) => updateDoorItem(d.id, "color", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none" />
-                  </div>
+                  {!d.guides_only && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">اللون</label>
+                      <input type="text" value={d.color} onChange={(e) => updateDoorItem(d.id, "color", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none" />
+                    </div>
+                  )}
                   <div className="flex items-end pb-2 gap-2">
                     <label className="flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer">
                       <input type="checkbox" checked={d.guides_sent} onChange={(e) => updateDoorItem(d.id, "guides_sent", e.target.checked)} className="h-4 w-4" />
@@ -276,25 +293,31 @@ export default function NewDoorOrderPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1">الطول L (مم)</label>
-                    <input type="number" value={d.length_mm} onChange={(e) => updateDoorItem(d.id, "length_mm", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none dir-ltr text-center" />
-                  </div>
+                  {!d.guides_only && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">الطول L (مم)</label>
+                      <input type="number" value={d.length_mm} onChange={(e) => updateDoorItem(d.id, "length_mm", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none dir-ltr text-center" />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">الارتفاع H (مم)</label>
-                    <input type="number" value={d.height_mm} onChange={(e) => updateDoorItem(d.id, "height_mm", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none dir-ltr text-center" />
+                    <input required={d.guides_only} type="number" value={d.height_mm} onChange={(e) => updateDoorItem(d.id, "height_mm", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none dir-ltr text-center" />
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-600 mb-1">البروفيل (اختياري)</label>
-                    <select value={d.profile_item_code} onChange={(e) => updateDoorItem(d.id, "profile_item_code", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none">
-                      <option value="">-- بدون بروفيل --</option>
-                      {items.map((i) => (
-                        <option key={i.item_code} value={i.item_code}>{i.approved_name || i.original_name}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {!d.guides_only && (
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-slate-600 mb-1">البروفيل (اختياري)</label>
+                      <select value={d.profile_item_code} onChange={(e) => updateDoorItem(d.id, "profile_item_code", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none">
+                        <option value="">-- بدون بروفيل --</option>
+                        {items.map((i) => (
+                          <option key={i.item_code} value={i.item_code}>{i.approved_name || i.original_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
+                {!d.guides_only && (
+                <>
                 <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex flex-wrap items-center gap-3">
                   <label className="flex items-center gap-2 text-xs font-bold text-amber-800 cursor-pointer">
                     <input type="checkbox" checked={d.is_industrial} onChange={(e) => updateDoorItem(d.id, "is_industrial", e.target.checked)} className="h-4 w-4" />
@@ -334,6 +357,8 @@ export default function NewDoorOrderPage() {
                     )}
                   </div>
                 </div>
+                </>
+                )}
 
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1">ملاحظات الصنف</label>
