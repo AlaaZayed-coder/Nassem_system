@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { getSettings } from "./settings-data";
 
 export type SlaWarning = {
   id: string;
@@ -8,15 +9,35 @@ export type SlaWarning = {
   link: string;
 };
 
-const DOOR_PENDING_THRESHOLD_DAYS = 3;
-const PURCHASE_AGING_THRESHOLD_DAYS = 5;
-const MAINTENANCE_AGING_THRESHOLD_DAYS = 2;
+export const SLA_DEFAULTS = {
+  sla_door_pending_days: 3,
+  sla_purchase_aging_days: 5,
+  sla_maintenance_aging_days: 2,
+};
+
+export type SlaThresholdKey = keyof typeof SLA_DEFAULTS;
 
 function daysSince(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
 }
 
+export async function getSlaThresholds(): Promise<Record<SlaThresholdKey, number>> {
+  const settings = await getSettings();
+  const result = { ...SLA_DEFAULTS };
+  (Object.keys(SLA_DEFAULTS) as SlaThresholdKey[]).forEach((key) => {
+    const raw = settings[key];
+    const parsed = raw ? Number(raw) : NaN;
+    if (!Number.isNaN(parsed) && parsed > 0) result[key] = parsed;
+  });
+  return result;
+}
+
 export async function getSlaWarnings(): Promise<SlaWarning[]> {
+  const thresholds = await getSlaThresholds();
+  const DOOR_PENDING_THRESHOLD_DAYS = thresholds.sla_door_pending_days;
+  const PURCHASE_AGING_THRESHOLD_DAYS = thresholds.sla_purchase_aging_days;
+  const MAINTENANCE_AGING_THRESHOLD_DAYS = thresholds.sla_maintenance_aging_days;
+
   const [{ data: doorItems }, { data: purchaseRequests }, { data: maintenanceRequests }] = await Promise.all([
     supabase
       .from("erp_door_order_items")

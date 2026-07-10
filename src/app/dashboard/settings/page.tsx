@@ -18,6 +18,9 @@ export default function SettingsPage() {
         updateSetting("default_margin_percent", settings.default_margin_percent || "0"),
         updateSetting("rounding_rule", settings.rounding_rule || "nearest_1"),
         updateSetting("currency", settings.currency || "شيكل"),
+        updateSetting("sla_door_pending_days", settings.sla_door_pending_days || "3"),
+        updateSetting("sla_purchase_aging_days", settings.sla_purchase_aging_days || "5"),
+        updateSetting("sla_maintenance_aging_days", settings.sla_maintenance_aging_days || "2"),
       ]);
       notify("تم حفظ الإعدادات ✓");
     } catch (e: any) { notify(e.message); }
@@ -53,6 +56,27 @@ export default function SettingsPage() {
             <option value="nearest_10">أقرب 10 شيكل</option>
             <option value="none">بدون تقريب</option>
           </select>
+        </div>
+        <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 14, marginTop: 4 }}>
+          <label className="field-label" style={{ fontWeight: 700 }}>مهل التنبيه بالتأخير (SLA) — أيام</label>
+        </div>
+        <div>
+          <label className="field-label">مجرى بانتظار استكمال الباب (أيام)</label>
+          <input className="field-input ltr" type="number" min="1" step="1" dir="ltr"
+            value={settings.sla_door_pending_days || "3"}
+            onChange={e => set("sla_door_pending_days", e.target.value)} />
+        </div>
+        <div>
+          <label className="field-label">طلب شراء متأخر (أيام)</label>
+          <input className="field-input ltr" type="number" min="1" step="1" dir="ltr"
+            value={settings.sla_purchase_aging_days || "5"}
+            onChange={e => set("sla_purchase_aging_days", e.target.value)} />
+        </div>
+        <div>
+          <label className="field-label">طلب صيانة متأخر (أيام)</label>
+          <input className="field-input ltr" type="number" min="1" step="1" dir="ltr"
+            value={settings.sla_maintenance_aging_days || "2"}
+            onChange={e => set("sla_maintenance_aging_days", e.target.value)} />
         </div>
         <button className="btn btn-primary" onClick={save} style={{ alignSelf: "flex-start" }}>
           <Save size={14} /> حفظ الإعدادات
