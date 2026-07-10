@@ -111,6 +111,37 @@ export async function getOrderSubmissions(status?: string): Promise<OrderSubmiss
   return data || [];
 }
 
+export async function getOrderSubmissionById(id: string): Promise<OrderSubmission | null> {
+  const { data, error } = await supabase
+    .from("erp_order_submissions")
+    .select("*, erp_staff(name, role), erp_customers(name, phone), erp_order_submission_attachments(*)")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error fetching order submission:", error);
+    return null;
+  }
+  return data;
+}
+
+// يعيد أقدم طلبية بانتظار المعالجة غير الحالية، لتمكين طابور معالجة متسلسل
+// (بعد اعتماد/رفض طلبية، ننتقل مباشرة للتالية بدل العودة لقائمة الصندوق الوارد).
+export async function getNextPendingSubmissionId(excludeId?: string): Promise<string | null> {
+  let query = supabase
+    .from("erp_order_submissions")
+    .select("id")
+    .eq("status", "قيد المراجعة")
+    .order("created_at", { ascending: true })
+    .limit(2);
+
+  const { data, error } = await query;
+  if (error || !data) return null;
+
+  const next = data.find((s) => s.id !== excludeId);
+  return next?.id || null;
+}
+
 export async function getStaffByTelegramChatId(chatId: string) {
   const { data, error } = await supabase
     .from("erp_staff")

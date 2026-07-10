@@ -9,6 +9,7 @@ import {
   searchCustomers,
   updateSubmissionCustomer,
   addSubmissionAttachment,
+  getNextPendingSubmissionId,
 } from "@/lib/order-submissions-data";
 
 export async function createWebSubmissionAction(formData: FormData): Promise<{ error?: string }> {
@@ -71,6 +72,10 @@ export async function createWebSubmissionAction(formData: FormData): Promise<{ e
 export async function resolveSubmissionAction(id: string, status: string, notes?: string) {
   await updateOrderSubmissionStatus(id, status, notes);
   revalidatePath("/dashboard/sales/submissions");
+}
+
+export async function getNextPendingSubmissionIdAction(excludeId?: string) {
+  return getNextPendingSubmissionId(excludeId);
 }
 
 export async function searchCustomersAction(query: string) {
