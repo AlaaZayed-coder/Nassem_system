@@ -37,7 +37,7 @@ export function Sidebar({
   const pathname = usePathname();
 
   const menuItems: MenuItem[] = [
-    { name: "الرئيسية", icon: Factory, path: "/" },
+    { name: "الرئيسية", icon: Factory, path: "/dashboard" },
     { name: "إدارة المبيعات (CRM)", icon: Target, path: "/dashboard/sales" },
     { name: "صندوق وارد الطلبيات", icon: Inbox, path: "/dashboard/sales/submissions", badge: counts.pendingSubmissions },
     { name: "إدارة الإنتاج", icon: Factory, path: "/dashboard/production" },
