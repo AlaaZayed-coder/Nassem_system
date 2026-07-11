@@ -1,20 +1,12 @@
-import { getCustomers, getSalesOpportunities } from "@/lib/sales-data";
+import { getSalesOpportunities } from "@/lib/sales-data";
 import { SalesTable } from "@/components/sales/sales-table";
-import { Users, Target, CircleDollarSign, Plus, LayoutDashboard, Inbox } from "lucide-react";
+import { Target, Plus, LayoutDashboard, Inbox } from "lucide-react";
 import Link from "next/link";
-import { formatCurrency } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function SalesDashboardPage() {
-  const [customers, opportunities] = await Promise.all([
-    getCustomers(),
-    getSalesOpportunities()
-  ]);
-
-  const totalPipelineRevenue = opportunities.reduce((sum, o) => sum + (o.expected_revenue_cents || o.total_amount_cents || 0), 0);
-  const wonRevenue = opportunities.filter(o => o.status === "معتمد").reduce((sum, o) => sum + (o.expected_revenue_cents || o.total_amount_cents || 0), 0);
-  const totalCustomers = customers.length;
+  const opportunities = await getSalesOpportunities();
 
   return (
     <div className="p-8 max-w-7xl mx-auto flex flex-col gap-8" dir="rtl">
@@ -38,35 +30,6 @@ export default async function SalesDashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-200">
-          <h3 className="text-indigo-100 font-medium mb-1 flex items-center gap-2">
-            <CircleDollarSign className="h-5 w-5" />
-            حجم الفرص البيعية المفتوحة
-          </h3>
-          <p className="text-3xl font-black font-mono mt-2" dir="ltr">{formatCurrency(totalPipelineRevenue)}</p>
-        </div>
-        <div className="bg-emerald-500 rounded-3xl p-6 text-white shadow-lg shadow-emerald-200">
-          <h3 className="text-emerald-100 font-medium mb-1 flex items-center gap-2">
-            <CheckCircle className="h-5 w-5" />
-            المبيعات المحققة (المعتمدة)
-          </h3>
-          <p className="text-3xl font-black font-mono mt-2" dir="ltr">{formatCurrency(wonRevenue)}</p>
-        </div>
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <h3 className="text-slate-500 font-medium mb-1 flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              إجمالي العملاء المسجلين
-            </h3>
-            <p className="text-3xl font-black text-slate-800 font-mono mt-2" dir="ltr">{totalCustomers}</p>
-          </div>
-          <div className="h-14 w-14 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center">
-            <Users className="h-7 w-7" />
-          </div>
-        </div>
-      </div>
-
       <div className="pt-4 border-t border-slate-100">
         <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
           <LayoutDashboard className="h-6 w-6 text-slate-400" />
@@ -76,11 +39,4 @@ export default async function SalesDashboardPage() {
       </div>
     </div>
   );
-}
-
-// Minimal missing component hack for the CheckCircle icon above
-function CheckCircle(props: any) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
-  )
 }
