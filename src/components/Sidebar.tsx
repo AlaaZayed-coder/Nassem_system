@@ -17,6 +17,7 @@ import {
   DoorClosed,
   Contact,
   Truck,
+  ListChecks,
   X,
 } from "lucide-react";
 
@@ -40,6 +41,7 @@ export function Sidebar({
 
   const menuItems: MenuItem[] = [
     { name: "الرئيسية", icon: Factory, path: "/dashboard" },
+    { name: "الأجندة اليومية", icon: ListChecks, path: "/dashboard/agenda" },
     { name: "إدارة المبيعات (CRM)", icon: Target, path: "/dashboard/sales" },
     { name: "العملاء", icon: Contact, path: "/dashboard/customers" },
     { name: "صندوق وارد الطلبيات", icon: Inbox, path: "/dashboard/sales/submissions", badge: counts.pendingSubmissions },
