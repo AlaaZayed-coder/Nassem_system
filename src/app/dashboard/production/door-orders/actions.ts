@@ -3,6 +3,7 @@
 import { supabase } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
 import { calculateDoorEngineering } from "@/lib/door-engineering";
+import { getBomItemMappings, getBomIssuesForItem } from "@/lib/bom-inventory-data";
 
 type DoorOrderItemInput = {
   item_code: string;
@@ -199,4 +200,62 @@ export async function updateDoorOrderStatusAction(orderId: string, newStatus: st
 
   revalidatePath("/dashboard/production/door-orders");
   revalidatePath(`/dashboard/production/door-orders/${orderId}`);
+}
+
+// صرف بنود BOM "المؤكَّدة" فعلياً من المخزون (مرة واحدة لكل صنف باب)، بالاعتماد
+// على ربط bom_key -> item_code المُهيَّأ من الإعدادات. البنود غير المربوطة تُتخطى
+// وتُعاد للواجهة كي يظهر للمستخدم أيها لم يُصرف وأيها فعلاً نقص من المخزون.
+export async function issueDoorBOMToInventoryAction(
+  doorOrderItemId: string,
+  lines: { key: string; quantity: number }[]
+): Promise<{ error?: string; issued?: { key: string; item_code: string; quantity: number }[]; skipped?: { key: string; reason: string }[] }> {
+  if (!doorOrderItemId) return { error: "صنف الباب غير محدد" };
+
+  const alreadyIssued = await getBomIssuesForItem(doorOrderItemId);
+  if (alreadyIssued.length > 0) return { error: "تم صرف مواد هذا الصنف مسبقاً" };
+
+  const mappings = await getBomItemMappings();
+  const issued: { key: string; item_code: string; quantity: number }[] = [];
+  const skipped: { key: string; reason: string }[] = [];
+
+  for (const line of lines) {
+    if (!line.quantity || line.quantity <= 0) continue;
+
+    const itemCode = mappings[line.key];
+    if (!itemCode) {
+      skipped.push({ key: line.key, reason: "غير مربوط بصنف في الإعدادات" });
+      continue;
+    }
+
+    const { data: invRows } = await supabase.from("erp_inventory").select("quantity, warehouse_id").eq("item_code", itemCode);
+    const availableQty = (invRows || []).reduce((sum: number, r: any) => sum + (r.quantity || 0), 0);
+    const primaryWarehouse = invRows?.[0]?.warehouse_id || null;
+
+    if (availableQty < line.quantity) {
+      skipped.push({ key: line.key, reason: `المخزون غير كافٍ (متوفر: ${availableQty}, مطلوب: ${line.quantity})` });
+      continue;
+    }
+
+    if (primaryWarehouse) {
+      await supabase
+        .from("erp_inventory")
+        .update({ quantity: availableQty - line.quantity, last_updated: new Date().toISOString() })
+        .eq("item_code", itemCode)
+        .eq("warehouse_id", primaryWarehouse);
+    }
+
+    await supabase.from("erp_bom_issues").insert({
+      door_order_item_id: doorOrderItemId,
+      bom_key: line.key,
+      item_code: itemCode,
+      quantity: line.quantity,
+      warehouse_id: primaryWarehouse,
+      available_before: availableQty,
+    });
+
+    issued.push({ key: line.key, item_code: itemCode, quantity: line.quantity });
+  }
+
+  revalidatePath(`/dashboard/production/door-orders`);
+  return { issued, skipped };
 }

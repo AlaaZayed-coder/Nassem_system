@@ -1,14 +1,21 @@
 "use client";
 import { useEffect, useState } from "react";
 import { getSettings, updateSetting } from "@/lib/settings-data";
+import { getBomMappingDataAction } from "./bom-mapping-actions";
+import { BomMappingManager } from "./bom-mapping-manager";
+import { BOM_DEDUCTIBLE_KEYS } from "@/lib/bom-inventory-data";
 import Link from "next/link";
 import { ArrowRight, Save } from "lucide-react";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [toast, setToast] = useState("");
+  const [bomData, setBomData] = useState<{ mappings: Record<string, string>; items: any[] } | null>(null);
 
-  useEffect(() => { getSettings().then(setSettings); }, []);
+  useEffect(() => {
+    getSettings().then(setSettings);
+    getBomMappingDataAction().then(setBomData);
+  }, []);
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(""), 3000); }
 
@@ -81,6 +88,16 @@ export default function SettingsPage() {
         <button className="btn btn-primary" onClick={save} style={{ alignSelf: "flex-start" }}>
           <Save size={14} /> حفظ الإعدادات
         </button>
+
+        <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 14, marginTop: 4 }}>
+          <label className="field-label" style={{ fontWeight: 700 }}>ربط مواد BOM بالمخزون</label>
+          <p style={{ fontSize: 12, color: "#64748b", marginTop: 2, marginBottom: 10 }}>
+            اربط كل بند من حاسبة استهلاك المواد بصنف حقيقي من الكتالوج ليصبح قابلاً للصرف الفعلي من المخزون عند اعتماد المهندس لحساب الباب.
+          </p>
+          {bomData && (
+            <BomMappingManager keys={BOM_DEDUCTIBLE_KEYS} items={bomData.items} initialMappings={bomData.mappings} />
+          )}
+        </div>
       </div>
     </div>
   );

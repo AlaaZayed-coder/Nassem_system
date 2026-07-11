@@ -7,12 +7,14 @@ import { StatusSelect } from "./status-select";
 import { CalculateSpecsButton } from "./calculate-specs-button";
 import { BOMCalculator } from "./bom-calculator";
 import { CompleteDoorItemForm } from "./complete-door-item-form";
+import { getIssuedDoorOrderItemIds } from "@/lib/bom-inventory-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function DoorOrderDetailPage({ params }: { params: { id: string } }) {
   const { order, items, electronics, accessories } = await getDoorOrderDetail(params.id);
   const { data: catalogItems } = await supabase.from("erp_items").select("item_code, original_name, approved_name").eq("is_active", true);
+  const issuedItemIds = await getIssuedDoorOrderItemIds(items.map((i) => i.id));
 
   if (!order) {
     return (
@@ -155,11 +157,13 @@ export default async function DoorOrderDetailPage({ params }: { params: { id: st
                 )}
                 {item.calculated_at && item.length_mm && item.height_mm && item.frame_type && item.jamb_type && (
                   <BOMCalculator
+                    doorOrderItemId={item.id}
                     widthMm={item.length_mm}
                     heightMm={item.height_mm}
                     frameType={item.frame_type as any}
                     jambType={item.jamb_type as any}
                     springCount={item.spring_count || 0}
+                    alreadyIssued={issuedItemIds.has(item.id)}
                   />
                 )}
               </div>

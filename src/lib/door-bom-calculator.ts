@@ -27,6 +27,7 @@ export type DoorBOMLine = {
   label: string;
   value: string;
   confident: boolean; // false = يحتاج تأكيد الإدارة، لا تُحسب رقمياً
+  quantity: number | null; // كمية رقمية صرفة للربط بالمخزون — null للبنود غير المؤكدة أو ذات الوحدة غير القطعية (مم)
 };
 
 export function calculateDoorBOM(input: DoorBOMInput): DoorBOMLine[] {
@@ -36,35 +37,38 @@ export function calculateDoorBOM(input: DoorBOMInput): DoorBOMLine[] {
   const trackLength = input.trackLengthMm ?? input.heightMm;
   const trackQuantity = (trackLength - jambOffset + 5) * 2;
   const handleCount = input.widthMm >= HANDLE_WIDTH_THRESHOLD_MM ? 2 : 1;
+  const frameSpanQuantity = input.isColored ? frameCount * 2 : 0;
 
   return [
-    { key: "pipe", label: "ماسورة", value: `${input.widthMm.toLocaleString()} مم`, confident: true },
-    { key: "najar_bolt", label: "برغي نجل", value: "2", confident: true },
-    { key: "frame", label: "الطاسة", value: `${frameCount} (بعدد الزنبركات)`, confident: true },
+    { key: "pipe", label: "ماسورة", value: `${input.widthMm.toLocaleString()} مم`, confident: true, quantity: null },
+    { key: "najar_bolt", label: "برغي نجل", value: "2", confident: true, quantity: 2 },
+    { key: "frame", label: "الطاسة", value: `${frameCount} (بعدد الزنبركات)`, confident: true, quantity: frameCount },
     {
       key: "frame_span",
       label: "شبر طاسة",
-      value: input.isColored ? `${frameCount * 2}` : "0 (باب غير ملوّن)",
+      value: input.isColored ? `${frameSpanQuantity}` : "0 (باب غير ملوّن)",
       confident: true,
+      quantity: frameSpanQuantity,
     },
-    { key: "screw", label: "برغي سكريت", value: `${frameCount * 2}`, confident: true },
-    { key: "jamb", label: `الخد (${input.jambType})`, value: "2 لكل باب", confident: true },
-    { key: "chair", label: `الكرسي (حسب طاسة ${input.frameType})`, value: `${chairCount} لكل باب`, confident: true },
-    { key: "chair_bolt", label: "برغي كرسي", value: `${chairCount * 2}`, confident: true },
+    { key: "screw", label: "برغي سكريت", value: `${frameCount * 2}`, confident: true, quantity: frameCount * 2 },
+    { key: "jamb", label: `الخد (${input.jambType})`, value: "2 لكل باب", confident: true, quantity: 2 },
+    { key: "chair", label: `الكرسي (حسب طاسة ${input.frameType})`, value: `${chairCount} لكل باب`, confident: true, quantity: chairCount },
+    { key: "chair_bolt", label: "برغي كرسي", value: `${chairCount * 2}`, confident: true, quantity: chairCount * 2 },
     {
       key: "track",
       label: "مجرى",
       value: `${trackQuantity.toLocaleString()} مم${input.trackLengthMm ? "" : " (بافتراض طول = ارتفاع الباب، عدّل عند الحاجة)"}`,
       confident: true,
+      quantity: null,
     },
-    { key: "bracket", label: "العلاقة", value: `${frameCount} (بعدد الطاسات)`, confident: true },
-    { key: "stopper", label: "ستوبات", value: "2 لكل باب", confident: true },
-    { key: "handle", label: "يد باب", value: `${handleCount} (${input.widthMm >= HANDLE_WIDTH_THRESHOLD_MM ? "عرض ≥ 300سم" : "عرض < 300سم"})`, confident: true },
+    { key: "bracket", label: "العلاقة", value: `${frameCount} (بعدد الطاسات)`, confident: true, quantity: frameCount },
+    { key: "stopper", label: "ستوبات", value: "2 لكل باب", confident: true, quantity: 2 },
+    { key: "handle", label: "يد باب", value: `${handleCount} (${input.widthMm >= HANDLE_WIDTH_THRESHOLD_MM ? "عرض ≥ 300سم" : "عرض < 300سم"})`, confident: true, quantity: handleCount },
 
     // بنود تحتاج مقاس القص / عدد الريش / نوع التركيب — غير متوفرة حالياً
-    { key: "face", label: "الوجه / الشرحات", value: "= مقاس القص × عدد الريش — يحتاج إدخال هذين القياسين", confident: false },
-    { key: "aklon", label: "الأكلون", value: "بعدد زوجي يساوي عدد الريش — يحتاج تأكيد عدد الريش", confident: false },
-    { key: "tabashim", label: "التباشيم", value: "معزول ×4 / بطن-سادة ×4.3 لكل أكلون — صيغة غير مؤكدة من الإدارة", confident: false },
-    { key: "frontage", label: "جبهة", value: "الكمية × مقاس القص، ونوع المادة حسب توريد خفيف/تركيب ثقيل — يحتاج تأكيد", confident: false },
+    { key: "face", label: "الوجه / الشرحات", value: "= مقاس القص × عدد الريش — يحتاج إدخال هذين القياسين", confident: false, quantity: null },
+    { key: "aklon", label: "الأكلون", value: "بعدد زوجي يساوي عدد الريش — يحتاج تأكيد عدد الريش", confident: false, quantity: null },
+    { key: "tabashim", label: "التباشيم", value: "معزول ×4 / بطن-سادة ×4.3 لكل أكلون — صيغة غير مؤكدة من الإدارة", confident: false, quantity: null },
+    { key: "frontage", label: "جبهة", value: "الكمية × مقاس القص، ونوع المادة حسب توريد خفيف/تركيب ثقيل — يحتاج تأكيد", confident: false, quantity: null },
   ];
 }

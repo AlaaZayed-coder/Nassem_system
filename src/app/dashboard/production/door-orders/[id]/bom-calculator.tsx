@@ -1,26 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { calculateDoorBOM } from "@/lib/door-bom-calculator";
 import { FrameType, JambType } from "@/lib/door-engineering";
-import { Calculator, ChevronDown, ChevronUp } from "lucide-react";
+import { issueDoorBOMToInventoryAction } from "../actions";
+import { Calculator, ChevronDown, ChevronUp, PackageCheck } from "lucide-react";
 
 export function BOMCalculator({
+  doorOrderItemId,
   widthMm,
   heightMm,
   frameType,
   jambType,
   springCount,
+  alreadyIssued,
 }: {
+  doorOrderItemId: string;
   widthMm: number;
   heightMm: number;
   frameType: FrameType;
   jambType: JambType;
   springCount: number;
+  alreadyIssued: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [isColored, setIsColored] = useState(false);
   const [trackLengthMm, setTrackLengthMm] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const [issueResult, setIssueResult] = useState<{ issued?: { key: string; quantity: number }[]; skipped?: { key: string; reason: string }[]; error?: string } | null>(null);
+  const [issued, setIssued] = useState(alreadyIssued);
 
   const lines = calculateDoorBOM({
     widthMm,
@@ -31,6 +39,18 @@ export function BOMCalculator({
     isColored,
     trackLengthMm: trackLengthMm ? Number(trackLengthMm) : undefined,
   });
+
+  const handleIssue = () => {
+    setIssueResult(null);
+    startTransition(async () => {
+      const deductibleLines = lines.filter((l) => l.confident && l.quantity != null).map((l) => ({ key: l.key, quantity: l.quantity as number }));
+      const result = await issueDoorBOMToInventoryAction(doorOrderItemId, deductibleLines);
+      setIssueResult(result);
+      if (!result.error) setIssued(true);
+    });
+  };
+
+  const lineLabel = (key: string) => lines.find((l) => l.key === key)?.label || key;
 
   return (
     <div className="mt-3 pt-3 border-t border-slate-200">
@@ -78,6 +98,34 @@ export function BOMCalculator({
           <p className="text-[10px] text-amber-700 mt-2">
             ⚠️ البنود المظللة تحتاج تأكيد الصيغة من الإدارة قبل الاعتماد عليها (مقاس القص، عدد الريش، نوع التركيب غير متوفرة حالياً في النظام).
           </p>
+
+          <div className="mt-3 pt-3 border-t border-indigo-100">
+            {issued ? (
+              <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                <PackageCheck className="h-4 w-4" /> تم صرف مواد هذا الصنف من المخزون مسبقاً
+              </p>
+            ) : (
+              <button
+                disabled={isPending}
+                onClick={handleIssue}
+                className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition disabled:opacity-50"
+              >
+                {isPending ? "جارٍ الصرف..." : "صرف المواد من المخزون"}
+              </button>
+            )}
+
+            {issueResult?.error && <p className="text-xs font-bold text-rose-600 mt-2">{issueResult.error}</p>}
+            {issueResult?.issued && issueResult.issued.length > 0 && (
+              <div className="mt-2 text-xs text-emerald-700">
+                <strong>صُرف:</strong> {issueResult.issued.map((i) => `${lineLabel(i.key)} (${i.quantity})`).join("، ")}
+              </div>
+            )}
+            {issueResult?.skipped && issueResult.skipped.length > 0 && (
+              <div className="mt-2 text-xs text-amber-700">
+                <strong>لم يُصرف:</strong> {issueResult.skipped.map((s) => `${lineLabel(s.key)} — ${s.reason}`).join("، ")}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
