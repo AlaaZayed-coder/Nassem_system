@@ -16,6 +16,7 @@ import {
   ShoppingCart,
   DoorClosed,
   Contact,
+  Truck,
   X,
 } from "lucide-react";
 
@@ -33,7 +34,7 @@ export function Sidebar({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  counts: { pendingSubmissions: number; pendingMaintenance: number; pendingPurchases: number };
+  counts: { pendingSubmissions: number; pendingMaintenance: number; pendingPurchases: number; pendingInstallations: number };
 }) {
   const pathname = usePathname();
 
@@ -44,6 +45,7 @@ export function Sidebar({
     { name: "صندوق وارد الطلبيات", icon: Inbox, path: "/dashboard/sales/submissions", badge: counts.pendingSubmissions },
     { name: "إدارة الإنتاج", icon: Factory, path: "/dashboard/production" },
     { name: "طلبيات أبواب الرول", icon: DoorClosed, path: "/dashboard/production/door-orders" },
+    { name: "التركيب", icon: Truck, path: "/dashboard/installation", badge: counts.pendingInstallations },
     { name: "إدارة المخزون", icon: Boxes, path: "/dashboard/inventory" },
     { name: "إدارة المشتريات", icon: ShoppingCart, path: "/dashboard/purchasing" },
     { name: "طلبات الشراء المعلّقة", icon: ShoppingCart, path: "/dashboard/purchasing/requests", badge: counts.pendingPurchases },

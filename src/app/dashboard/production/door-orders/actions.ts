@@ -143,38 +143,6 @@ export async function calculateDoorItemSpecsAction(itemId: string): Promise<{ er
   return {};
 }
 
-// تقرير ميداني مرتبط مباشرة بطلبية الباب (وليس بقسم الصيانة المنفصل)، حسب
-// دليل التشغيل: يُدخَل بعد التركيب في الموقع، وينقل حالة الطلبية إلى "جاهزة".
-export async function saveDoorOrderFieldReportAction(formData: FormData): Promise<{ error?: string }> {
-  const orderId = formData.get("order_id") as string;
-  const field_report_number = (formData.get("field_report_number") as string) || null;
-  const field_start_time = (formData.get("field_start_time") as string) || null;
-  const field_end_time = (formData.get("field_end_time") as string) || null;
-  const field_technician_name = (formData.get("field_technician_name") as string) || null;
-  const installation_type = (formData.get("installation_type") as string) || null;
-
-  if (!orderId) return { error: "طلبية غير محددة" };
-
-  const { error } = await supabase
-    .from("erp_door_orders")
-    .update({
-      field_report_number,
-      field_start_time,
-      field_end_time,
-      field_technician_name,
-      installation_type,
-      status: "جاهزة",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", orderId);
-
-  if (error) return { error: error.message };
-
-  revalidatePath("/dashboard/production/door-orders");
-  revalidatePath(`/dashboard/production/door-orders/${orderId}`);
-  return {};
-}
-
 // استكمال بيانات صنف "مجرى فقط" — يُحدَّث نفس السطر (لا يُنشأ سطر جديد)،
 // ثم يتحول item_status إلى "مكتمل" ليظهر زر الاحتساب الهندسي.
 export async function completeDoorOrderItemAction(formData: FormData): Promise<{ error?: string }> {

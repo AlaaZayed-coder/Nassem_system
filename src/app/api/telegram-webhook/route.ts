@@ -228,6 +228,23 @@ async function handleCallbackQuery(callbackQuery: any) {
     return;
   }
 
+  if (data.startsWith("confirm_install:")) {
+    const doorOrderId = data.replace("confirm_install:", "");
+    try {
+      const { error } = await supabase
+        .from("erp_door_orders")
+        .update({ installation_status: "مكتملة", customer_confirmed_at: new Date().toISOString(), status: "جاهزة" })
+        .eq("id", doorOrderId);
+      if (error) throw error;
+      await answerCallbackQuery(callbackQuery.id, "تم تأكيد الاستلام");
+      await sendTelegramMessage(chatId, "تم تسجيل تأكيد استلام العميل بنجاح ✅");
+    } catch (err: any) {
+      await answerCallbackQuery(callbackQuery.id, "فشل التأكيد");
+      await sendTelegramMessage(chatId, `تعذّر تأكيد الاستلام: ${err.message || "خطأ غير متوقع"}`);
+    }
+    return;
+  }
+
   if (data.startsWith("approve:")) {
     const orderId = data.replace("approve:", "");
     try {

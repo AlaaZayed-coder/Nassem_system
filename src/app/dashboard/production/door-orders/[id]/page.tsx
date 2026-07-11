@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { getDoorOrderDetail } from "@/lib/door-orders-data";
 import { supabase } from "@/lib/supabase";
-import { DoorClosed, ArrowRight, User, Calendar, Printer, Layers, Zap, CheckCircle2, ShoppingCart } from "lucide-react";
+import { DoorClosed, ArrowRight, User, Calendar, Printer, Layers, Zap, CheckCircle2, ShoppingCart, Truck } from "lucide-react";
 import { ElectronicsManager } from "./electronics-manager";
 import { StatusSelect } from "./status-select";
 import { CalculateSpecsButton } from "./calculate-specs-button";
 import { BOMCalculator } from "./bom-calculator";
-import { FieldReportForm } from "./field-report-form";
 import { CompleteDoorItemForm } from "./complete-door-item-form";
 
 export const dynamic = "force-dynamic";
@@ -209,42 +208,36 @@ export default async function DoorOrderDetailPage({ params }: { params: { id: st
       <ElectronicsManager doorOrderId={order.id} electronics={electronics} items={catalogItems || []} />
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 mt-6">
-        <h2 className="font-bold text-slate-800 mb-4 text-lg border-b border-slate-100 pb-3">التقرير الميداني (التركيب)</h2>
-        {order.field_report_number || order.field_start_time || order.field_technician_name ? (
+        <h2 className="font-bold text-slate-800 mb-4 text-lg border-b border-slate-100 pb-3 flex items-center justify-between">
+          التركيب والتقرير الميداني
+          <Link
+            href={`/dashboard/installation/${order.id}`}
+            className="text-sm font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition"
+          >
+            <Truck className="h-4 w-4" /> إدارة التركيب
+          </Link>
+        </h2>
+        {order.installation_status ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            {order.field_report_number && (
+            <div>
+              <span className="text-slate-500 text-xs block mb-1">مرحلة التركيب</span>
+              <span className="font-bold text-slate-800">{order.installation_status}</span>
+            </div>
+            {order.installation_team_name && (
               <div>
-                <span className="text-slate-500 text-xs block mb-1">رقم التقرير</span>
-                <span className="font-bold text-slate-800">{order.field_report_number}</span>
+                <span className="text-slate-500 text-xs block mb-1">الفريق</span>
+                <span className="font-bold text-slate-800">{order.installation_team_name}</span>
               </div>
             )}
-            {order.installation_type && (
+            {order.recipient_name && (
               <div>
-                <span className="text-slate-500 text-xs block mb-1">نوع التركيب</span>
-                <span className="font-bold text-slate-800">{order.installation_type}</span>
-              </div>
-            )}
-            {order.field_start_time && (
-              <div>
-                <span className="text-slate-500 text-xs block mb-1">وقت البداية</span>
-                <span className="font-bold text-slate-800">{new Date(order.field_start_time).toLocaleString("en-GB")}</span>
-              </div>
-            )}
-            {order.field_end_time && (
-              <div>
-                <span className="text-slate-500 text-xs block mb-1">وقت النهاية</span>
-                <span className="font-bold text-slate-800">{new Date(order.field_end_time).toLocaleString("en-GB")}</span>
-              </div>
-            )}
-            {order.field_technician_name && (
-              <div className="col-span-2 md:col-span-4">
-                <span className="text-slate-500 text-xs block mb-1">أسماء الفنيين</span>
-                <span className="font-bold text-slate-800">{order.field_technician_name}</span>
+                <span className="text-slate-500 text-xs block mb-1">المستلم</span>
+                <span className="font-bold text-slate-800">{order.recipient_name}</span>
               </div>
             )}
           </div>
         ) : (
-          <FieldReportForm orderId={order.id} />
+          <p className="text-sm text-slate-400">لم يبدأ مسار التركيب بعد — استخدم صفحة &quot;إدارة التركيب&quot; لإصدار سند الإخراج.</p>
         )}
       </div>
     </div>

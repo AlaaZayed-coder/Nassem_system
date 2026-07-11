@@ -19,6 +19,16 @@ export type DoorOrder = {
   field_end_time: string | null;
   field_technician_name: string | null;
   installation_type: string | null;
+  installation_status: "قيد التركيب" | "بانتظار تأكيد العميل" | "مكتملة" | null;
+  installation_team_name: string | null;
+  dispatched_by_staff_id: string | null;
+  dispatched_at: string | null;
+  exit_slip_notes: string | null;
+  before_photo_url: string | null;
+  after_photo_url: string | null;
+  recipient_name: string | null;
+  recipient_phone: string | null;
+  customer_confirmed_at: string | null;
 };
 
 export type DoorOrderItem = {
@@ -81,7 +91,7 @@ export type DoorOrderAccessory = {
 export async function getDoorOrders(): Promise<DoorOrder[]> {
   const { data, error } = await supabase
     .from("erp_door_orders")
-    .select("*, erp_customers(name, company_name, phone), erp_staff(name), erp_door_order_items(id, item_status)")
+    .select("*, erp_customers(name, company_name, phone), erp_staff!erp_door_orders_responsible_staff_id_fkey(name), erp_door_order_items(id, item_status)")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -99,9 +109,30 @@ export async function getDoorOrders(): Promise<DoorOrder[]> {
   }));
 }
 
+// طابور التركيب: الطلبيات الجاهزة لتوريد الفريق (status='تم التوريد') أو
+// التي بدأت مسار التركيب فعلاً (installation_status IS NOT NULL).
+export async function getInstallationQueue(): Promise<DoorOrder[]> {
+  const { data, error } = await supabase
+    .from("erp_door_orders")
+    .select("*, erp_customers(name, company_name, phone), erp_staff!erp_door_orders_responsible_staff_id_fkey(name), erp_door_order_items(id)")
+    .or("status.eq.تم التوريد,installation_status.not.is.null")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching installation queue:", error);
+    return [];
+  }
+
+  return (data || []).map((o: any) => ({
+    ...o,
+    item_count: Array.isArray(o.erp_door_order_items) ? o.erp_door_order_items.length : 0,
+    erp_door_order_items: undefined,
+  }));
+}
+
 export async function getDoorOrderDetail(id: string) {
   const [{ data: order }, { data: items }, { data: electronics }, { data: accessories }] = await Promise.all([
-    supabase.from("erp_door_orders").select("*, erp_customers(*), erp_staff(name)").eq("id", id).single(),
+    supabase.from("erp_door_orders").select("*, erp_customers(*), erp_staff!erp_door_orders_responsible_staff_id_fkey(name)").eq("id", id).single(),
     supabase.from("erp_door_order_items").select("*, erp_items!erp_door_order_items_item_code_fkey(original_name, approved_name)").eq("door_order_id", id).order("created_at", { ascending: true }),
     supabase.from("erp_door_order_electronics").select("*, erp_items(original_name)").eq("door_order_id", id).order("created_at", { ascending: true }),
     supabase.from("erp_door_order_accessories").select("*, erp_items(original_name, approved_name)").eq("door_order_id", id).order("created_at", { ascending: true }),
