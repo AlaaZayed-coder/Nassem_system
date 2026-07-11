@@ -3,6 +3,7 @@ import { getMaintenanceRequests } from "@/lib/maintenance-data";
 import { getCustomers } from "@/lib/sales-data";
 import { ResolveRequestForm } from "@/components/maintenance/resolve-request-form";
 import { NewFieldReportForm } from "@/components/maintenance/new-field-report-form";
+import { HighlightScroll } from "@/components/HighlightScroll";
 import { Wrench, ArrowRight, Printer } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ export default async function MaintenanceRequestsPage() {
 
   return (
     <div className="p-8 max-w-5xl mx-auto flex flex-col gap-8" dir="rtl">
+      <HighlightScroll />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight flex items-center gap-3">
@@ -35,7 +37,7 @@ export default async function MaintenanceRequestsPage() {
         <h2 className="font-bold text-slate-800 mb-4 text-lg border-b border-slate-100 pb-3">بانتظار المعالجة ({pending.length})</h2>
         <div className="space-y-3">
           {pending.map((req: any) => (
-            <div key={req.id} className="p-4 rounded-2xl border border-orange-100 bg-orange-50">
+            <div key={req.id} id={`row-${req.id}`} className="p-4 rounded-2xl border border-orange-100 bg-orange-50 transition">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-bold text-slate-800">{req.erp_customers?.name || "عميل غير محدد"}</div>

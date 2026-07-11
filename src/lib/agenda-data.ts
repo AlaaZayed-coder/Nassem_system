@@ -142,7 +142,7 @@ async function getPurchasingAgenda(): Promise<AgendaItem[]> {
     id: `purchase-${r.id}`,
     category: "مشتريات",
     label: `طلب شراء بانتظار المعالجة: ${r.item_code || "بدون كود صنف"}`,
-    link: `/dashboard/purchasing/requests`,
+    link: `/dashboard/purchasing/requests?highlight=${r.id}`,
     createdAt: r.created_at,
   }));
 }
@@ -158,7 +158,7 @@ async function getMaintenanceAgenda(): Promise<AgendaItem[]> {
     id: `maintenance-${r.id}`,
     category: "صيانة",
     label: `تذكرة صيانة بانتظار المعالجة: ${r.description || "بدون وصف"}`,
-    link: `/dashboard/maintenance/requests`,
+    link: `/dashboard/maintenance/requests?highlight=${r.id}`,
     createdAt: r.created_at,
   }));
 }
