@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { getExecutiveSummary } from "@/lib/executive-dashboard-data";
 import { getSlaWarnings } from "@/lib/sla-data";
-import { formatCurrency } from "@/lib/format";
-import { TrendingUp, TrendingDown, DoorClosed, ShoppingCart, Wrench, ClipboardList, AlertTriangle, Inbox, Truck } from "lucide-react";
+import { DoorClosed, ShoppingCart, Wrench, ClipboardList, AlertTriangle, Inbox, Truck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -24,9 +23,6 @@ function KpiCard({ label, value, sub, icon: Icon, color }: { label: string; valu
 export default async function ExecutiveDashboardPage() {
   const [summary, warnings] = await Promise.all([getExecutiveSummary(), getSlaWarnings()]);
 
-  const salesDiff = summary.salesThisMonthCents - summary.salesLastMonthCents;
-  const salesDiffPercent = summary.salesLastMonthCents > 0 ? Math.round((salesDiff / summary.salesLastMonthCents) * 100) : null;
-
   const CATEGORY_LABEL: Record<string, string> = {
     door_pending: "استكمال باب",
     purchase_aging: "طلب شراء",
@@ -42,23 +38,7 @@ export default async function ExecutiveDashboardPage() {
         <p className="text-slate-500 mt-2">نظرة شاملة على أداء الشركة وحالة الطلبيات عبر جميع الأقسام.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <KpiCard
-          label="مبيعات هذا الشهر (معتمدة)"
-          value={formatCurrency(summary.salesThisMonthCents)}
-          sub={
-            salesDiffPercent !== null ? (
-              <span className={`flex items-center gap-1 font-bold ${salesDiff >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                {salesDiff >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-                {Math.abs(salesDiffPercent)}% عن الشهر الماضي
-              </span>
-            ) : (
-              <span className="text-slate-400">لا توجد بيانات مقارنة</span>
-            )
-          }
-          icon={TrendingUp}
-          color="bg-emerald-50 text-emerald-600"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <KpiCard
           label="طلبيات باب بانتظار الاستكمال"
           value={String(summary.pendingDoorCompletionCount)}

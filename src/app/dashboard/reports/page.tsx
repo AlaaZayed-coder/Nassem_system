@@ -1,5 +1,6 @@
 import { getFinancialSummary, getTopSellingItems, getProductionPerformance } from "@/lib/reports-data";
 import { getInventorySummary } from "@/lib/inventory-data";
+import { getExecutiveSummary } from "@/lib/executive-dashboard-data";
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, PackageOpen, Factory, PieChart } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import Link from "next/link";
@@ -7,12 +8,16 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
-  const [financials, topItems, prodStats, inventory] = await Promise.all([
+  const [financials, topItems, prodStats, inventory, execSummary] = await Promise.all([
     getFinancialSummary(),
     getTopSellingItems(),
     getProductionPerformance(),
-    getInventorySummary()
+    getInventorySummary(),
+    getExecutiveSummary(),
   ]);
+
+  const salesDiff = execSummary.salesThisMonthCents - execSummary.salesLastMonthCents;
+  const salesDiffPercent = execSummary.salesLastMonthCents > 0 ? Math.round((salesDiff / execSummary.salesLastMonthCents) * 100) : null;
 
   // Calculate total inventory value (qty * cost)
   // Note: the schema doesn't have cost in inventory summary directly, we'll estimate based on items if available, 
@@ -36,7 +41,7 @@ export default async function ReportsPage() {
         <DollarSign className="h-6 w-6 text-emerald-500" />
         الملخص المالي
       </h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col gap-2">
           <div className="flex items-center gap-2 text-emerald-600">
             <TrendingUp className="h-5 w-5" />
@@ -44,6 +49,26 @@ export default async function ReportsPage() {
           </div>
           <div className="text-3xl font-black font-mono text-slate-800" dir="ltr">
             {formatCurrency(financials.revenue / 100)}
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-indigo-600">
+            <BarChart3 className="h-5 w-5" />
+            <span className="font-bold">مبيعات هذا الشهر (معتمدة)</span>
+          </div>
+          <div className="text-3xl font-black font-mono text-slate-800" dir="ltr">
+            {formatCurrency(execSummary.salesThisMonthCents / 100)}
+          </div>
+          <div className="text-xs">
+            {salesDiffPercent !== null ? (
+              <span className={`flex items-center gap-1 font-bold ${salesDiff >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                {salesDiff >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                {Math.abs(salesDiffPercent)}% عن الشهر الماضي
+              </span>
+            ) : (
+              <span className="text-slate-400">لا توجد بيانات مقارنة</span>
+            )}
           </div>
         </div>
 
