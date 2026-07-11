@@ -66,6 +66,7 @@ export default function NewDoorOrderPage() {
   const [custName, setCustName] = useState("");
   const [custPhone, setCustPhone] = useState("");
   const [custAddress, setCustAddress] = useState("");
+  const [custCompanyName, setCustCompanyName] = useState("");
   const [customerNameNote, setCustomerNameNote] = useState("");
 
   const [orderType, setOrderType] = useState("توريد");
@@ -105,6 +106,7 @@ export default function NewDoorOrderPage() {
           custData.append("name", custName);
           custData.append("phone", custPhone);
           custData.append("address", custAddress);
+          custData.append("company_name", custCompanyName);
           const newCust = await createCustomerAction(custData);
           finalCustomerId = newCust.id;
         }
@@ -198,6 +200,10 @@ export default function NewDoorOrderPage() {
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">رقم الجوال</label>
                 <input type="text" value={custPhone} onChange={(e) => setCustPhone(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 outline-none dir-ltr text-left" placeholder="059..." />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">اسم الشركة / المؤسسة (إن وجد)</label>
+                <input type="text" value={custCompanyName} onChange={(e) => setCustCompanyName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 outline-none" placeholder="مثال: شركة النور للمقاولات" />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-bold text-slate-700 mb-2">عنوان العميل</label>

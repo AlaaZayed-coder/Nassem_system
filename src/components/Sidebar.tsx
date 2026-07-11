@@ -15,6 +15,7 @@ import {
   Wrench,
   ShoppingCart,
   DoorClosed,
+  Contact,
   X,
 } from "lucide-react";
 
@@ -39,6 +40,7 @@ export function Sidebar({
   const menuItems: MenuItem[] = [
     { name: "الرئيسية", icon: Factory, path: "/dashboard" },
     { name: "إدارة المبيعات (CRM)", icon: Target, path: "/dashboard/sales" },
+    { name: "العملاء", icon: Contact, path: "/dashboard/customers" },
     { name: "صندوق وارد الطلبيات", icon: Inbox, path: "/dashboard/sales/submissions", badge: counts.pendingSubmissions },
     { name: "إدارة الإنتاج", icon: Factory, path: "/dashboard/production" },
     { name: "طلبيات أبواب الرول", icon: DoorClosed, path: "/dashboard/production/door-orders" },
