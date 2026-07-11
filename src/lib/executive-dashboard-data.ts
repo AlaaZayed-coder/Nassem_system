@@ -8,6 +8,9 @@ export type ExecutiveSummary = {
   pendingPurchaseRequestsCount: number;
   pendingMaintenanceCount: number;
   openSalesOrdersCount: number;
+  pendingSubmissionsCount: number;
+  pendingInstallationDispatchCount: number;
+  installationInProgressCount: number;
 };
 
 function monthRange(monthsAgo: number) {
@@ -28,6 +31,9 @@ export async function getExecutiveSummary(): Promise<ExecutiveSummary> {
     { count: pendingPurchaseRequestsCount },
     { count: pendingMaintenanceCount },
     { count: openSalesOrdersCount },
+    { count: pendingSubmissionsCount },
+    { count: pendingInstallationDispatchCount },
+    { count: installationInProgressCount },
   ] = await Promise.all([
     supabase
       .from("erp_sales_orders")
@@ -45,6 +51,9 @@ export async function getExecutiveSummary(): Promise<ExecutiveSummary> {
     supabase.from("erp_purchase_requests").select("*", { count: "exact", head: true }).eq("status", "قيد الانتظار"),
     supabase.from("erp_maintenance_requests").select("*", { count: "exact", head: true }).eq("status", "قيد الانتظار"),
     supabase.from("erp_sales_orders").select("*", { count: "exact", head: true }).neq("status", "معتمد").neq("status", "مرفوض"),
+    supabase.from("erp_order_submissions").select("*", { count: "exact", head: true }).eq("status", "قيد المراجعة"),
+    supabase.from("erp_door_orders").select("*", { count: "exact", head: true }).eq("status", "تم التوريد").is("installation_status", null),
+    supabase.from("erp_door_orders").select("*", { count: "exact", head: true }).in("installation_status", ["قيد التركيب", "بانتظار تأكيد العميل"]),
   ]);
 
   return {
@@ -55,5 +64,8 @@ export async function getExecutiveSummary(): Promise<ExecutiveSummary> {
     pendingPurchaseRequestsCount: pendingPurchaseRequestsCount || 0,
     pendingMaintenanceCount: pendingMaintenanceCount || 0,
     openSalesOrdersCount: openSalesOrdersCount || 0,
+    pendingSubmissionsCount: pendingSubmissionsCount || 0,
+    pendingInstallationDispatchCount: pendingInstallationDispatchCount || 0,
+    installationInProgressCount: installationInProgressCount || 0,
   };
 }

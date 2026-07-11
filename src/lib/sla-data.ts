@@ -3,7 +3,7 @@ import { getSettings } from "./settings-data";
 
 export type SlaWarning = {
   id: string;
-  category: "door_pending" | "purchase_aging" | "maintenance_aging";
+  category: "door_pending" | "purchase_aging" | "maintenance_aging" | "installation_aging" | "submission_aging";
   label: string;
   daysOpen: number;
   link: string;
@@ -13,6 +13,8 @@ export const SLA_DEFAULTS = {
   sla_door_pending_days: 3,
   sla_purchase_aging_days: 5,
   sla_maintenance_aging_days: 2,
+  sla_installation_aging_days: 3,
+  sla_submission_aging_days: 1,
 };
 
 export type SlaThresholdKey = keyof typeof SLA_DEFAULTS;
@@ -37,8 +39,10 @@ export async function getSlaWarnings(): Promise<SlaWarning[]> {
   const DOOR_PENDING_THRESHOLD_DAYS = thresholds.sla_door_pending_days;
   const PURCHASE_AGING_THRESHOLD_DAYS = thresholds.sla_purchase_aging_days;
   const MAINTENANCE_AGING_THRESHOLD_DAYS = thresholds.sla_maintenance_aging_days;
+  const INSTALLATION_AGING_THRESHOLD_DAYS = thresholds.sla_installation_aging_days;
+  const SUBMISSION_AGING_THRESHOLD_DAYS = thresholds.sla_submission_aging_days;
 
-  const [{ data: doorItems }, { data: purchaseRequests }, { data: maintenanceRequests }] = await Promise.all([
+  const [{ data: doorItems }, { data: purchaseRequests }, { data: maintenanceRequests }, { data: installations }, { data: submissions }] = await Promise.all([
     supabase
       .from("erp_door_order_items")
       .select("id, door_order_id, initial_entry_date, item_status, erp_door_orders(erp_customers(name))")
@@ -51,6 +55,14 @@ export async function getSlaWarnings(): Promise<SlaWarning[]> {
       .from("erp_maintenance_requests")
       .select("id, created_at, status, description")
       .eq("status", "قيد الانتظار"),
+    supabase
+      .from("erp_door_orders")
+      .select("id, dispatched_at, installation_status, erp_customers(name)")
+      .in("installation_status", ["قيد التركيب", "بانتظار تأكيد العميل"]),
+    supabase
+      .from("erp_order_submissions")
+      .select("id, created_at, status, customer_name")
+      .eq("status", "قيد المراجعة"),
   ]);
 
   const warnings: SlaWarning[] = [];
@@ -93,6 +105,34 @@ export async function getSlaWarnings(): Promise<SlaWarning[]> {
         label: `طلب صيانة متأخر: ${req.description || "بدون وصف"}`,
         daysOpen: days,
         link: `/dashboard/maintenance/requests`,
+      });
+    }
+  }
+
+  for (const inst of installations || []) {
+    if (!inst.dispatched_at) continue;
+    const days = daysSince(inst.dispatched_at);
+    if (days >= INSTALLATION_AGING_THRESHOLD_DAYS) {
+      const customerName = (inst as any).erp_customers?.name || "عميل غير محدد";
+      warnings.push({
+        id: `installation-${inst.id}`,
+        category: "installation_aging",
+        label: `تركيب متأخر (${inst.installation_status}) — ${customerName}`,
+        daysOpen: days,
+        link: `/dashboard/installation/${inst.id}`,
+      });
+    }
+  }
+
+  for (const sub of submissions || []) {
+    const days = daysSince(sub.created_at);
+    if (days >= SUBMISSION_AGING_THRESHOLD_DAYS) {
+      warnings.push({
+        id: `submission-${sub.id}`,
+        category: "submission_aging",
+        label: `طلبية واردة بانتظار المعالجة — ${sub.customer_name || "عميل غير محدد"}`,
+        daysOpen: days,
+        link: `/dashboard/sales/submissions/${sub.id}`,
       });
     }
   }

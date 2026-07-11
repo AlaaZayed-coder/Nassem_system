@@ -28,6 +28,8 @@ export default function SettingsPage() {
         updateSetting("sla_door_pending_days", settings.sla_door_pending_days || "3"),
         updateSetting("sla_purchase_aging_days", settings.sla_purchase_aging_days || "5"),
         updateSetting("sla_maintenance_aging_days", settings.sla_maintenance_aging_days || "2"),
+        updateSetting("sla_installation_aging_days", settings.sla_installation_aging_days || "3"),
+        updateSetting("sla_submission_aging_days", settings.sla_submission_aging_days || "1"),
       ]);
       notify("تم حفظ الإعدادات ✓");
     } catch (e: any) { notify(e.message); }
@@ -84,6 +86,18 @@ export default function SettingsPage() {
           <input className="field-input ltr" type="number" min="1" step="1" dir="ltr"
             value={settings.sla_maintenance_aging_days || "2"}
             onChange={e => set("sla_maintenance_aging_days", e.target.value)} />
+        </div>
+        <div>
+          <label className="field-label">تركيب متأخر بعد الإخراج (أيام)</label>
+          <input className="field-input ltr" type="number" min="1" step="1" dir="ltr"
+            value={settings.sla_installation_aging_days || "3"}
+            onChange={e => set("sla_installation_aging_days", e.target.value)} />
+        </div>
+        <div>
+          <label className="field-label">طلبية واردة بانتظار المعالجة (أيام)</label>
+          <input className="field-input ltr" type="number" min="1" step="1" dir="ltr"
+            value={settings.sla_submission_aging_days || "1"}
+            onChange={e => set("sla_submission_aging_days", e.target.value)} />
         </div>
         <button className="btn btn-primary" onClick={save} style={{ alignSelf: "flex-start" }}>
           <Save size={14} /> حفظ الإعدادات

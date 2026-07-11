@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getExecutiveSummary } from "@/lib/executive-dashboard-data";
 import { getSlaWarnings } from "@/lib/sla-data";
 import { formatCurrency } from "@/lib/format";
-import { TrendingUp, TrendingDown, DoorClosed, ShoppingCart, Wrench, ClipboardList, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, DoorClosed, ShoppingCart, Wrench, ClipboardList, AlertTriangle, Inbox, Truck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +31,8 @@ export default async function ExecutiveDashboardPage() {
     door_pending: "استكمال باب",
     purchase_aging: "طلب شراء",
     maintenance_aging: "طلب صيانة",
+    installation_aging: "تركيب",
+    submission_aging: "صندوق وارد",
   };
 
   return (
@@ -74,6 +76,27 @@ export default async function ExecutiveDashboardPage() {
           value={String(summary.pendingMaintenanceCount)}
           icon={Wrench}
           color="bg-orange-50 text-orange-600"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <KpiCard
+          label="صندوق وارد الطلبيات (بانتظار المعالجة)"
+          value={String(summary.pendingSubmissionsCount)}
+          icon={Inbox}
+          color="bg-indigo-50 text-indigo-600"
+        />
+        <KpiCard
+          label="طلبيات جاهزة بانتظار إخراج التركيب"
+          value={String(summary.pendingInstallationDispatchCount)}
+          icon={Truck}
+          color="bg-sky-50 text-sky-600"
+        />
+        <KpiCard
+          label="تركيبات جارية (قيد التنفيذ / بانتظار تأكيد العميل)"
+          value={String(summary.installationInProgressCount)}
+          icon={Truck}
+          color="bg-violet-50 text-violet-600"
         />
       </div>
 
