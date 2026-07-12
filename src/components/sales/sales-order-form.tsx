@@ -38,7 +38,7 @@ export function SalesOrderForm({ initialCustomerId, initialNewCustomer, submissi
     doorColor: string, doorLengthMm: string, doorHeightMm: string, doorProfileItemCode: string,
     doorHasCover: boolean, doorCoverWidthMm: string, doorCoverHeightMm: string,
     doorHasBox: boolean, doorBoxLengthMm: string, doorBoxHeightMm: string,
-    doorGuidesSent: boolean, doorIsIndustrial: boolean, doorPipeLengthInch: string, doorGuidesOnly: boolean,
+    doorGuidesSent: boolean, doorIsIndustrial: boolean, doorPipeLengthInch: string, doorGuidesOnly: boolean, doorOrderType: 'توريد' | 'توريد وتركيب',
     slatColor: string, slatWidthMm: string, slatFinCount: string, slatFrontageCount: string,
     // ملحقات الباب (Parent-Child): ريش/جبهة وماتور مرتبطان بنفس طلبية التصنيع
     accNeedsSlat: boolean, accSlatQty: string,
@@ -67,7 +67,7 @@ export function SalesOrderForm({ initialCustomerId, initialNewCustomer, submissi
       doorColor: "", doorLengthMm: "", doorHeightMm: "", doorProfileItemCode: "",
       doorHasCover: false, doorCoverWidthMm: "", doorCoverHeightMm: "",
       doorHasBox: false, doorBoxLengthMm: "", doorBoxHeightMm: "",
-      doorGuidesSent: false, doorIsIndustrial: false, doorPipeLengthInch: "", doorGuidesOnly: false,
+      doorGuidesSent: false, doorIsIndustrial: false, doorPipeLengthInch: "", doorGuidesOnly: false, doorOrderType: 'توريد' as const,
       slatColor: "", slatWidthMm: "", slatFinCount: "", slatFrontageCount: "",
       accNeedsSlat: false, accSlatQty: "",
       accNeedsMotor: false, accMotorMode: 'catalog', accMotorItemCode: "", accMotorFreeText: "", accMotorQty: "1",
@@ -159,6 +159,7 @@ export function SalesOrderForm({ initialCustomerId, initialNewCustomer, submissi
               is_industrial: l.doorIsIndustrial,
               pipe_length_inch: l.doorIsIndustrial && l.doorPipeLengthInch ? Number(l.doorPipeLengthInch) : undefined,
               guides_only: l.doorGuidesOnly,
+              order_type: l.doorOrderType,
               accessories: {
                 needs_slat: l.accNeedsSlat,
                 slat_qty: l.accNeedsSlat && l.accSlatQty ? Number(l.accSlatQty) : undefined,
@@ -383,6 +384,14 @@ export function SalesOrderForm({ initialCustomerId, initialNewCustomer, submissi
                         يكفي إدخال الارتفاع الآن — تبقى الطلبية &quot;قيد الاستكمال&quot; حتى تُضاف بقية المواصفات لاحقاً على نفس الصنف.
                       </p>
                     )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">نوع الطلبية</label>
+                    <select value={line.doorOrderType} onChange={e => updateLine(line.id, 'doorOrderType', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none">
+                      <option value="توريد">توريد</option>
+                      <option value="توريد وتركيب">توريد وتركيب</option>
+                    </select>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
