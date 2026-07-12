@@ -286,6 +286,22 @@ export async function setPendingNewCustomerCompany(chatId: string, companyName: 
     .eq("chat_id", chatId);
 }
 
+// محادثة طلب موظف عبر البوت (سلفة/إجازة/مغادرة/شكوى/إثبات دوام): يُشفَّر
+// موقع السؤال الحالي في stage كـ "emp_new:<request_type>:<fieldIndex>"،
+// وتُحفظ الإجابات الجزئية في emp_draft حتى تكتمل كل الحقول.
+export async function startEmployeeRequestDraft(chatId: string, requestType: string) {
+  await supabase.from("erp_telegram_pending_submissions").upsert([{
+    chat_id: chatId, stage: `emp_new:${requestType}:0`, emp_draft: {},
+  }]);
+}
+
+export async function updateEmployeeRequestDraft(chatId: string, draft: Record<string, any>, nextStage: string) {
+  await supabase
+    .from("erp_telegram_pending_submissions")
+    .update({ emp_draft: draft, stage: nextStage })
+    .eq("chat_id", chatId);
+}
+
 export async function clearPendingTelegramSubmission(chatId: string) {
   await supabase.from("erp_telegram_pending_submissions").delete().eq("chat_id", chatId);
 }

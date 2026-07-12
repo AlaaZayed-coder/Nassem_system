@@ -24,7 +24,7 @@ export default async function EmployeeRequestsPage() {
             <ClipboardList className="h-8 w-8 text-indigo-600" />
             طلبات الموظفين
           </h1>
-          <p className="text-slate-500 mt-2">سلف، إجازات، مغادرات، شكاوى، وتبرير دوام — تقديم واعتماد في مكان واحد.</p>
+          <p className="text-slate-500 mt-2">سلف، إجازات، مغادرات، شكاوى، وإثبات دوام — تقديم واعتماد في مكان واحد.</p>
         </div>
         <Link href="/dashboard/staff" className="text-sm font-bold text-slate-500 hover:text-slate-700 flex items-center gap-1 transition bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200">
           <ArrowRight className="h-4 w-4" /> إدارة الموظفين

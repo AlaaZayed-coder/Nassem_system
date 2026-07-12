@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { sendTelegramMessage, sendTelegramInlineKeyboard, getTelegramFileUrl } from "@/lib/telegram";
+import { sendTelegramMessage, sendTelegramInlineKeyboard, sendTelegramReplyKeyboard, getTelegramFileUrl } from "@/lib/telegram";
 import {
   getStaffByTelegramChatId,
   createOrderSubmission,
@@ -17,14 +17,53 @@ import {
   clearPendingTelegramSubmission,
 } from "@/lib/order-submissions-data";
 import { approveSalesOrderAndNotify } from "@/lib/order-notifications";
-import { resolveEmployeeRequest } from "@/lib/employee-requests-data";
+import { resolveEmployeeRequest, createEmployeeRequest, notifyApproverWithContext, EmployeeRequestType } from "@/lib/employee-requests-data";
+import { startEmployeeRequestDraft, updateEmployeeRequestDraft } from "@/lib/order-submissions-data";
 
 const EMP_REJECT_REASONS = ["ضغط عمل تشغيلي", "الرصيد لا يسمح", "تأجيل للشهر القادم"];
+
+const EMP_TYPE_LABEL: Record<string, string> = {
+  loan: "طلب سلفة",
+  vacation: "طلب إجازة",
+  permission: "طلب مغادرة",
+  complaint: "تقديم شكوى",
+  attendance_fix: "إثبات دوام",
+};
+
+type EmpField = { key: string; prompt: string; required?: boolean; numeric?: boolean };
+
+const EMP_FIELDS: Record<string, EmpField[]> = {
+  loan: [
+    { key: "amount", prompt: "ما هو المبلغ المطلوب؟ (أرقام فقط، بالشيكل)", required: true, numeric: true },
+    { key: "repayment_method", prompt: "طريقة السداد المقترحة؟ (اكتب \"تخطي\" إن لم تحدد)" },
+  ],
+  vacation: [
+    { key: "start_date", prompt: "تاريخ بداية الإجازة؟ (مثال 2026-07-20)", required: true },
+    { key: "end_date", prompt: "تاريخ نهاية الإجازة؟ (مثال 2026-07-25)", required: true },
+    { key: "reason", prompt: "سبب الإجازة؟ (اكتب \"تخطي\" إن لم تحدد)" },
+  ],
+  permission: [
+    { key: "date", prompt: "تاريخ المغادرة؟ (مثال 2026-07-20)", required: true },
+    { key: "from_time", prompt: "من الساعة؟ (مثال 10:00)", required: true },
+    { key: "to_time", prompt: "إلى الساعة؟ (مثال 12:00)", required: true },
+    { key: "reason", prompt: "سبب المغادرة؟ (اكتب \"تخطي\" إن لم تحدد)" },
+  ],
+  complaint: [
+    { key: "subject", prompt: "عنوان الشكوى؟ (اكتب \"تخطي\" إن لم يوجد)" },
+    { key: "description", prompt: "تفاصيل الشكوى؟", required: true },
+  ],
+  attendance_fix: [
+    { key: "date", prompt: "ما هو تاريخ الدوام المطلوب إثباته؟ (مثال 2026-07-20)", required: true },
+    { key: "reason", prompt: "سبب الإثبات؟", required: true },
+  ],
+};
 
 function extractPhone(text: string): string | null {
   const match = text.match(/0\d{8,9}|\+?9\d{11,12}/);
   return match ? match[0] : null;
 }
+
+const EMP_GATEWAY_LABEL = "🚪 بوابة الموظفين";
 
 const BACK_BUTTON = { text: "🔙 القائمة الرئيسية", callback_data: "main_menu" };
 
@@ -35,11 +74,20 @@ function withBack(rows: { text: string; callback_data: string }[][]): { text: st
   return [...rows, [BACK_BUTTON]];
 }
 
-async function askMainMenu(chatId: string) {
-  await sendTelegramInlineKeyboard(chatId, "ماذا تريد أن تفعل؟", [
-    [{ text: "📝 طلبية جديدة (إدخال مباشر)", callback_data: "menu_direct" }],
-    [{ text: "🧭 طلبية تحتاج كشف موقع", callback_data: "menu_site_visit" }],
-  ]);
+// البوت مُقتصر مؤقتاً على بوابة الموظفين فقط — أزرار الطلبيات (إدخال مباشر/كشف
+// موقع) معطّلة مؤقتاً هنا ريثما يُعاد تفعيلها لاحقاً. لإعادة التفعيل: أعد صفّي
+// menu_direct/menu_site_visit ضمن rows (الشرط ["sales","manager"].includes(staffRole) أدناه).
+async function askMainMenu(chatId: string, staffRole: string) {
+  const rows: { text: string; callback_data: string }[][] = [
+    [{ text: EMP_GATEWAY_LABEL, callback_data: "emp_menu" }],
+  ];
+  await sendTelegramInlineKeyboard(chatId, "ماذا تريد أن تفعل؟", rows);
+}
+
+async function askEmpMenu(chatId: string) {
+  await sendTelegramInlineKeyboard(chatId, "أي طلب تريد تقديمه؟", withBack(
+    Object.entries(EMP_TYPE_LABEL).map(([type, label]) => [{ text: label, callback_data: `emp_new:${type}` }])
+  ));
 }
 
 async function askCustomerChoice(chatId: string) {
@@ -71,8 +119,16 @@ export async function POST(req: Request) {
     const chatId = String(message.chat.id);
     const staff = await getStaffByTelegramChatId(chatId);
 
-    if (!staff || !["sales", "manager"].includes(staff.role)) {
-      await sendTelegramMessage(chatId, "غير مصرح لك بإرسال طلبيات عبر هذا البوت. تواصل مع مدير النظام لتسجيلك كمندوب مبيعات أو مدير.");
+    if (!staff) {
+      await sendTelegramMessage(chatId, "غير مصرح لك باستخدام هذا البوت. تواصل مع مدير النظام لتسجيلك.");
+      return NextResponse.json({ ok: true });
+    }
+
+    // زر ثابت أسفل الشاشة يعمل من أي مكان في أي محادثة جارية — يقاطعها
+    // وينقل الموظف مباشرة لقائمة طلباته دون فقدان تسجيله ككل.
+    if (message.text === EMP_GATEWAY_LABEL) {
+      await startPendingTelegramSubmission(chatId);
+      await askEmpMenu(chatId);
       return NextResponse.json({ ok: true });
     }
 
@@ -92,12 +148,67 @@ export async function POST(req: Request) {
 
     if (!pending) {
       await startPendingTelegramSubmission(chatId);
-      await askMainMenu(chatId);
+      await sendTelegramReplyKeyboard(chatId, "أهلاً بك 👋", [EMP_GATEWAY_LABEL]);
+      await askMainMenu(chatId, staff.role);
       return NextResponse.json({ ok: true });
     }
 
     if (pending.stage === "main_menu") {
-      await askMainMenu(chatId);
+      await askMainMenu(chatId, staff.role);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (pending.stage?.startsWith("emp_new:")) {
+      const [, requestType, idxStr] = pending.stage.split(":");
+      const fields = EMP_FIELDS[requestType];
+      const idx = Number(idxStr);
+      const field = fields?.[idx];
+      if (!field) {
+        await clearPendingTelegramSubmission(chatId);
+        await askMainMenu(chatId, staff.role);
+        return NextResponse.json({ ok: true });
+      }
+
+      if (!message.text || message.text.startsWith("/")) {
+        await sendTelegramInlineKeyboard(chatId, field.prompt, withBack([]));
+        return NextResponse.json({ ok: true });
+      }
+
+      const raw = message.text.trim();
+      const skip = !field.required && raw === "تخطي";
+      if (field.required && (skip || !raw)) {
+        await sendTelegramInlineKeyboard(chatId, `هذا الحقل إلزامي.\n${field.prompt}`, withBack([]));
+        return NextResponse.json({ ok: true });
+      }
+      if (field.required && field.numeric && isNaN(Number(raw))) {
+        await sendTelegramInlineKeyboard(chatId, `الرجاء إرسال رقم صحيح.\n${field.prompt}`, withBack([]));
+        return NextResponse.json({ ok: true });
+      }
+
+      const draft = { ...(pending.emp_draft || {}) };
+      draft[field.key] = skip ? null : (field.numeric ? Number(raw) : raw);
+
+      const nextIdx = idx + 1;
+      const nextField = fields[nextIdx];
+      if (nextField) {
+        await updateEmployeeRequestDraft(chatId, draft, `emp_new:${requestType}:${nextIdx}`);
+        await sendTelegramInlineKeyboard(chatId, nextField.prompt, withBack([]));
+        return NextResponse.json({ ok: true });
+      }
+
+      const { request, error } = await createEmployeeRequest({
+        staff_id: staff.id,
+        request_type: requestType as EmployeeRequestType,
+        details: draft,
+        source: "telegram",
+      });
+      await clearPendingTelegramSubmission(chatId);
+      if (error) {
+        await sendTelegramMessage(chatId, `تعذّر إرسال الطلب: ${error}`);
+      } else {
+        if (request) await notifyApproverWithContext(request.id);
+        await sendTelegramMessage(chatId, `تم إرسال ${EMP_TYPE_LABEL[requestType]} بنجاح، وسيصل للمعتمد فوراً ✅`);
+      }
       return NextResponse.json({ ok: true });
     }
 
@@ -284,9 +395,10 @@ async function handleCallbackQuery(callbackQuery: any) {
   }
 
   if (data === "main_menu") {
+    const staff = await getStaffByTelegramChatId(chatId);
     await setPendingTelegramStage(chatId, "main_menu");
     await answerCallbackQuery(callbackQuery.id);
-    await askMainMenu(chatId);
+    await askMainMenu(chatId, staff?.role || "");
     return;
   }
 
@@ -294,6 +406,22 @@ async function handleCallbackQuery(callbackQuery: any) {
     await setPendingMenuChoice(chatId, data === "menu_site_visit");
     await answerCallbackQuery(callbackQuery.id);
     await askCustomerChoice(chatId);
+    return;
+  }
+
+  if (data === "emp_menu") {
+    await answerCallbackQuery(callbackQuery.id);
+    await askEmpMenu(chatId);
+    return;
+  }
+
+  if (data.startsWith("emp_new:")) {
+    const requestType = data.replace("emp_new:", "");
+    const fields = EMP_FIELDS[requestType];
+    if (!fields) { await answerCallbackQuery(callbackQuery.id, "نوع غير معروف"); return; }
+    await startEmployeeRequestDraft(chatId, requestType);
+    await answerCallbackQuery(callbackQuery.id);
+    await sendTelegramInlineKeyboard(chatId, `${EMP_TYPE_LABEL[requestType]}:\n${fields[0].prompt}`, withBack([]));
     return;
   }
 

@@ -117,7 +117,7 @@ export function NewRequestForm({ staff }: { staff: Staff[] }) {
       {requestType === "attendance_fix" && (
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5">تاريخ الدوام المطلوب تبريره</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5">تاريخ الدوام المطلوب إثباته</label>
             <input required name="date" type="date" className="w-full px-3 py-2 rounded-xl border border-slate-300 outline-none text-sm dir-ltr" />
           </div>
           <div>

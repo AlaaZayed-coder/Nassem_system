@@ -36,6 +36,30 @@ export async function sendTelegramInlineKeyboard(
   } catch (err) {}
 }
 
+// لوحة مفاتيح ثابتة تبقى ظاهرة أسفل شاشة تيليجرام بعد أي رسالة (وليست
+// inline)، بحيث يستطيع الموظف الوصول لبوابته في أي وقت بغض النظر عن مرحلة
+// أي محادثة أخرى جارية.
+export async function sendTelegramReplyKeyboard(chatId: string, text: string, buttonLabels: string[]) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) return;
+
+  try {
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        reply_markup: {
+          keyboard: buttonLabels.map((label) => [{ text: label }]),
+          resize_keyboard: true,
+          is_persistent: true,
+        },
+      }),
+    });
+  } catch (err) {}
+}
+
 export async function getTelegramFileUrl(fileId: string): Promise<string | null> {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!botToken) return null;

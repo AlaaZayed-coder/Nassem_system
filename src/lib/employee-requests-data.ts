@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { sendTelegramMessage } from "./telegram";
+import { sendTelegramMessage, sendTelegramInlineKeyboard } from "./telegram";
 
 export type EmployeeRequestType = "loan" | "vacation" | "permission" | "complaint" | "attendance_fix";
 
@@ -28,7 +28,7 @@ export const REQUEST_TYPE_LABEL: Record<EmployeeRequestType, string> = {
   vacation: "إجازة",
   permission: "مغادرة",
   complaint: "شكوى",
-  attendance_fix: "تبرير دوام",
+  attendance_fix: "إثبات دوام",
 };
 
 export const REQUEST_TYPE_REQUIRES_ATTACHMENT: Record<EmployeeRequestType, boolean> = {
@@ -175,7 +175,7 @@ export async function createEmployeeRequest(input: CreateEmployeeRequestInput): 
 }
 
 // أثر تلقائي عند الاعتماد — لكل نوع أثره الخاص (سلفة → قيد مالي، إجازة → خصم
-// رصيد، تبرير دوام → تصحيح سجل الحضور). الشكوى والمغادرة بلا أثر رقمي حالياً.
+// رصيد، إثبات دوام → تصحيح سجل الحضور). الشكوى والمغادرة بلا أثر رقمي حالياً.
 async function applyApprovalSideEffect(request: EmployeeRequest): Promise<void> {
   if (request.request_type === "loan") {
     const amountCents = Math.round(Number(request.details.amount || 0) * 100);
@@ -211,6 +211,59 @@ async function reverseApprovalSideEffect(request: EmployeeRequest): Promise<void
   } else if (request.request_type === "attendance_fix") {
     await supabase.from("erp_attendance_logs").update({ status: "غائب", justified_by_request_id: null }).eq("justified_by_request_id", request.id);
   }
+}
+
+// يبني رسالة تيليجرام للمعتمد تحمل بيانات دعم القرار (رصيد متاح، تعارضات،
+// إجمالي سلف قائمة) قبل عرض زري الموافقة/الرفض — وليس الاعتماد الأعمى.
+// مشتركة بين مسار الويب (تقديم من صفحة الطلبات) ومسار البوت.
+export async function notifyApproverWithContext(requestId: string) {
+  const request = await getEmployeeRequestById(requestId);
+  if (!request || !request.current_approver_id) return;
+
+  const { data: approver } = await supabase.from("erp_staff").select("telegram_chat_id").eq("id", request.current_approver_id).single();
+  if (!approver?.telegram_chat_id) return;
+
+  const staffName = request.erp_staff?.name || "موظف";
+  const typeLabel = REQUEST_TYPE_LABEL[request.request_type];
+  const contextLines: string[] = [];
+  const detailLines: string[] = [];
+
+  if (request.request_type === "loan") {
+    const outstanding = await getOutstandingLoanTotalCents(request.staff_id);
+    detailLines.push(`المبلغ المطلوب: ${request.details.amount} ₪`);
+    if (request.details.repayment_method) detailLines.push(`طريقة السداد المقترحة: ${request.details.repayment_method}`);
+    contextLines.push(`💰 إجمالي السلف القائمة على الموظف حالياً: ${(outstanding / 100).toFixed(2)} ₪`);
+  } else if (request.request_type === "vacation") {
+    const balance = await getVacationBalance(request.staff_id);
+    const overlapping = await getOverlappingApprovedVacations(request.details.start_date, request.details.end_date, request.staff_id);
+    detailLines.push(`من ${request.details.start_date} إلى ${request.details.end_date}`);
+    contextLines.push(`📅 رصيد الإجازات المتاح: ${balance} يوم`);
+    if (overlapping.length > 0) {
+      contextLines.push(`⚠️ موظفون آخرون مجازون في نفس الفترة تقريباً: ${overlapping.map((o) => o.name).join("، ")}`);
+    }
+  } else if (request.request_type === "permission") {
+    detailLines.push(`تاريخ: ${request.details.date} — من ${request.details.from_time || "—"} إلى ${request.details.to_time || "—"}`);
+    if (request.details.reason) detailLines.push(`السبب: ${request.details.reason}`);
+  } else if (request.request_type === "complaint") {
+    detailLines.push(`الموضوع: ${request.details.subject || "—"}`);
+    detailLines.push(`التفاصيل: ${request.details.description}`);
+  } else if (request.request_type === "attendance_fix") {
+    detailLines.push(`تاريخ الدوام: ${request.details.date}`);
+    if (request.details.reason) detailLines.push(`السبب: ${request.details.reason}`);
+  }
+
+  const text = [
+    `📋 طلب ${typeLabel} جديد من "${staffName}"`,
+    ...detailLines,
+    ...(contextLines.length > 0 ? ["", ...contextLines] : []),
+  ].join("\n");
+
+  await sendTelegramInlineKeyboard(approver.telegram_chat_id, text, [
+    [
+      { text: "✅ موافقة", callback_data: `emp_approve:${request.id}` },
+      { text: "❌ رفض", callback_data: `emp_reject:${request.id}` },
+    ],
+  ]);
 }
 
 export async function resolveEmployeeRequest(
