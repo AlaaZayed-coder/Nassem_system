@@ -121,7 +121,7 @@ async function getInstallationAgenda(): Promise<AgendaItem[]> {
   const { data } = await supabase
     .from("erp_door_orders")
     .select("id, status, installation_status, dispatched_at, created_at, erp_customers(name)")
-    .or("status.eq.تم التوريد,installation_status.eq.قيد التركيب");
+    .or("status.eq.بانتظار التركيب,installation_status.eq.قيد التركيب");
 
   const items: AgendaItem[] = [];
   for (const order of data || []) {

@@ -109,13 +109,15 @@ export async function getDoorOrders(): Promise<DoorOrder[]> {
   }));
 }
 
-// طابور التركيب: الطلبيات الجاهزة لتوريد الفريق (status='تم التوريد') أو
-// التي بدأت مسار التركيب فعلاً (installation_status IS NOT NULL).
+// طابور التركيب: الطلبيات الجاهزة لتوريد الفريق (status='بانتظار التركيب' —
+// لا تُستخدم إلا لطلبيات "توريد وتركيب") أو التي بدأت مسار التركيب فعلاً
+// (installation_status IS NOT NULL). طلبيات "توريد" فقط لا تدخل هذا الطابور
+// إطلاقاً مهما كانت حالتها.
 export async function getInstallationQueue(): Promise<DoorOrder[]> {
   const { data, error } = await supabase
     .from("erp_door_orders")
     .select("*, erp_customers(name, company_name, phone), erp_staff!erp_door_orders_responsible_staff_id_fkey(name), erp_door_order_items(id)")
-    .or("status.eq.تم التوريد,installation_status.not.is.null")
+    .or("status.eq.بانتظار التركيب,installation_status.not.is.null")
     .order("created_at", { ascending: false });
 
   if (error) {

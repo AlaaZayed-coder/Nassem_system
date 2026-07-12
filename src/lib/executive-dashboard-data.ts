@@ -52,7 +52,7 @@ export async function getExecutiveSummary(): Promise<ExecutiveSummary> {
     supabase.from("erp_maintenance_requests").select("*", { count: "exact", head: true }).eq("status", "قيد الانتظار"),
     supabase.from("erp_sales_orders").select("*", { count: "exact", head: true }).neq("status", "معتمد").neq("status", "مرفوض"),
     supabase.from("erp_order_submissions").select("*", { count: "exact", head: true }).eq("status", "قيد المراجعة"),
-    supabase.from("erp_door_orders").select("*", { count: "exact", head: true }).eq("status", "تم التوريد").is("installation_status", null),
+    supabase.from("erp_door_orders").select("*", { count: "exact", head: true }).eq("status", "بانتظار التركيب").is("installation_status", null),
     supabase.from("erp_door_orders").select("*", { count: "exact", head: true }).in("installation_status", ["قيد التركيب", "بانتظار تأكيد العميل"]),
   ]);
 

@@ -6,14 +6,24 @@ import { DoorOrder } from "@/lib/door-orders-data";
 import { updateDoorOrderStatusAction } from "@/app/dashboard/production/door-orders/actions";
 import { Search, Building2, UserCircle2, Package, Printer, ArrowUpRight } from "lucide-react";
 
-const STATUSES = [
+const BASE_STATUSES = [
   { id: "عالقة", label: "عالقة", color: "bg-rose-100 text-rose-700" },
   { id: "قيد الانتظار", label: "قيد الانتظار", color: "bg-slate-100 text-slate-700" },
   { id: "معلقة", label: "معلقة", color: "bg-amber-100 text-amber-700" },
   { id: "قيد الإنتاج", label: "قيد الإنتاج", color: "bg-sky-100 text-sky-700" },
-  { id: "تم التوريد", label: "تم التوريد", color: "bg-violet-100 text-violet-700" },
-  { id: "جاهزة", label: "جاهزة", color: "bg-emerald-100 text-emerald-700" },
 ];
+const DELIVERY_ONLY_STATUS = { id: "تم التوريد", label: "تم التوريد", color: "bg-violet-100 text-violet-700" };
+const AWAITING_INSTALL_STATUS = { id: "بانتظار التركيب", label: "بانتظار التركيب", color: "bg-violet-100 text-violet-700" };
+const DONE_STATUS = { id: "جاهزة", label: "جاهزة", color: "bg-emerald-100 text-emerald-700" };
+
+// طلبيات "توريد وتركيب" تنتهي إنتاجها بـ"بانتظار التركيب" (تغذّي طابور
+// التركيب)، بينما طلبيات "توريد" فقط تنتهي بـ"تم التوريد" مباشرة — لا فريق
+// تركيب من طرفنا لها، فلا يصح أن تظهر في طابور التركيب أصلاً.
+const STATUSES_FOR_FILTER = [...BASE_STATUSES, DELIVERY_ONLY_STATUS, AWAITING_INSTALL_STATUS, DONE_STATUS];
+
+function statusesForOrderType(orderType: string) {
+  return orderType === "توريد وتركيب" ? [...BASE_STATUSES, AWAITING_INSTALL_STATUS, DONE_STATUS] : [...BASE_STATUSES, DELIVERY_ONLY_STATUS, DONE_STATUS];
+}
 
 export function DoorOrdersTable({ initialOrders }: { initialOrders: DoorOrder[] }) {
   const [orders, setOrders] = useState(initialOrders);
@@ -45,7 +55,7 @@ export function DoorOrdersTable({ initialOrders }: { initialOrders: DoorOrder[] 
     });
   };
 
-  const statusMeta = (id: string) => STATUSES.find((s) => s.id === id) || { id, label: id, color: "bg-slate-100 text-slate-700" };
+  const statusMeta = (id: string) => STATUSES_FOR_FILTER.find((s) => s.id === id) || { id, label: id, color: "bg-slate-100 text-slate-700" };
 
   return (
     <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
@@ -66,7 +76,7 @@ export function DoorOrdersTable({ initialOrders }: { initialOrders: DoorOrder[] 
           className="px-3 py-2 rounded-xl border border-slate-300 outline-none text-sm bg-white"
         >
           <option value="">كل الحالات</option>
-          {STATUSES.map((s) => (
+          {STATUSES_FOR_FILTER.map((s) => (
             <option key={s.id} value={s.id}>{s.label}</option>
           ))}
         </select>
@@ -92,6 +102,8 @@ export function DoorOrdersTable({ initialOrders }: { initialOrders: DoorOrder[] 
           <tbody>
             {filtered.map((order) => {
               const meta = statusMeta(order.status);
+              const rowStatuses = statusesForOrderType(order.order_type);
+              const options = rowStatuses.some((s) => s.id === order.status) ? rowStatuses : [meta, ...rowStatuses];
               return (
                 <tr key={order.id} className="border-t border-slate-100 hover:bg-slate-50 transition">
                   <td className="px-4 py-3">
@@ -128,7 +140,7 @@ export function DoorOrdersTable({ initialOrders }: { initialOrders: DoorOrder[] 
                       onClick={(e) => e.stopPropagation()}
                       className={`px-2.5 py-1.5 rounded-lg text-xs font-bold outline-none border-0 cursor-pointer ${meta.color} disabled:opacity-50`}
                     >
-                      {STATUSES.map((s) => (
+                      {options.map((s) => (
                         <option key={s.id} value={s.id}>{s.label}</option>
                       ))}
                     </select>

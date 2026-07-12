@@ -66,7 +66,7 @@ export default async function DoorOrderDetailPage({ params }: { params: { id: st
           </div>
           <div>
             <span className="text-slate-500 text-xs block mb-1">الحالة</span>
-            <StatusSelect orderId={order.id} currentStatus={order.status} />
+            <StatusSelect orderId={order.id} currentStatus={order.status} orderType={order.order_type} />
           </div>
         </div>
         <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-500 flex items-center gap-1.5">

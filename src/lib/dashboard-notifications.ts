@@ -12,7 +12,7 @@ export async function getDashboardNotificationCounts(): Promise<DashboardNotific
     supabase.from("erp_order_submissions").select("*", { count: "exact", head: true }).eq("status", "قيد المراجعة"),
     supabase.from("erp_maintenance_requests").select("*", { count: "exact", head: true }).eq("status", "قيد الانتظار"),
     supabase.from("erp_purchase_requests").select("*", { count: "exact", head: true }).eq("status", "قيد الانتظار"),
-    supabase.from("erp_door_orders").select("*", { count: "exact", head: true }).eq("status", "تم التوريد").is("installation_status", null),
+    supabase.from("erp_door_orders").select("*", { count: "exact", head: true }).eq("status", "بانتظار التركيب").is("installation_status", null),
   ]);
 
   return {
