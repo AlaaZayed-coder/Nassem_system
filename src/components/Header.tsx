@@ -8,10 +8,10 @@ export function Header({
   counts,
 }: {
   onMenuClick: () => void;
-  counts: { pendingSubmissions: number; pendingMaintenance: number; pendingPurchases: number; pendingInstallations: number };
+  counts: { pendingSubmissions: number; pendingMaintenance: number; pendingPurchases: number; pendingInstallations: number; pendingEmployeeRequests: number };
 }) {
   const [showNotifications, setShowNotifications] = useState(false);
-  const totalPending = counts.pendingSubmissions + counts.pendingMaintenance + counts.pendingPurchases + counts.pendingInstallations;
+  const totalPending = counts.pendingSubmissions + counts.pendingMaintenance + counts.pendingPurchases + counts.pendingInstallations + counts.pendingEmployeeRequests;
 
   return (
     <header className="bg-white shadow-sm h-16 flex items-center justify-between px-4 md:px-6 relative">
@@ -53,6 +53,10 @@ export function Header({
               <div className="flex items-center justify-between py-1.5 border-t border-slate-100">
                 <span className="text-slate-600">طلبيات بانتظار إخراج التركيب</span>
                 <span className="font-bold text-slate-800">{counts.pendingInstallations}</span>
+              </div>
+              <div className="flex items-center justify-between py-1.5 border-t border-slate-100">
+                <span className="text-slate-600">طلبات موظفين بانتظار الاعتماد</span>
+                <span className="font-bold text-slate-800">{counts.pendingEmployeeRequests}</span>
               </div>
               {totalPending === 0 && <div className="text-center text-slate-400 py-2">لا توجد تنبيهات حالياً</div>}
             </div>

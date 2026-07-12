@@ -9,7 +9,7 @@ export function DashboardShell({
   counts,
 }: {
   children: React.ReactNode;
-  counts: { pendingSubmissions: number; pendingMaintenance: number; pendingPurchases: number; pendingInstallations: number };
+  counts: { pendingSubmissions: number; pendingMaintenance: number; pendingPurchases: number; pendingInstallations: number; pendingEmployeeRequests: number };
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 

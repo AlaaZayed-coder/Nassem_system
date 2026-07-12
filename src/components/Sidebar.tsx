@@ -45,7 +45,7 @@ export function Sidebar({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  counts: { pendingSubmissions: number; pendingMaintenance: number; pendingPurchases: number; pendingInstallations: number };
+  counts: { pendingSubmissions: number; pendingMaintenance: number; pendingPurchases: number; pendingInstallations: number; pendingEmployeeRequests: number };
 }) {
   const pathname = usePathname();
 
@@ -84,7 +84,12 @@ export function Sidebar({
         { name: "تذاكر الصيانة", icon: Wrench, path: "/dashboard/maintenance/requests", badge: counts.pendingMaintenance },
       ],
     },
-    { name: "إدارة الموظفين", icon: Users, path: "/dashboard/staff" },
+    {
+      name: "إدارة الموظفين", icon: Users, path: "/dashboard/staff",
+      children: [
+        { name: "طلبات الموظفين", icon: ClipboardList, path: "/dashboard/staff/requests", badge: counts.pendingEmployeeRequests },
+      ],
+    },
     { name: "التقارير", icon: BarChart2, path: "/dashboard/reports" },
     { name: "سجل التدقيق", icon: ClipboardList, path: "/dashboard/audit" },
     { name: "الإعدادات", icon: Settings, path: "/dashboard/settings" },

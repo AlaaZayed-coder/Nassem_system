@@ -228,7 +228,7 @@ export async function getPendingTelegramSubmission(chatId: string) {
 
 export async function startPendingTelegramSubmission(chatId: string) {
   await supabase.from("erp_telegram_pending_submissions").upsert([{
-    chat_id: chatId, customer_name: null, customer_phone: null, stage: "awaiting_customer_choice",
+    chat_id: chatId, customer_name: null, customer_phone: null, stage: "main_menu",
   }]);
 }
 
@@ -244,16 +244,16 @@ export async function setPendingTelegramCustomer(
 ) {
   await supabase
     .from("erp_telegram_pending_submissions")
-    .update({ customer_name: customerName, customer_phone: customerPhone, matched_customer_id: matchedCustomerId, stage: "awaiting_visit_choice" })
+    .update({ customer_name: customerName, customer_phone: customerPhone, matched_customer_id: matchedCustomerId, stage: "awaiting_content" })
     .eq("chat_id", chatId);
 }
 
-// هل الطلبية جاهزة للإدخال مباشرة أم تحتاج كشف موقع أولاً؟ يُسأل بعد استلام
-// هوية العميل مباشرة، قبل طلب محتوى الطلبية.
-export async function setPendingVisitChoice(chatId: string, needsSiteVisit: boolean) {
+// القائمة الرئيسية تسأل أولاً "مباشر أم كشف موقع؟" — يُحفظ القرار فوراً هنا
+// ولا يُعاد سؤاله لاحقاً في منتصف المحادثة.
+export async function setPendingMenuChoice(chatId: string, needsSiteVisit: boolean) {
   await supabase
     .from("erp_telegram_pending_submissions")
-    .update({ needs_site_visit: needsSiteVisit, stage: "awaiting_content" })
+    .update({ needs_site_visit: needsSiteVisit, stage: "awaiting_customer_choice" })
     .eq("chat_id", chatId);
 }
 
@@ -282,7 +282,7 @@ export async function setPendingNewCustomerAddress(chatId: string, address: stri
 export async function setPendingNewCustomerCompany(chatId: string, companyName: string | null) {
   await supabase
     .from("erp_telegram_pending_submissions")
-    .update({ company_name: companyName, stage: "awaiting_visit_choice" })
+    .update({ company_name: companyName, stage: "awaiting_content" })
     .eq("chat_id", chatId);
 }
 
