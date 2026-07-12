@@ -133,18 +133,13 @@ export type CreateEmployeeRequestInput = {
   source: "web" | "telegram";
 };
 
-// تحقق مسبق قبل حتى إنشاء الطلب — لا يُشغَل المدير بطلب مرفوض سلفاً (مثال:
-// إجازة تتجاوز الرصيد المتاح). لا يوجد سقف نظامي معروف للسلف حالياً، لذا لا
-// تحقق صارم عليها، فقط بيانات دعم قرار تُعرض للمدير لاحقاً.
+// تحقق مسبق قبل إنشاء الطلب — يتحقق فقط من اكتمال البيانات الأساسية. تجاوز
+// الرصيد المتاح لا يمنع الإرسال؛ يُعرض كملاحظة دعم قرار للمعتمد
+// (notifyApproverWithContext) ليقرر هو الموافقة أو الرفض.
 export async function validateEmployeeRequest(input: CreateEmployeeRequestInput): Promise<{ error?: string }> {
   if (input.request_type === "vacation") {
     const { start_date, end_date } = input.details;
     if (!start_date || !end_date) return { error: "يجب تحديد تاريخ البداية والنهاية" };
-    const requestedDays = daysBetween(start_date, end_date);
-    const balance = await getVacationBalance(input.staff_id);
-    if (requestedDays > balance) {
-      return { error: `رصيد الإجازات المتاح (${balance} يوم) لا يكفي لعدد الأيام المطلوبة (${requestedDays} يوم)` };
-    }
   }
   return {};
 }
@@ -235,9 +230,14 @@ export async function notifyApproverWithContext(requestId: string) {
     contextLines.push(`💰 إجمالي السلف القائمة على الموظف حالياً: ${(outstanding / 100).toFixed(2)} ₪`);
   } else if (request.request_type === "vacation") {
     const balance = await getVacationBalance(request.staff_id);
+    const requestedDays = daysBetween(request.details.start_date, request.details.end_date);
     const overlapping = await getOverlappingApprovedVacations(request.details.start_date, request.details.end_date, request.staff_id);
-    detailLines.push(`من ${request.details.start_date} إلى ${request.details.end_date}`);
-    contextLines.push(`📅 رصيد الإجازات المتاح: ${balance} يوم`);
+    detailLines.push(`من ${request.details.start_date} إلى ${request.details.end_date} (${requestedDays} يوم)`);
+    if (requestedDays > balance) {
+      contextLines.push(`⚠️ الرصيد غير كافٍ: المتاح ${balance} يوم فقط مقابل ${requestedDays} يوم مطلوبة`);
+    } else {
+      contextLines.push(`📅 رصيد الإجازات المتاح: ${balance} يوم`);
+    }
     if (overlapping.length > 0) {
       contextLines.push(`⚠️ موظفون آخرون مجازون في نفس الفترة تقريباً: ${overlapping.map((o) => o.name).join("، ")}`);
     }
