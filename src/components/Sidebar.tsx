@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import {
   Factory,
   Settings,
@@ -18,15 +19,24 @@ import {
   Contact,
   Truck,
   ListChecks,
+  ChevronDown,
   X,
 } from "lucide-react";
 
-type MenuItem = {
+type LeafItem = {
   name: string;
   icon: any;
   path: string;
   badge?: number;
 };
+
+type MenuEntry = LeafItem & { children?: LeafItem[] };
+
+function isPathActive(pathname: string | null, path: string): boolean {
+  if (!pathname) return false;
+  if (path === "/dashboard") return pathname === "/dashboard";
+  return pathname === path || pathname.startsWith(path + "/");
+}
 
 export function Sidebar({
   isOpen,
@@ -39,26 +49,64 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
 
-  const menuItems: MenuItem[] = [
+  const menuItems: MenuEntry[] = [
     { name: "الرئيسية", icon: Factory, path: "/dashboard" },
     { name: "الأجندة اليومية", icon: ListChecks, path: "/dashboard/agenda" },
-    { name: "إدارة المبيعات (CRM)", icon: Target, path: "/dashboard/sales" },
-    { name: "العملاء", icon: Contact, path: "/dashboard/customers" },
-    { name: "صندوق وارد الطلبيات", icon: Inbox, path: "/dashboard/sales/submissions", badge: counts.pendingSubmissions },
-    { name: "إدارة الإنتاج", icon: Factory, path: "/dashboard/production" },
-    { name: "طلبيات أبواب الرول", icon: DoorClosed, path: "/dashboard/production/door-orders" },
-    { name: "التركيب", icon: Truck, path: "/dashboard/installation", badge: counts.pendingInstallations },
-    { name: "إدارة المخزون", icon: Boxes, path: "/dashboard/inventory" },
-    { name: "إدارة المشتريات", icon: ShoppingCart, path: "/dashboard/purchasing" },
-    { name: "طلبات الشراء المعلّقة", icon: ShoppingCart, path: "/dashboard/purchasing/requests", badge: counts.pendingPurchases },
-    { name: "إدارة الصيانة", icon: Wrench, path: "/dashboard/maintenance" },
-    { name: "تذاكر الصيانة", icon: Wrench, path: "/dashboard/maintenance/requests", badge: counts.pendingMaintenance },
+    {
+      name: "إدارة المبيعات (CRM)", icon: Target, path: "/dashboard/sales",
+      children: [
+        { name: "العملاء", icon: Contact, path: "/dashboard/customers" },
+        { name: "صندوق وارد الطلبيات", icon: Inbox, path: "/dashboard/sales/submissions", badge: counts.pendingSubmissions },
+      ],
+    },
+    {
+      name: "إدارة الإنتاج", icon: Factory, path: "/dashboard/production",
+      children: [
+        { name: "طلبيات أبواب الرول", icon: DoorClosed, path: "/dashboard/production/door-orders" },
+        { name: "التركيب", icon: Truck, path: "/dashboard/installation", badge: counts.pendingInstallations },
+      ],
+    },
+    {
+      name: "إدارة المخزون", icon: Boxes, path: "/dashboard/inventory",
+      children: [
+        { name: "لوحة التسعير", icon: ShieldCheck, path: "/dashboard/inventory/pricing-dashboard" },
+      ],
+    },
+    {
+      name: "إدارة المشتريات", icon: ShoppingCart, path: "/dashboard/purchasing",
+      children: [
+        { name: "طلبات الشراء المعلّقة", icon: ShoppingCart, path: "/dashboard/purchasing/requests", badge: counts.pendingPurchases },
+      ],
+    },
+    {
+      name: "إدارة الصيانة", icon: Wrench, path: "/dashboard/maintenance",
+      children: [
+        { name: "تذاكر الصيانة", icon: Wrench, path: "/dashboard/maintenance/requests", badge: counts.pendingMaintenance },
+      ],
+    },
     { name: "إدارة الموظفين", icon: Users, path: "/dashboard/staff" },
     { name: "التقارير", icon: BarChart2, path: "/dashboard/reports" },
-    { name: "لوحة التسعير", icon: ShieldCheck, path: "/dashboard/inventory/pricing-dashboard" },
     { name: "سجل التدقيق", icon: ClipboardList, path: "/dashboard/audit" },
     { name: "الإعدادات", icon: Settings, path: "/dashboard/settings" },
   ];
+
+  const groupContainsActive = (item: MenuEntry) =>
+    isPathActive(pathname, item.path) || !!item.children?.some((c) => isPathActive(pathname, c.path));
+
+  const [expanded, setExpanded] = useState<Set<string>>(
+    () => new Set(menuItems.filter((item) => item.children && groupContainsActive(item)).map((item) => item.name))
+  );
+
+  const toggleExpanded = (name: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const badgeSum = (item: MenuEntry) => (item.badge || 0) + (item.children?.reduce((s, c) => s + (c.badge || 0), 0) || 0);
 
   return (
     <>
@@ -80,26 +128,76 @@ export function Sidebar({
 
         <nav className="flex flex-col gap-1 overflow-y-auto flex-1">
           {menuItems.map((item) => {
-            const isActive = item.path === "/" ? pathname === "/" : pathname?.startsWith(item.path);
+            const isActive = isPathActive(pathname, item.path);
+            const hasChildren = !!item.children?.length;
+            const isExpanded = expanded.has(item.name);
+            const badge = badgeSum(item);
+
             return (
-              <Link
-                key={item.path}
-                href={item.path}
-                onClick={onClose}
-                className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm ${
-                  isActive ? "bg-indigo-600 text-white font-bold" : "text-slate-300 hover:bg-slate-800"
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  {item.name}
-                </span>
-                {!!item.badge && (
-                  <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                    {item.badge}
-                  </span>
+              <div key={item.path}>
+                <div
+                  className={`flex items-center justify-between gap-1 rounded-lg transition-colors text-sm ${
+                    isActive ? "bg-indigo-600 text-white font-bold" : "text-slate-300 hover:bg-slate-800"
+                  }`}
+                >
+                  <Link
+                    href={item.path}
+                    onClick={() => {
+                      if (hasChildren) setExpanded((prev) => new Set(prev).add(item.name));
+                      onClose();
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-2.5 flex-1 min-w-0"
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{item.name}</span>
+                  </Link>
+
+                  <div className="flex items-center gap-1 pl-2">
+                    {!!badge && (
+                      <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                        {badge}
+                      </span>
+                    )}
+                    {hasChildren && (
+                      <button
+                        onClick={() => toggleExpanded(item.name)}
+                        className="p-1.5 hover:bg-slate-700/50 rounded-md shrink-0"
+                        aria-label={isExpanded ? "طي" : "توسيع"}
+                      >
+                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {hasChildren && isExpanded && (
+                  <div className="flex flex-col gap-0.5 mt-0.5 mr-3 pr-3 border-r border-slate-700">
+                    {item.children!.map((child) => {
+                      const childActive = isPathActive(pathname, child.path);
+                      return (
+                        <Link
+                          key={child.path}
+                          href={child.path}
+                          onClick={onClose}
+                          className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg transition-colors text-sm ${
+                            childActive ? "bg-indigo-600 text-white font-bold" : "text-slate-400 hover:bg-slate-800"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <child.icon className="h-3.5 w-3.5 shrink-0" />
+                            {child.name}
+                          </span>
+                          {!!child.badge && (
+                            <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                              {child.badge}
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
                 )}
-              </Link>
+              </div>
             );
           })}
         </nav>
