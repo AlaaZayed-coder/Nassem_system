@@ -11,6 +11,7 @@ export function NewSubmissionForm() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
+  const [customerCompanyName, setCustomerCompanyName] = useState("");
   const [needsSiteVisit, setNeedsSiteVisit] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -58,6 +59,7 @@ export function NewSubmissionForm() {
       formData.append("customer_name", customerName);
       formData.append("customer_phone", customerPhone);
       formData.append("customer_address", customerAddress);
+      formData.append("customer_company_name", customerCompanyName);
       formData.append("needs_site_visit", needsSiteVisit ? "on" : "");
       formData.append("text_content", text);
       if (imageFile) formData.append("file", imageFile);
@@ -71,6 +73,7 @@ export function NewSubmissionForm() {
         setCustomerName("");
         setCustomerPhone("");
         setCustomerAddress("");
+        setCustomerCompanyName("");
         setImageFile(null);
         setAudioBlob(null);
         setAudioUrl(null);
@@ -97,6 +100,10 @@ export function NewSubmissionForm() {
         <div>
           <label className="block text-xs font-bold text-indigo-900 mb-1.5">رقم هاتف العميل</label>
           <input type="text" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-300 outline-none dir-ltr text-left" placeholder="059..." />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-indigo-900 mb-1.5">اسم المؤسسة (اختياري)</label>
+          <input type="text" value={customerCompanyName} onChange={(e) => setCustomerCompanyName(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-300 outline-none" placeholder="مثال: شركة النور للمقاولات" />
         </div>
         <div className="col-span-full">
           <label className="block text-xs font-bold text-indigo-900 mb-1.5">عنوان العميل (اختياري)</label>

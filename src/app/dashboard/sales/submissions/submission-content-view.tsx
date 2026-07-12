@@ -29,6 +29,7 @@ export function SubmissionContentView({ submission }: { submission: OrderSubmiss
         <div className="flex items-center gap-2 mb-2 text-sm flex-wrap">
           <User className="h-3.5 w-3.5 text-indigo-500" />
           <span className="font-bold text-slate-800">{submission.erp_customers?.name || submission.customer_name || "—"}</span>
+          {submission.customer_company_name && <span className="text-xs text-slate-500">({submission.customer_company_name})</span>}
           {submission.customer_phone && <span className="text-xs text-slate-500" dir="ltr">{submission.customer_phone}</span>}
           {submission.customer_address && <span className="text-xs text-slate-400">· {submission.customer_address}</span>}
           {submission.matched_customer_id && (

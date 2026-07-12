@@ -12,6 +12,7 @@ import {
   setPendingNewCustomerName,
   setPendingNewCustomerPhone,
   setPendingNewCustomerAddress,
+  setPendingNewCustomerCompany,
   setPendingVisitChoice,
   clearPendingTelegramSubmission,
 } from "@/lib/order-submissions-data";
@@ -129,6 +130,17 @@ export async function POST(req: Request) {
       }
       const skip = message.text.trim() === "تخطي";
       await setPendingNewCustomerAddress(chatId, skip ? null : message.text);
+      await sendTelegramMessage(chatId, "اسم المؤسسة/الشركة؟ (اكتب \"تخطي\" إن لم يوجد)");
+      return NextResponse.json({ ok: true });
+    }
+
+    if (pending.stage === "awaiting_new_company") {
+      if (!message.text) {
+        await sendTelegramMessage(chatId, "الرجاء إرسال اسم المؤسسة نصاً، أو \"تخطي\".");
+        return NextResponse.json({ ok: true });
+      }
+      const skip = message.text.trim() === "تخطي";
+      await setPendingNewCustomerCompany(chatId, skip ? null : message.text);
       await askVisitChoice(chatId);
       return NextResponse.json({ ok: true });
     }
@@ -143,6 +155,7 @@ export async function POST(req: Request) {
       customer_name: pending.customer_name,
       customer_phone: pending.customer_phone,
       customer_address: pending.customer_address,
+      customer_company_name: pending.company_name,
       matched_customer_id: pending.matched_customer_id,
       needs_site_visit: !!pending.needs_site_visit,
     };

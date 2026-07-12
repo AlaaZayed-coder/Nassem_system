@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 
 export type SalesOrderFormProps = {
   initialCustomerId?: string;
-  initialNewCustomer?: { name: string; phone: string; address: string };
+  initialNewCustomer?: { name: string; phone: string; address: string; company?: string };
   submissionId?: string | null;
   compact?: boolean;
   onSubmitted?: (orderId: string) => void;
@@ -30,7 +30,7 @@ export function SalesOrderForm({ initialCustomerId, initialNewCustomer, submissi
   const [custName, setCustName] = useState(initialNewCustomer?.name || "");
   const [custPhone, setCustPhone] = useState(initialNewCustomer?.phone || "");
   const [custAddress, setCustAddress] = useState(initialNewCustomer?.address || "");
-  const [custCompanyName, setCustCompanyName] = useState("");
+  const [custCompanyName, setCustCompanyName] = useState(initialNewCustomer?.company || "");
 
   // Order Items State
   const [lines, setLines] = useState<{

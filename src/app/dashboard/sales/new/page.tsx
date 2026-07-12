@@ -28,6 +28,7 @@ function NewSalesOpportunityPageInner() {
               name: newCustomerName,
               phone: searchParams.get("new_customer_phone") || "",
               address: searchParams.get("new_customer_address") || "",
+              company: searchParams.get("new_customer_company") || "",
             }
           : undefined
       }

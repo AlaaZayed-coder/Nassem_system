@@ -17,6 +17,7 @@ export async function createWebSubmissionAction(formData: FormData): Promise<{ e
   const customer_name = (formData.get("customer_name") as string) || null;
   const customer_phone = (formData.get("customer_phone") as string) || null;
   const customer_address = (formData.get("customer_address") as string) || null;
+  const customer_company_name = (formData.get("customer_company_name") as string) || null;
   const needs_site_visit = formData.get("needs_site_visit") === "on";
   const text_content = (formData.get("text_content") as string) || null;
   const file = formData.get("file") as File | null;
@@ -60,6 +61,7 @@ export async function createWebSubmissionAction(formData: FormData): Promise<{ e
       customer_name,
       customer_phone,
       customer_address,
+      customer_company_name,
       matched_customer_id: matchedCustomer?.id || null,
       needs_site_visit,
     });

@@ -37,6 +37,7 @@ export function ProcessSubmissionForm({ submission }: { submission: OrderSubmiss
               name: submission.customer_name || "",
               phone: submission.customer_phone || "",
               address: submission.customer_address || "",
+              company: submission.customer_company_name || "",
             }
           : undefined
       }

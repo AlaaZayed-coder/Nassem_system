@@ -15,6 +15,7 @@ export type OrderSubmission = {
   customer_name: string | null;
   customer_phone: string | null;
   customer_address: string | null;
+  customer_company_name: string | null;
   matched_customer_id: string | null;
   needs_site_visit: boolean;
   created_at: string;
@@ -63,7 +64,7 @@ export async function searchCustomers(query: string) {
 
 export async function updateSubmissionCustomer(
   submissionId: string,
-  input: { customer_name: string; customer_phone: string | null; matched_customer_id: string | null; customer_address?: string | null }
+  input: { customer_name: string; customer_phone: string | null; matched_customer_id: string | null; customer_address?: string | null; customer_company_name?: string | null }
 ) {
   const { error } = await supabase
     .from("erp_order_submissions")
@@ -72,6 +73,7 @@ export async function updateSubmissionCustomer(
       customer_phone: input.customer_phone,
       matched_customer_id: input.matched_customer_id,
       ...(input.customer_address !== undefined ? { customer_address: input.customer_address } : {}),
+      ...(input.customer_company_name !== undefined ? { customer_company_name: input.customer_company_name } : {}),
     })
     .eq("id", submissionId);
 
@@ -182,6 +184,7 @@ export async function createOrderSubmission(input: {
   customer_name?: string | null;
   customer_phone?: string | null;
   customer_address?: string | null;
+  customer_company_name?: string | null;
   matched_customer_id?: string | null;
   needs_site_visit?: boolean;
 }) {
@@ -198,6 +201,7 @@ export async function createOrderSubmission(input: {
       customer_name: input.customer_name || null,
       customer_phone: input.customer_phone || null,
       customer_address: input.customer_address || null,
+      customer_company_name: input.customer_company_name || null,
       matched_customer_id: input.matched_customer_id || null,
       needs_site_visit: !!input.needs_site_visit,
       status: input.needs_site_visit ? "بانتظار الكشف" : "قيد المراجعة",
@@ -271,7 +275,14 @@ export async function setPendingNewCustomerPhone(chatId: string, phone: string |
 export async function setPendingNewCustomerAddress(chatId: string, address: string | null) {
   await supabase
     .from("erp_telegram_pending_submissions")
-    .update({ customer_address: address, stage: "awaiting_visit_choice" })
+    .update({ customer_address: address, stage: "awaiting_new_company" })
+    .eq("chat_id", chatId);
+}
+
+export async function setPendingNewCustomerCompany(chatId: string, companyName: string | null) {
+  await supabase
+    .from("erp_telegram_pending_submissions")
+    .update({ company_name: companyName, stage: "awaiting_visit_choice" })
     .eq("chat_id", chatId);
 }
 
