@@ -1,15 +1,16 @@
 import Link from "next/link";
-import { getOrderSubmissions } from "@/lib/order-submissions-data";
+import { getOrderSubmissions, getSubmissionsAwaitingSiteVisit } from "@/lib/order-submissions-data";
 import { NewSubmissionForm } from "./new-submission-form";
 import { SubmissionCard } from "./submission-card";
-import { ArrowRight, Inbox } from "lucide-react";
+import { ArrowRight, Inbox, MapPin } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrderSubmissionsPage() {
-  const [pending, resolved] = await Promise.all([
+  const [pending, resolved, awaitingVisit] = await Promise.all([
     getOrderSubmissions("قيد المراجعة"),
     getOrderSubmissions("تمت المعالجة"),
+    getSubmissionsAwaitingSiteVisit(),
   ]);
 
   return (
@@ -36,6 +37,19 @@ export default async function OrderSubmissionsPage() {
         </div>
 
         <div className="lg:col-span-2 space-y-8">
+          {awaitingVisit.length > 0 && (
+            <div>
+              <h2 className="text-lg font-bold text-amber-700 mb-4 flex items-center gap-2">
+                <MapPin className="h-5 w-5" /> بانتظار كشف الموقع ({awaitingVisit.length})
+              </h2>
+              <div className="space-y-3">
+                {awaitingVisit.map((s) => (
+                  <SubmissionCard key={s.id} submission={s} />
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <h2 className="text-lg font-bold text-slate-800 mb-4">بانتظار المعالجة ({pending.length})</h2>
             <div className="space-y-3">

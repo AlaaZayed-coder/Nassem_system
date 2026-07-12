@@ -9,13 +9,14 @@ export type OrderSubmission = {
   text_content: string | null;
   file_url: string | null;
   telegram_file_id: string | null;
-  status: "قيد المراجعة" | "تمت المعالجة" | "مرفوضة";
+  status: "بانتظار الكشف" | "قيد المراجعة" | "تمت المعالجة" | "مرفوضة";
   linked_sales_order_id: string | null;
   processor_notes: string | null;
   customer_name: string | null;
   customer_phone: string | null;
   customer_address: string | null;
   matched_customer_id: string | null;
+  needs_site_visit: boolean;
   created_at: string;
   processed_at: string | null;
   erp_staff?: { name: string; role: string } | null;
@@ -125,6 +126,22 @@ export async function getOrderSubmissionById(id: string): Promise<OrderSubmissio
   return data;
 }
 
+// طلبيات دخلت عبر مسار "تحتاج كشف موقع" ولم يُحفظ تقرير الزيارة الميدانية
+// لها بعد — لا تظهر في صندوق معالج الطلبيات العادي حتى تُستكمل هذه الخطوة.
+export async function getSubmissionsAwaitingSiteVisit(): Promise<OrderSubmission[]> {
+  const { data, error } = await supabase
+    .from("erp_order_submissions")
+    .select("*, erp_staff(name, role), erp_customers(name, phone), erp_order_submission_attachments(*)")
+    .eq("status", "بانتظار الكشف")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching site-visit submissions:", error);
+    return [];
+  }
+  return data || [];
+}
+
 // يعيد أقدم طلبية بانتظار المعالجة غير الحالية، لتمكين طابور معالجة متسلسل
 // (بعد اعتماد/رفض طلبية، ننتقل مباشرة للتالية بدل العودة لقائمة الصندوق الوارد).
 export async function getNextPendingSubmissionId(excludeId?: string): Promise<string | null> {
@@ -166,6 +183,7 @@ export async function createOrderSubmission(input: {
   customer_phone?: string | null;
   customer_address?: string | null;
   matched_customer_id?: string | null;
+  needs_site_visit?: boolean;
 }) {
   const { data, error } = await supabase
     .from("erp_order_submissions")
@@ -181,6 +199,8 @@ export async function createOrderSubmission(input: {
       customer_phone: input.customer_phone || null,
       customer_address: input.customer_address || null,
       matched_customer_id: input.matched_customer_id || null,
+      needs_site_visit: !!input.needs_site_visit,
+      status: input.needs_site_visit ? "بانتظار الكشف" : "قيد المراجعة",
     }])
     .select()
     .single();
@@ -220,7 +240,16 @@ export async function setPendingTelegramCustomer(
 ) {
   await supabase
     .from("erp_telegram_pending_submissions")
-    .update({ customer_name: customerName, customer_phone: customerPhone, matched_customer_id: matchedCustomerId, stage: "awaiting_content" })
+    .update({ customer_name: customerName, customer_phone: customerPhone, matched_customer_id: matchedCustomerId, stage: "awaiting_visit_choice" })
+    .eq("chat_id", chatId);
+}
+
+// هل الطلبية جاهزة للإدخال مباشرة أم تحتاج كشف موقع أولاً؟ يُسأل بعد استلام
+// هوية العميل مباشرة، قبل طلب محتوى الطلبية.
+export async function setPendingVisitChoice(chatId: string, needsSiteVisit: boolean) {
+  await supabase
+    .from("erp_telegram_pending_submissions")
+    .update({ needs_site_visit: needsSiteVisit, stage: "awaiting_content" })
     .eq("chat_id", chatId);
 }
 
@@ -242,7 +271,7 @@ export async function setPendingNewCustomerPhone(chatId: string, phone: string |
 export async function setPendingNewCustomerAddress(chatId: string, address: string | null) {
   await supabase
     .from("erp_telegram_pending_submissions")
-    .update({ customer_address: address, stage: "awaiting_content" })
+    .update({ customer_address: address, stage: "awaiting_visit_choice" })
     .eq("chat_id", chatId);
 }
 

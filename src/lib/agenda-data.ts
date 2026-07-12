@@ -45,6 +45,22 @@ async function getPendingSubmissionsAgenda(): Promise<AgendaItem[]> {
   }));
 }
 
+async function getSiteVisitAgenda(): Promise<AgendaItem[]> {
+  const { data } = await supabase
+    .from("erp_order_submissions")
+    .select("id, customer_name, created_at")
+    .eq("status", "بانتظار الكشف")
+    .order("created_at", { ascending: true });
+
+  return (data || []).map((s: any) => ({
+    id: `site-visit-${s.id}`,
+    category: "كشف موقع",
+    label: `طلبية بانتظار كشف الموقع — ${s.customer_name || "عميل غير محدد"}`,
+    link: `/dashboard/sales/submissions/${s.id}`,
+    createdAt: s.created_at,
+  }));
+}
+
 async function getProductionAgenda(): Promise<AgendaItem[]> {
   const [{ data: pendingItems }, { data: uncalculatedItems }, { data: calculatedItems }, { data: issues }] = await Promise.all([
     supabase
@@ -167,24 +183,27 @@ export async function getAgendaForRole(role: string): Promise<AgendaItem[]> {
   let items: AgendaItem[] = [];
 
   if (role === "sales") {
-    items = await getOpenSalesOrders();
+    const [sales, siteVisits] = await Promise.all([getOpenSalesOrders(), getSiteVisitAgenda()]);
+    items = [...sales, ...siteVisits];
   } else if (role === "order_processor") {
-    items = await getPendingSubmissionsAgenda();
+    const [submissions, siteVisits] = await Promise.all([getPendingSubmissionsAgenda(), getSiteVisitAgenda()]);
+    items = [...submissions, ...siteVisits];
   } else if (role === "production") {
     const [prod, install, maint] = await Promise.all([getProductionAgenda(), getInstallationAgenda(), getMaintenanceAgenda()]);
     items = [...prod, ...install, ...maint];
   } else if (role === "purchasing") {
     items = await getPurchasingAgenda();
   } else if (role === "manager") {
-    const [sales, submissions, prod, install, purchasing, maintenance] = await Promise.all([
+    const [sales, submissions, siteVisits, prod, install, purchasing, maintenance] = await Promise.all([
       getOpenSalesOrders(),
       getPendingSubmissionsAgenda(),
+      getSiteVisitAgenda(),
       getProductionAgenda(),
       getInstallationAgenda(),
       getPurchasingAgenda(),
       getMaintenanceAgenda(),
     ]);
-    items = [...sales, ...submissions, ...prod, ...install, ...purchasing, ...maintenance];
+    items = [...sales, ...submissions, ...siteVisits, ...prod, ...install, ...purchasing, ...maintenance];
   }
 
   return items.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());

@@ -26,7 +26,12 @@ export default async function ProcessSubmissionPage({ params }: { params: { id: 
         </Link>
       </div>
 
-      {submission.status !== "قيد المراجعة" && (
+      {submission.status === "بانتظار الكشف" && (
+        <div className="mb-6 bg-amber-50 border border-amber-100 text-amber-800 text-sm font-bold px-4 py-3 rounded-xl">
+          هذه الطلبية تحتاج كشف موقع أولاً — بعد حفظ تقرير الزيارة ستنتقل تلقائياً لصندوق معالج الطلبيات.
+        </div>
+      )}
+      {submission.status !== "قيد المراجعة" && submission.status !== "بانتظار الكشف" && (
         <div className="mb-6 bg-amber-50 border border-amber-100 text-amber-800 text-sm font-bold px-4 py-3 rounded-xl">
           هذه الطلبية معالَجة مسبقاً (الحالة: {submission.status}) — يمكنك مراجعتها فقط.
         </div>

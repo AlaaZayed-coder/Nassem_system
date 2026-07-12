@@ -17,6 +17,7 @@ export async function createWebSubmissionAction(formData: FormData): Promise<{ e
   const customer_name = (formData.get("customer_name") as string) || null;
   const customer_phone = (formData.get("customer_phone") as string) || null;
   const customer_address = (formData.get("customer_address") as string) || null;
+  const needs_site_visit = formData.get("needs_site_visit") === "on";
   const text_content = (formData.get("text_content") as string) || null;
   const file = formData.get("file") as File | null;
 
@@ -60,12 +61,55 @@ export async function createWebSubmissionAction(formData: FormData): Promise<{ e
       customer_phone,
       customer_address,
       matched_customer_id: matchedCustomer?.id || null,
+      needs_site_visit,
     });
   } catch (err: any) {
     return { error: err.message || "فشل حفظ الطلبية" };
   }
 
   revalidatePath("/dashboard/sales/submissions");
+  return {};
+}
+
+// تقرير الزيارة الميدانية (كشف الموقع): يُضاف كإضافة على الطلبية (نفس آلية
+// "الإضافات قبل الاعتماد" الموجودة)، ثم تنتقل الطلبية تلقائياً من "بانتظار
+// الكشف" إلى "قيد المراجعة" فتظهر في صندوق معالج الطلبيات كالمعتاد.
+export async function submitSiteVisitReportAction(formData: FormData): Promise<{ error?: string }> {
+  const submission_id = formData.get("submission_id") as string;
+  const visited_by = (formData.get("visited_by") as string) || null;
+  const notes = (formData.get("notes") as string) || null;
+  const file = formData.get("photo") as File | null;
+
+  if (!submission_id) return { error: "طلبية غير محددة" };
+  if (!notes && (!file || file.size === 0)) {
+    return { error: "أضف ملاحظات الكشف أو صورة للموقع على الأقل" };
+  }
+
+  try {
+    if (notes) {
+      await addSubmissionAttachment({ submission_id, content_type: "text", text_content: `📍 تقرير كشف الموقع: ${notes}`, added_by_name: visited_by });
+    }
+
+    if (file && file.size > 0) {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${Date.now()}-site-visit.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("order-submissions")
+        .upload(path, await file.arrayBuffer(), { contentType: file.type });
+
+      if (uploadError) return { error: "فشل رفع الصورة: " + uploadError.message };
+
+      const { data } = supabase.storage.from("order-submissions").getPublicUrl(path);
+      await addSubmissionAttachment({ submission_id, content_type: "image", file_url: data.publicUrl, added_by_name: visited_by });
+    }
+
+    await updateOrderSubmissionStatus(submission_id, "قيد المراجعة");
+  } catch (err: any) {
+    return { error: err.message || "فشل حفظ تقرير الكشف" };
+  }
+
+  revalidatePath("/dashboard/sales/submissions");
+  revalidatePath(`/dashboard/sales/submissions/${submission_id}`);
   return {};
 }
 

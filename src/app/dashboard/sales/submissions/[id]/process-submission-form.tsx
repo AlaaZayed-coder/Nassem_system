@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { OrderSubmission } from "@/lib/order-submissions-data";
 import { SalesOrderForm } from "@/components/sales/sales-order-form";
+import { SiteVisitReportForm } from "../site-visit-report-form";
 import { getNextPendingSubmissionIdAction } from "../actions";
 
 export function ProcessSubmissionForm({ submission }: { submission: OrderSubmission }) {
@@ -12,6 +13,10 @@ export function ProcessSubmissionForm({ submission }: { submission: OrderSubmiss
     const nextId = await getNextPendingSubmissionIdAction(submission.id);
     router.push(nextId ? `/dashboard/sales/submissions/${nextId}` : "/dashboard/sales/submissions");
   };
+
+  if (submission.status === "بانتظار الكشف") {
+    return <SiteVisitReportForm submissionId={submission.id} />;
+  }
 
   if (submission.status !== "قيد المراجعة") {
     return (

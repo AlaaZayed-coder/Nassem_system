@@ -11,6 +11,7 @@ export function NewSubmissionForm() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
+  const [needsSiteVisit, setNeedsSiteVisit] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -57,6 +58,7 @@ export function NewSubmissionForm() {
       formData.append("customer_name", customerName);
       formData.append("customer_phone", customerPhone);
       formData.append("customer_address", customerAddress);
+      formData.append("needs_site_visit", needsSiteVisit ? "on" : "");
       formData.append("text_content", text);
       if (imageFile) formData.append("file", imageFile);
       else if (audioBlob) formData.append("file", new File([audioBlob], "voice.webm", { type: "audio/webm" }));
@@ -72,7 +74,8 @@ export function NewSubmissionForm() {
         setImageFile(null);
         setAudioBlob(null);
         setAudioUrl(null);
-        alert("تم إرسال الطلبية بنجاح، ستصل لمعالج الطلبيات.");
+        setNeedsSiteVisit(false);
+        alert(needsSiteVisit ? "تم تسجيل الطلبية بانتظار كشف الموقع." : "تم إرسال الطلبية بنجاح، ستصل لمعالج الطلبيات.");
       }
     } finally {
       setIsPending(false);
@@ -101,6 +104,11 @@ export function NewSubmissionForm() {
         </div>
         <p className="col-span-full text-[11px] text-indigo-700">الاسم أو الهاتف مطلوب أحدهما على الأقل — لربط الطلبية بسجل العميل التاريخي.</p>
       </div>
+
+      <label className="flex items-center gap-2 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-100 rounded-xl p-3 cursor-pointer">
+        <input type="checkbox" checked={needsSiteVisit} onChange={(e) => setNeedsSiteVisit(e.target.checked)} className="h-4 w-4" />
+        هذه الطلبية تحتاج كشف موقع قبل الإدخال (لن تصل لمعالج الطلبيات إلا بعد حفظ تقرير الزيارة)
+      </label>
 
       <div>
         <label className="block text-xs font-bold text-slate-700 mb-1.5">تفاصيل الطلبية (نص)</label>

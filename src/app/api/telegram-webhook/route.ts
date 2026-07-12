@@ -12,6 +12,7 @@ import {
   setPendingNewCustomerName,
   setPendingNewCustomerPhone,
   setPendingNewCustomerAddress,
+  setPendingVisitChoice,
   clearPendingTelegramSubmission,
 } from "@/lib/order-submissions-data";
 import { approveSalesOrderAndNotify } from "@/lib/order-notifications";
@@ -26,6 +27,15 @@ async function askCustomerChoice(chatId: string) {
     [
       { text: "🔍 عميل موجود", callback_data: "cust_existing" },
       { text: "➕ عميل جديد", callback_data: "cust_new" },
+    ],
+  ]);
+}
+
+async function askVisitChoice(chatId: string) {
+  await sendTelegramInlineKeyboard(chatId, "هل الطلبية جاهزة للإدخال مباشرة، أم تحتاج كشف موقع أولاً؟", [
+    [
+      { text: "📥 جاهزة للإدخال مباشرة", callback_data: "visit_direct" },
+      { text: "🔍 تحتاج كشف موقع", callback_data: "visit_needed" },
     ],
   ]);
 }
@@ -119,7 +129,12 @@ export async function POST(req: Request) {
       }
       const skip = message.text.trim() === "تخطي";
       await setPendingNewCustomerAddress(chatId, skip ? null : message.text);
-      await sendTelegramMessage(chatId, "تم استلام بيانات العميل الجديد. الآن أرسل تفاصيل الطلبية: نص، صورة، أو تسجيل صوتي.");
+      await askVisitChoice(chatId);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (pending.stage === "awaiting_visit_choice") {
+      await askVisitChoice(chatId);
       return NextResponse.json({ ok: true });
     }
 
@@ -129,6 +144,7 @@ export async function POST(req: Request) {
       customer_phone: pending.customer_phone,
       customer_address: pending.customer_address,
       matched_customer_id: pending.matched_customer_id,
+      needs_site_visit: !!pending.needs_site_visit,
     };
 
     let submission = null;
@@ -174,8 +190,12 @@ export async function POST(req: Request) {
 
     if (submission) {
       const matchNote = pending.matched_customer_id ? " (عميل مسجَّل مسبقاً)" : "";
-      await sendTelegramMessage(chatId, `تم استلام طلبية العميل "${pending.customer_name}"${matchNote} بنجاح، وستصل إلى معالج الطلبيات للمراجعة والإدخال.`);
-      await notifyOrderProcessors(staff.name, pending.customer_name || "غير محدد");
+      if (pending.needs_site_visit) {
+        await sendTelegramMessage(chatId, `تم تسجيل طلبية العميل "${pending.customer_name}"${matchNote} كـ"بانتظار كشف الموقع" — بعد الزيارة الميدانية ستصل تلقائياً لمعالج الطلبيات.`);
+      } else {
+        await sendTelegramMessage(chatId, `تم استلام طلبية العميل "${pending.customer_name}"${matchNote} بنجاح، وستصل إلى معالج الطلبيات للمراجعة والإدخال.`);
+        await notifyOrderProcessors(staff.name, pending.customer_name || "غير محدد");
+      }
     }
 
     return NextResponse.json({ ok: true });
@@ -224,7 +244,15 @@ async function handleCallbackQuery(callbackQuery: any) {
     }
     await setPendingTelegramCustomer(chatId, customer.name, customer.phone, customer.id);
     await answerCallbackQuery(callbackQuery.id, "تم اختيار العميل");
-    await sendTelegramMessage(chatId, `تم اختيار العميل: ${customer.name}. الآن أرسل تفاصيل الطلبية: نص، صورة، أو تسجيل صوتي.`);
+    await sendTelegramMessage(chatId, `تم اختيار العميل: ${customer.name}.`);
+    await askVisitChoice(chatId);
+    return;
+  }
+
+  if (data === "visit_direct" || data === "visit_needed") {
+    await setPendingVisitChoice(chatId, data === "visit_needed");
+    await answerCallbackQuery(callbackQuery.id);
+    await sendTelegramMessage(chatId, "الآن أرسل تفاصيل الطلبية: نص، صورة، أو تسجيل صوتي.");
     return;
   }
 
