@@ -27,10 +27,11 @@ const EMP_TYPE_LABEL: Record<string, string> = {
   vacation: "طلب إجازة",
   permission: "طلب مغادرة",
   complaint: "تقديم شكوى",
-  attendance_fix: "إثبات دوام",
+  attendance_fix_in: "إثبات دوام صباحي (حضور)",
+  attendance_fix_out: "إثبات دوام مسائي (مغادرة)",
 };
 
-type EmpField = { key: string; prompt: string; required?: boolean; numeric?: boolean };
+type EmpField = { key: string; prompt: string; required?: boolean; numeric?: boolean; isDate?: boolean };
 
 const EMP_FIELDS: Record<string, EmpField[]> = {
   loan: [
@@ -38,12 +39,12 @@ const EMP_FIELDS: Record<string, EmpField[]> = {
     { key: "repayment_method", prompt: "طريقة السداد المقترحة؟ (اكتب \"تخطي\" إن لم تحدد)" },
   ],
   vacation: [
-    { key: "start_date", prompt: "تاريخ بداية الإجازة؟ (مثال 2026-07-20)", required: true },
-    { key: "end_date", prompt: "تاريخ نهاية الإجازة؟ (مثال 2026-07-25)", required: true },
+    { key: "start_date", prompt: "تاريخ بداية الإجازة؟", required: true, isDate: true },
+    { key: "end_date", prompt: "تاريخ نهاية الإجازة؟", required: true, isDate: true },
     { key: "reason", prompt: "سبب الإجازة؟ (اكتب \"تخطي\" إن لم تحدد)" },
   ],
   permission: [
-    { key: "date", prompt: "تاريخ المغادرة؟ (مثال 2026-07-20)", required: true },
+    { key: "date", prompt: "تاريخ المغادرة؟", required: true, isDate: true },
     { key: "from_time", prompt: "من الساعة؟ (مثال 10:00)", required: true },
     { key: "to_time", prompt: "إلى الساعة؟ (مثال 12:00)", required: true },
     { key: "reason", prompt: "سبب المغادرة؟ (اكتب \"تخطي\" إن لم تحدد)" },
@@ -52,11 +53,121 @@ const EMP_FIELDS: Record<string, EmpField[]> = {
     { key: "subject", prompt: "عنوان الشكوى؟ (اكتب \"تخطي\" إن لم يوجد)" },
     { key: "description", prompt: "تفاصيل الشكوى؟", required: true },
   ],
-  attendance_fix: [
-    { key: "date", prompt: "ما هو تاريخ الدوام المطلوب إثباته؟ (مثال 2026-07-20)", required: true },
-    { key: "reason", prompt: "سبب الإثبات؟", required: true },
+  attendance_fix_in: [
+    { key: "date", prompt: "تاريخ الحضور المطلوب إثباته؟", required: true, isDate: true },
+    { key: "time", prompt: "ما هو وقت الحضور؟ (مثال 08:15)", required: true },
+    { key: "reason", prompt: "سبب إثبات الحضور؟", required: true },
+  ],
+  attendance_fix_out: [
+    { key: "date", prompt: "تاريخ المغادرة المطلوب إثباته؟", required: true, isDate: true },
+    { key: "time", prompt: "ما هو وقت المغادرة؟ (مثال 17:00)", required: true },
+    { key: "reason", prompt: "سبب إثبات المغادرة؟", required: true },
   ],
 };
+
+const MONTH_NAMES = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+const WEEKDAY_LABELS = ["أحد", "إثن", "ثلا", "أرب", "خمي", "جمع", "سبت"];
+
+// يبني تقويماً شهرياً كأزرار inline (تنقل بين الشهور + اختيار يوم)، لتفادي
+// إدخال التواريخ يدوياً في كل حقل تاريخ عبر البوت.
+function buildCalendar(year: number, month: number): { text: string; callback_data: string }[][] {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const startWeekday = new Date(year, month - 1, 1).getDay();
+  const rows: { text: string; callback_data: string }[][] = [];
+
+  rows.push([{ text: `${MONTH_NAMES[month - 1]} ${year}`, callback_data: "noop" }]);
+  rows.push(WEEKDAY_LABELS.map((l) => ({ text: l, callback_data: "noop" })));
+
+  let week: { text: string; callback_data: string }[] = [];
+  for (let i = 0; i < startWeekday; i++) week.push({ text: " ", callback_data: "noop" });
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    week.push({ text: String(d), callback_data: `cal:${dateStr}` });
+    if (week.length === 7) {
+      rows.push(week);
+      week = [];
+    }
+  }
+  if (week.length) {
+    while (week.length < 7) week.push({ text: " ", callback_data: "noop" });
+    rows.push(week);
+  }
+
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear = month === 1 ? year - 1 : year;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  rows.push([
+    { text: "◀ الشهر السابق", callback_data: `cal_nav:${prevYear}-${prevMonth}` },
+    { text: "الشهر التالي ▶", callback_data: `cal_nav:${nextYear}-${nextMonth}` },
+  ]);
+  return rows;
+}
+
+// يعرض سؤال حقل الطلب التالي: تقويم إن كان تاريخاً، أو إدخال نصي حراً غير ذلك.
+async function promptEmpField(chatId: string, field: EmpField, prefix?: string) {
+  const text = prefix ? `${prefix}\n${field.prompt}` : field.prompt;
+  if (field.isDate) {
+    const now = new Date();
+    await sendTelegramInlineKeyboard(chatId, text, withBack(buildCalendar(now.getFullYear(), now.getMonth() + 1)));
+  } else {
+    await sendTelegramInlineKeyboard(chatId, text, withBack([]));
+  }
+}
+
+// يعالج إجابة حقل واحد من محادثة طلب موظف (نصاً كانت أم تاريخاً من التقويم)،
+// وينتقل للحقل التالي أو يُنشئ الطلب فعلياً عند اكتمال كل الحقول. مشتركة بين
+// معالج الرسائل النصية ومعالج أزرار التقويم.
+async function advanceEmpField(chatId: string, staff: { id: string; role: string }, requestType: string, idx: number, rawValue: string) {
+  const fields = EMP_FIELDS[requestType];
+  const field = fields?.[idx];
+  if (!field) {
+    await clearPendingTelegramSubmission(chatId);
+    await askMainMenu(chatId, staff.role);
+    return;
+  }
+
+  const raw = rawValue.trim();
+  const skip = !field.required && raw === "تخطي";
+  if (field.required && (skip || !raw)) {
+    await promptEmpField(chatId, field, "هذا الحقل إلزامي.");
+    return;
+  }
+  if (field.required && field.numeric && isNaN(Number(raw))) {
+    await promptEmpField(chatId, field, "الرجاء إرسال رقم صحيح.");
+    return;
+  }
+
+  const pending = await getPendingTelegramSubmission(chatId);
+  const draft = { ...(pending?.emp_draft || {}) };
+  draft[field.key] = skip ? null : (field.numeric ? Number(raw) : raw);
+
+  const nextIdx = idx + 1;
+  const nextField = fields[nextIdx];
+  if (nextField) {
+    await updateEmployeeRequestDraft(chatId, draft, `emp_new:${requestType}:${nextIdx}`);
+    await promptEmpField(chatId, nextField);
+    return;
+  }
+
+  const dbRequestType = (requestType.startsWith("attendance_fix") ? "attendance_fix" : requestType) as EmployeeRequestType;
+  if (requestType === "attendance_fix_in") draft.period = "صباحي";
+  if (requestType === "attendance_fix_out") draft.period = "مسائي";
+
+  const { request, error } = await createEmployeeRequest({
+    staff_id: staff.id,
+    request_type: dbRequestType,
+    details: draft,
+    source: "telegram",
+  });
+  await clearPendingTelegramSubmission(chatId);
+  if (error) {
+    await sendTelegramMessage(chatId, `تعذّر إرسال الطلب: ${error}`);
+  } else {
+    if (request) await notifyApproverWithContext(request.id);
+    await sendTelegramMessage(chatId, `تم إرسال ${EMP_TYPE_LABEL[requestType]} بنجاح، وسيصل للمعتمد فوراً ✅`);
+  }
+}
 
 function extractPhone(text: string): string | null {
   const match = text.match(/0\d{8,9}|\+?9\d{11,12}/);
@@ -85,9 +196,20 @@ async function askMainMenu(chatId: string, staffRole: string) {
 }
 
 async function askEmpMenu(chatId: string) {
-  await sendTelegramInlineKeyboard(chatId, "أي طلب تريد تقديمه؟", withBack(
-    Object.entries(EMP_TYPE_LABEL).map(([type, label]) => [{ text: label, callback_data: `emp_new:${type}` }])
-  ));
+  await sendTelegramInlineKeyboard(chatId, "أي طلب تريد تقديمه؟", withBack([
+    [{ text: EMP_TYPE_LABEL.loan, callback_data: "emp_new:loan" }],
+    [{ text: EMP_TYPE_LABEL.vacation, callback_data: "emp_new:vacation" }],
+    [{ text: EMP_TYPE_LABEL.permission, callback_data: "emp_new:permission" }],
+    [{ text: EMP_TYPE_LABEL.complaint, callback_data: "emp_new:complaint" }],
+    [{ text: "🕐 إثبات دوام", callback_data: "emp_attendance_menu" }],
+  ]));
+}
+
+async function askAttendanceMenu(chatId: string) {
+  await sendTelegramInlineKeyboard(chatId, "أي نوع إثبات دوام؟", withBack([
+    [{ text: "🌅 " + EMP_TYPE_LABEL.attendance_fix_in, callback_data: "emp_new:attendance_fix_in" }],
+    [{ text: "🌇 " + EMP_TYPE_LABEL.attendance_fix_out, callback_data: "emp_new:attendance_fix_out" }],
+  ]));
 }
 
 async function askCustomerChoice(chatId: string) {
@@ -160,55 +282,26 @@ export async function POST(req: Request) {
 
     if (pending.stage?.startsWith("emp_new:")) {
       const [, requestType, idxStr] = pending.stage.split(":");
-      const fields = EMP_FIELDS[requestType];
       const idx = Number(idxStr);
-      const field = fields?.[idx];
+      const field = EMP_FIELDS[requestType]?.[idx];
       if (!field) {
         await clearPendingTelegramSubmission(chatId);
         await askMainMenu(chatId, staff.role);
         return NextResponse.json({ ok: true });
       }
 
+      // حقول التاريخ تُدخَل فقط عبر أزرار التقويم، لا نصاً حراً
+      if (field.isDate) {
+        await promptEmpField(chatId, field, "الرجاء اختيار التاريخ من التقويم أدناه.");
+        return NextResponse.json({ ok: true });
+      }
+
       if (!message.text || message.text.startsWith("/")) {
-        await sendTelegramInlineKeyboard(chatId, field.prompt, withBack([]));
+        await promptEmpField(chatId, field);
         return NextResponse.json({ ok: true });
       }
 
-      const raw = message.text.trim();
-      const skip = !field.required && raw === "تخطي";
-      if (field.required && (skip || !raw)) {
-        await sendTelegramInlineKeyboard(chatId, `هذا الحقل إلزامي.\n${field.prompt}`, withBack([]));
-        return NextResponse.json({ ok: true });
-      }
-      if (field.required && field.numeric && isNaN(Number(raw))) {
-        await sendTelegramInlineKeyboard(chatId, `الرجاء إرسال رقم صحيح.\n${field.prompt}`, withBack([]));
-        return NextResponse.json({ ok: true });
-      }
-
-      const draft = { ...(pending.emp_draft || {}) };
-      draft[field.key] = skip ? null : (field.numeric ? Number(raw) : raw);
-
-      const nextIdx = idx + 1;
-      const nextField = fields[nextIdx];
-      if (nextField) {
-        await updateEmployeeRequestDraft(chatId, draft, `emp_new:${requestType}:${nextIdx}`);
-        await sendTelegramInlineKeyboard(chatId, nextField.prompt, withBack([]));
-        return NextResponse.json({ ok: true });
-      }
-
-      const { request, error } = await createEmployeeRequest({
-        staff_id: staff.id,
-        request_type: requestType as EmployeeRequestType,
-        details: draft,
-        source: "telegram",
-      });
-      await clearPendingTelegramSubmission(chatId);
-      if (error) {
-        await sendTelegramMessage(chatId, `تعذّر إرسال الطلب: ${error}`);
-      } else {
-        if (request) await notifyApproverWithContext(request.id);
-        await sendTelegramMessage(chatId, `تم إرسال ${EMP_TYPE_LABEL[requestType]} بنجاح، وسيصل للمعتمد فوراً ✅`);
-      }
+      await advanceEmpField(chatId, staff, requestType, idx, message.text);
       return NextResponse.json({ ok: true });
     }
 
@@ -415,13 +508,49 @@ async function handleCallbackQuery(callbackQuery: any) {
     return;
   }
 
+  if (data === "emp_attendance_menu") {
+    await answerCallbackQuery(callbackQuery.id);
+    await askAttendanceMenu(chatId);
+    return;
+  }
+
   if (data.startsWith("emp_new:")) {
     const requestType = data.replace("emp_new:", "");
     const fields = EMP_FIELDS[requestType];
     if (!fields) { await answerCallbackQuery(callbackQuery.id, "نوع غير معروف"); return; }
     await startEmployeeRequestDraft(chatId, requestType);
     await answerCallbackQuery(callbackQuery.id);
-    await sendTelegramInlineKeyboard(chatId, `${EMP_TYPE_LABEL[requestType]}:\n${fields[0].prompt}`, withBack([]));
+    await promptEmpField(chatId, fields[0], `${EMP_TYPE_LABEL[requestType]}:`);
+    return;
+  }
+
+  if (data === "noop") {
+    await answerCallbackQuery(callbackQuery.id);
+    return;
+  }
+
+  if (data.startsWith("cal_nav:")) {
+    const ym = data.replace("cal_nav:", "");
+    const [y, m] = ym.split("-").map(Number);
+    await answerCallbackQuery(callbackQuery.id);
+    const pending = await getPendingTelegramSubmission(chatId);
+    if (!pending?.stage?.startsWith("emp_new:")) return;
+    const [, requestType, idxStr] = pending.stage.split(":");
+    const field = EMP_FIELDS[requestType]?.[Number(idxStr)];
+    if (!field) return;
+    await sendTelegramInlineKeyboard(chatId, field.prompt, withBack(buildCalendar(y, m)));
+    return;
+  }
+
+  if (data.startsWith("cal:")) {
+    const dateStr = data.replace("cal:", "");
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    const pending = await getPendingTelegramSubmission(chatId);
+    await answerCallbackQuery(callbackQuery.id, dateStr);
+    if (!pending?.stage?.startsWith("emp_new:")) return;
+    const [, requestType, idxStr] = pending.stage.split(":");
+    await advanceEmpField(chatId, staff, requestType, Number(idxStr), dateStr);
     return;
   }
 

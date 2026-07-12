@@ -13,7 +13,13 @@ function DetailLine({ request }: { request: EmployeeRequest }) {
   if (request.request_type === "vacation") return <span>من {d.start_date} إلى {d.end_date} {d.reason ? `— ${d.reason}` : ""}</span>;
   if (request.request_type === "permission") return <span>{d.date} — من {d.from_time || "—"} إلى {d.to_time || "—"} {d.reason ? `— ${d.reason}` : ""}</span>;
   if (request.request_type === "complaint") return <span>{d.subject ? `${d.subject}: ` : ""}{d.description}</span>;
-  if (request.request_type === "attendance_fix") return <span>تاريخ: {d.date} {d.reason ? `— ${d.reason}` : ""}</span>;
+  if (request.request_type === "attendance_fix")
+    return (
+      <span>
+        {d.period ? `إثبات دوام ${d.period} — ` : ""}تاريخ: {d.date}
+        {d.time ? ` — الوقت: ${d.time}` : ""} {d.reason ? `— ${d.reason}` : ""}
+      </span>
+    );
   return null;
 }
 

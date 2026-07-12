@@ -248,7 +248,9 @@ export async function notifyApproverWithContext(requestId: string) {
     detailLines.push(`الموضوع: ${request.details.subject || "—"}`);
     detailLines.push(`التفاصيل: ${request.details.description}`);
   } else if (request.request_type === "attendance_fix") {
+    if (request.details.period) detailLines.push(`النوع: إثبات دوام ${request.details.period}`);
     detailLines.push(`تاريخ الدوام: ${request.details.date}`);
+    if (request.details.time) detailLines.push(`الوقت: ${request.details.time}`);
     if (request.details.reason) detailLines.push(`السبب: ${request.details.reason}`);
   }
 
