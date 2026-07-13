@@ -242,7 +242,10 @@ export async function POST(req: Request) {
     const staff = await getStaffByTelegramChatId(chatId);
 
     if (!staff) {
-      await sendTelegramMessage(chatId, "غير مصرح لك باستخدام هذا البوت. تواصل مع مدير النظام لتسجيلك.");
+      await sendTelegramMessage(
+        chatId,
+        `غير مصرح لك باستخدام هذا البوت.\n\nأرسل رقم الشات هذا لمدير النظام لتسجيلك:\n${chatId}`
+      );
       return NextResponse.json({ ok: true });
     }
 
