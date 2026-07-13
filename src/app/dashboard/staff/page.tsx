@@ -9,6 +9,7 @@ export default async function StaffPage() {
   const staffList = await getStaffList();
 
   const roleMap: Record<string, { label: string, color: string }> = {
+    'employee': { label: 'موظف', color: 'bg-slate-200 text-slate-800' },
     'sales': { label: 'مبيعات', color: 'bg-blue-100 text-blue-800' },
     'production': { label: 'إنتاج ومصنع', color: 'bg-indigo-100 text-indigo-800' },
     'purchasing': { label: 'مشتريات', color: 'bg-amber-100 text-amber-800' },

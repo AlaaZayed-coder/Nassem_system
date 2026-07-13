@@ -32,6 +32,7 @@ export function StaffForm() {
       <div>
         <label className="block text-sm font-bold text-slate-700 mb-1.5">القسم / الدور</label>
         <select required name="role" className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition bg-white">
+          <option value="employee">موظف</option>
           <option value="sales">مبيعات</option>
           <option value="production">إنتاج ومصنع</option>
           <option value="purchasing">مشتريات</option>
