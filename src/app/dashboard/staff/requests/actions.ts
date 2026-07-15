@@ -5,7 +5,10 @@ import {
   createEmployeeRequest,
   resolveEmployeeRequest,
   cancelEmployeeRequest,
+  acknowledgeEmployeeRequest,
   notifyApproverWithContext,
+  notifyRecipientsWithContext,
+  REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY,
   EmployeeRequestType,
 } from "@/lib/employee-requests-data";
 
@@ -31,14 +34,30 @@ export async function createEmployeeRequestAction(formData: FormData): Promise<{
   } else if (request_type === "attendance_fix") {
     details = { date: formData.get("date"), reason: (formData.get("reason") as string) || null };
     if (!details.date) return { error: "يجب تحديد تاريخ الدوام المطلوب إثباته" };
+  } else if (request_type === "injury_report") {
+    details = { date: formData.get("date"), description: (formData.get("description") as string) || "" };
+    if (!details.date) return { error: "يجب تحديد تاريخ الحادثة" };
+    if (!details.description) return { error: "يجب كتابة وصف الحادثة" };
+  } else if (request_type === "work_report") {
+    details = { content: (formData.get("content") as string) || "" };
+    if (!details.content) return { error: "يجب كتابة تقرير العمل" };
   }
 
   const { request, error } = await createEmployeeRequest({ staff_id, request_type, details, source });
   if (error) return { error };
-  if (request) await notifyApproverWithContext(request.id);
+  if (request) {
+    if (REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY[request_type]) await notifyRecipientsWithContext(request.id);
+    else await notifyApproverWithContext(request.id);
+  }
 
   revalidatePath("/dashboard/staff/requests");
   return {};
+}
+
+export async function acknowledgeEmployeeRequestAction(id: string, staffId: string): Promise<{ error?: string }> {
+  const result = await acknowledgeEmployeeRequest(id, staffId);
+  revalidatePath("/dashboard/staff/requests");
+  return result;
 }
 
 export async function approveEmployeeRequestAction(id: string, managerId: string): Promise<{ error?: string }> {

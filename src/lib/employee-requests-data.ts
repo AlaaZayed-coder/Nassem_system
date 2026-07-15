@@ -1,14 +1,14 @@
 import { supabase } from "./supabase";
-import { sendTelegramMessage, sendTelegramInlineKeyboard } from "./telegram";
+import { sendTelegramMessage, sendTelegramInlineKeyboard, sendTelegramVoice } from "./telegram";
 
-export type EmployeeRequestType = "loan" | "vacation" | "permission" | "complaint" | "attendance_fix";
+export type EmployeeRequestType = "loan" | "vacation" | "permission" | "complaint" | "attendance_fix" | "injury_report" | "work_report";
 
 export type EmployeeRequest = {
   id: string;
   staff_id: string;
   request_type: EmployeeRequestType;
   details: Record<string, any>;
-  status: "قيد الانتظار" | "موافق عليه" | "مرفوض" | "ملغى" | "مُصعَّد";
+  status: "قيد الانتظار" | "موافق عليه" | "مرفوض" | "ملغى" | "مُصعَّد" | "تم الاستلام";
   current_approver_id: string | null;
   manager_id: string | null;
   action_notes: string | null;
@@ -29,6 +29,8 @@ export const REQUEST_TYPE_LABEL: Record<EmployeeRequestType, string> = {
   permission: "مغادرة",
   complaint: "شكوى",
   attendance_fix: "إثبات دوام",
+  injury_report: "تبليغ عن إصابة",
+  work_report: "تقرير عمل",
 };
 
 export const REQUEST_TYPE_REQUIRES_ATTACHMENT: Record<EmployeeRequestType, boolean> = {
@@ -37,6 +39,20 @@ export const REQUEST_TYPE_REQUIRES_ATTACHMENT: Record<EmployeeRequestType, boole
   permission: false,
   complaint: false,
   attendance_fix: false,
+  injury_report: false,
+  work_report: false,
+};
+
+// تبليغ الإصابة وتقرير العمل ليسا "طلباً" يحتاج موافقة/رفض — مجرد بلاغ يصل
+// للمدير ومسؤول الموارد البشرية معاً، وأي منهما يقدر يعلّم "تم الاستلام".
+export const REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY: Record<EmployeeRequestType, boolean> = {
+  loan: false,
+  vacation: false,
+  permission: false,
+  complaint: false,
+  attendance_fix: false,
+  injury_report: true,
+  work_report: true,
 };
 
 async function getPrimaryManagerId(): Promise<string | null> {
@@ -52,8 +68,20 @@ async function getPrimaryManagerId(): Promise<string | null> {
 
 // كل الأنواع تُوجَّه لنفس المكان حالياً (لا تسلسل إداري بعد) — نُبقيها كدالة
 // منفصلة لكل نوع كي يسهل لاحقاً توجيه "شكوى" لدور HR مستقل دون لمس بقية الأنواع.
-export async function resolveApproverForRequestType(_type: EmployeeRequestType): Promise<string | null> {
+// تبليغ الإصابة وتقرير العمل بلا معتمد واحد — تصل لعدة مستلمين معاً
+// (notifyRecipientsWithContext)، فلا داعي لتعيين current_approver_id هنا.
+export async function resolveApproverForRequestType(type: EmployeeRequestType): Promise<string | null> {
+  if (REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY[type]) return null;
   return getPrimaryManagerId();
+}
+
+async function getManagersAndHR(): Promise<{ id: string; telegram_chat_id: string | null }[]> {
+  const { data } = await supabase
+    .from("erp_staff")
+    .select("id, telegram_chat_id")
+    .in("role", ["manager", "hr"])
+    .eq("is_active", true);
+  return data || [];
 }
 
 function daysBetween(startDate: string, endDate: string): number {
@@ -280,6 +308,66 @@ export async function notifyApproverWithContext(requestId: string) {
       { text: "❌ رفض", callback_data: `emp_reject:${request.id}` },
     ],
   ]);
+}
+
+// إشعار جماعي لتبليغ الإصابة/تقرير العمل — يصل للمدير ومسؤول الموارد
+// البشرية معاً (بدل معتمد واحد)، وكل واحد فيهم يقدر يعلّم "تم الاستلام".
+export async function notifyRecipientsWithContext(requestId: string) {
+  const request = await getEmployeeRequestById(requestId);
+  if (!request) return;
+
+  const recipients = await getManagersAndHR();
+  if (recipients.length === 0) return;
+
+  const staffName = request.erp_staff?.name || "موظف";
+  const typeLabel = REQUEST_TYPE_LABEL[request.request_type];
+  const detailLines: string[] = [];
+
+  if (request.request_type === "injury_report") {
+    detailLines.push(`تاريخ الحادثة: ${request.details.date || "—"}`);
+    detailLines.push(`الوصف: ${request.details.description || "—"}`);
+  } else if (request.request_type === "work_report") {
+    if (request.details.content) detailLines.push(request.details.content);
+    if (request.details.voice_url) detailLines.push("🎤 تقرير صوتي مرفق (يصلك كملف صوت منفصل)");
+  }
+
+  const text = [`🔔 ${typeLabel} جديد من "${staffName}"`, ...detailLines].join("\n");
+
+  for (const r of recipients) {
+    if (!r.telegram_chat_id) continue;
+    await sendTelegramInlineKeyboard(r.telegram_chat_id, text, [
+      [{ text: "✅ تم الاستلام", callback_data: `emp_ack:${request.id}` }],
+    ]);
+    if (request.details.voice_url) {
+      await sendTelegramVoice(r.telegram_chat_id, request.details.voice_url);
+    }
+  }
+}
+
+export async function acknowledgeEmployeeRequest(id: string, staffId: string): Promise<{ error?: string }> {
+  const request = await getEmployeeRequestById(id);
+  if (!request) return { error: "البلاغ غير موجود" };
+  if (request.status !== "قيد الانتظار") return { error: "تم استلام هذا البلاغ مسبقاً" };
+
+  const { error } = await supabase
+    .from("erp_employee_requests")
+    .update({
+      status: "تم الاستلام",
+      manager_id: staffId,
+      resolved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+
+  const { data: requester } = await supabase.from("erp_staff").select("telegram_chat_id").eq("id", request.staff_id).single();
+  if (requester?.telegram_chat_id) {
+    const typeLabel = REQUEST_TYPE_LABEL[request.request_type];
+    await sendTelegramMessage(requester.telegram_chat_id, `✅ تم استلام ${typeLabel} الخاص بك.`);
+  }
+
+  return {};
 }
 
 export async function resolveEmployeeRequest(

@@ -60,6 +60,20 @@ export async function sendTelegramReplyKeyboard(chatId: string, text: string, bu
   } catch (err) {}
 }
 
+// يقبل تيليجرام رابط HTTP مباشرة لحقل voice ويجلبه هو بنفسه، فلا حاجة لتنزيله ثم رفعه.
+export async function sendTelegramVoice(chatId: string, voiceUrl: string) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) return;
+
+  try {
+    await fetch(`https://api.telegram.org/bot${botToken}/sendVoice`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, voice: voiceUrl }),
+    });
+  } catch (err) {}
+}
+
 export async function getTelegramFileUrl(fileId: string): Promise<string | null> {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!botToken) return null;

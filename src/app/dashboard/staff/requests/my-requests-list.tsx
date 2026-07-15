@@ -13,6 +13,14 @@ function DetailLine({ request }: { request: EmployeeRequest }) {
         {d.time ? ` — الوقت: ${d.time}` : ""} {d.reason ? `— ${d.reason}` : ""}
       </span>
     );
+  if (request.request_type === "injury_report") return <span>تاريخ الحادثة: {d.date} — {d.description}</span>;
+  if (request.request_type === "work_report")
+    return (
+      <span className="flex flex-col gap-1.5">
+        {d.content && <span>{d.content}</span>}
+        {d.voice_url && <audio controls src={d.voice_url} className="h-8 max-w-full" />}
+      </span>
+    );
   return null;
 }
 
@@ -22,6 +30,7 @@ const STATUS_COLOR: Record<string, string> = {
   "مرفوض": "bg-rose-100 text-rose-700",
   "ملغى": "bg-slate-200 text-slate-600",
   "مُصعَّد": "bg-indigo-100 text-indigo-700",
+  "تم الاستلام": "bg-sky-100 text-sky-700",
 };
 
 export function MyRequestsList({ requests }: { requests: EmployeeRequest[] }) {

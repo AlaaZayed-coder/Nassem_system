@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { EmployeeRequest, REQUEST_TYPE_LABEL } from "@/lib/employee-requests-data";
-import { approveEmployeeRequestAction, rejectEmployeeRequestAction, cancelEmployeeRequestAction } from "./actions";
+import { EmployeeRequest, REQUEST_TYPE_LABEL, REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY } from "@/lib/employee-requests-data";
+import { approveEmployeeRequestAction, rejectEmployeeRequestAction, cancelEmployeeRequestAction, acknowledgeEmployeeRequestAction } from "./actions";
 import { CheckCircle2, XCircle, Ban, UserCircle2 } from "lucide-react";
 
 function DetailLine({ request }: { request: EmployeeRequest }) {
@@ -19,6 +19,14 @@ function DetailLine({ request }: { request: EmployeeRequest }) {
         {d.time ? ` — الوقت: ${d.time}` : ""} {d.reason ? `— ${d.reason}` : ""}
       </span>
     );
+  if (request.request_type === "injury_report") return <span>تاريخ الحادثة: {d.date} — {d.description}</span>;
+  if (request.request_type === "work_report")
+    return (
+      <span className="flex flex-col gap-1.5">
+        {d.content && <span>{d.content}</span>}
+        {d.voice_url && <audio controls src={d.voice_url} className="h-8 max-w-full" />}
+      </span>
+    );
   return null;
 }
 
@@ -27,11 +35,21 @@ function RequestRow({ request, managerId, onDone }: { request: EmployeeRequest; 
   const [showReject, setShowReject] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const ackOnly = REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY[request.request_type];
 
   const handleApprove = () => {
     setError(null);
     startTransition(async () => {
       const result = await approveEmployeeRequestAction(request.id, managerId);
+      if (result.error) setError(result.error);
+      else onDone();
+    });
+  };
+
+  const handleAcknowledge = () => {
+    setError(null);
+    startTransition(async () => {
+      const result = await acknowledgeEmployeeRequestAction(request.id, managerId);
       if (result.error) setError(result.error);
       else onDone();
     });
@@ -57,7 +75,13 @@ function RequestRow({ request, managerId, onDone }: { request: EmployeeRequest; 
       </div>
       <p className="text-sm text-slate-700"><DetailLine request={request} /></p>
 
-      {!showReject ? (
+      {ackOnly ? (
+        <div className="flex gap-2 pt-1">
+          <button disabled={isPending} onClick={handleAcknowledge} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-600 text-white text-xs font-bold hover:bg-sky-700 transition disabled:opacity-50">
+            <CheckCircle2 className="h-3.5 w-3.5" /> تم الاستلام
+          </button>
+        </div>
+      ) : !showReject ? (
         <div className="flex gap-2 pt-1">
           <button disabled={isPending} onClick={handleApprove} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition disabled:opacity-50">
             <CheckCircle2 className="h-3.5 w-3.5" /> موافقة
@@ -84,7 +108,7 @@ function ResolvedRow({ request }: { request: EmployeeRequest }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const color = request.status === "موافق عليه" ? "bg-emerald-100 text-emerald-700" : request.status === "مرفوض" ? "bg-rose-100 text-rose-700" : "bg-slate-200 text-slate-600";
+  const color = request.status === "موافق عليه" ? "bg-emerald-100 text-emerald-700" : request.status === "مرفوض" ? "bg-rose-100 text-rose-700" : request.status === "تم الاستلام" ? "bg-sky-100 text-sky-700" : "bg-slate-200 text-slate-600";
 
   const handleCancel = () => {
     setError(null);

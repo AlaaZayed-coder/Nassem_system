@@ -17,7 +17,15 @@ import {
   clearPendingTelegramSubmission,
 } from "@/lib/order-submissions-data";
 import { approveSalesOrderAndNotify } from "@/lib/order-notifications";
-import { resolveEmployeeRequest, createEmployeeRequest, notifyApproverWithContext, EmployeeRequestType } from "@/lib/employee-requests-data";
+import {
+  resolveEmployeeRequest,
+  createEmployeeRequest,
+  notifyApproverWithContext,
+  notifyRecipientsWithContext,
+  acknowledgeEmployeeRequest,
+  REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY,
+  EmployeeRequestType,
+} from "@/lib/employee-requests-data";
 import { startEmployeeRequestDraft, updateEmployeeRequestDraft } from "@/lib/order-submissions-data";
 
 const EMP_REJECT_REASONS = ["ضغط عمل تشغيلي", "الرصيد لا يسمح", "تأجيل للشهر القادم"];
@@ -29,6 +37,8 @@ const EMP_TYPE_LABEL: Record<string, string> = {
   complaint: "تقديم شكوى",
   attendance_fix_in: "إثبات دوام صباحي (حضور)",
   attendance_fix_out: "إثبات دوام مسائي (مغادرة)",
+  injury_report: "تبليغ عن إصابة",
+  work_report: "تقرير عمل",
 };
 
 type EmpField = { key: string; prompt: string; required?: boolean; numeric?: boolean; isDate?: boolean };
@@ -63,6 +73,12 @@ const EMP_FIELDS: Record<string, EmpField[]> = {
     { key: "time", prompt: "ما هو وقت المغادرة؟ (مثال 17:00)", required: true },
     { key: "reason", prompt: "سبب إثبات المغادرة؟", required: true },
   ],
+  injury_report: [
+    { key: "date", prompt: "تاريخ الحادثة؟", required: true, isDate: true },
+    { key: "description", prompt: "صف ما حدث؟", required: true },
+  ],
+  // "work_report" غير مُدرَج هنا عمداً — له مسار خاص (emp_work_report) يقبل
+  // نصاً أو تسجيلاً صوتياً مباشرة بدل تسلسل حقول ثابت.
 };
 
 const MONTH_NAMES = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
@@ -164,9 +180,36 @@ async function advanceEmpField(chatId: string, staff: { id: string; role: string
   if (error) {
     await sendTelegramMessage(chatId, `تعذّر إرسال الطلب: ${error}`);
   } else {
-    if (request) await notifyApproverWithContext(request.id);
-    await sendTelegramMessage(chatId, `تم إرسال ${EMP_TYPE_LABEL[requestType]} بنجاح، وسيصل للمعتمد فوراً ✅`);
+    const ackOnly = REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY[dbRequestType];
+    if (request) {
+      if (ackOnly) await notifyRecipientsWithContext(request.id);
+      else await notifyApproverWithContext(request.id);
+    }
+    await sendTelegramMessage(
+      chatId,
+      ackOnly
+        ? `تم إرسال ${EMP_TYPE_LABEL[requestType]} بنجاح، وصل للمدير ومسؤول الموارد البشرية ✅`
+        : `تم إرسال ${EMP_TYPE_LABEL[requestType]} بنجاح، وسيصل للمعتمد فوراً ✅`
+    );
   }
+}
+
+// مسار خاص لتقرير العمل: يقبل الرسالة التالية سواء كانت نصاً أو تسجيلاً
+// صوتياً، بدل المرور بتسلسل حقول EMP_FIELDS الثابت.
+async function submitWorkReport(chatId: string, staff: { id: string }, details: Record<string, any>) {
+  const { request, error } = await createEmployeeRequest({
+    staff_id: staff.id,
+    request_type: "work_report",
+    details,
+    source: "telegram",
+  });
+  await clearPendingTelegramSubmission(chatId);
+  if (error) {
+    await sendTelegramMessage(chatId, `تعذّر إرسال التقرير: ${error}`);
+    return;
+  }
+  if (request) await notifyRecipientsWithContext(request.id);
+  await sendTelegramMessage(chatId, "تم إرسال تقرير العمل بنجاح، وصل للمدير ومسؤول الموارد البشرية ✅");
 }
 
 function extractPhone(text: string): string | null {
@@ -202,6 +245,8 @@ async function askEmpMenu(chatId: string) {
     [{ text: EMP_TYPE_LABEL.permission, callback_data: "emp_new:permission" }],
     [{ text: EMP_TYPE_LABEL.complaint, callback_data: "emp_new:complaint" }],
     [{ text: "🕐 إثبات دوام", callback_data: "emp_attendance_menu" }],
+    [{ text: "🚨 " + EMP_TYPE_LABEL.injury_report, callback_data: "emp_new:injury_report" }],
+    [{ text: "📝 " + EMP_TYPE_LABEL.work_report, callback_data: "emp_new:work_report" }],
   ]));
 }
 
@@ -258,6 +303,18 @@ export async function POST(req: Request) {
     }
 
     const pending = await getPendingTelegramSubmission(chatId);
+
+    if (pending?.stage === "emp_work_report") {
+      if (message.text && !message.text.startsWith("/")) {
+        await submitWorkReport(chatId, staff, { content: message.text });
+      } else if (message.voice) {
+        const voiceUrl = await uploadTelegramFileToStorage(message.voice.file_id, "ogg");
+        await submitWorkReport(chatId, staff, { voice_url: voiceUrl });
+      } else {
+        await sendTelegramInlineKeyboard(chatId, "أرسل تقرير عملك نصاً أو تسجيلاً صوتياً.", withBack([]));
+      }
+      return NextResponse.json({ ok: true });
+    }
 
     if (pending?.stage?.startsWith("emp_reject_custom:")) {
       const requestId = pending.stage.replace("emp_reject_custom:", "");
@@ -517,6 +574,14 @@ async function handleCallbackQuery(callbackQuery: any) {
     return;
   }
 
+  if (data === "emp_new:work_report") {
+    await startEmployeeRequestDraft(chatId, "work_report");
+    await setPendingTelegramStage(chatId, "emp_work_report");
+    await answerCallbackQuery(callbackQuery.id);
+    await sendTelegramInlineKeyboard(chatId, "أرسل تقرير عملك: اكتبه نصاً، أو أرسل تسجيلاً صوتياً 🎤", withBack([]));
+    return;
+  }
+
   if (data.startsWith("emp_new:")) {
     const requestType = data.replace("emp_new:", "");
     const fields = EMP_FIELDS[requestType];
@@ -554,6 +619,16 @@ async function handleCallbackQuery(callbackQuery: any) {
     if (!pending?.stage?.startsWith("emp_new:")) return;
     const [, requestType, idxStr] = pending.stage.split(":");
     await advanceEmpField(chatId, staff, requestType, Number(idxStr), dateStr);
+    return;
+  }
+
+  if (data.startsWith("emp_ack:")) {
+    const requestId = data.replace("emp_ack:", "");
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    const result = await acknowledgeEmployeeRequest(requestId, staff.id);
+    await answerCallbackQuery(callbackQuery.id, result.error ? "فشل" : "تم الاستلام");
+    await sendTelegramMessage(chatId, result.error ? `تعذّر: ${result.error}` : "تم تسجيل الاستلام ✅");
     return;
   }
 

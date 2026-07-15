@@ -115,8 +115,29 @@ export function NewRequestForm({ staffId }: { staffId: string }) {
         </div>
       )}
 
+      {requestType === "injury_report" && (
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5">تاريخ الحادثة</label>
+            <input required name="date" type="date" className="w-full px-3 py-2 rounded-xl border border-slate-300 outline-none text-sm dir-ltr" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5">وصف الحادثة</label>
+            <textarea required name="description" rows={3} className="w-full px-3 py-2 rounded-xl border border-slate-300 outline-none text-sm resize-none" />
+          </div>
+        </div>
+      )}
+
+      {requestType === "work_report" && (
+        <div>
+          <label className="block text-xs font-bold text-slate-600 mb-1.5">تقرير عملك اليوم</label>
+          <textarea required name="content" rows={4} placeholder="ماذا أنجزت اليوم؟" className="w-full px-3 py-2 rounded-xl border border-slate-300 outline-none text-sm resize-none" />
+          <p className="text-[11px] text-slate-400 mt-1">من تطبيق تيليجرام تقدر ترسل تقريرك كتسجيل صوتي بدل الكتابة.</p>
+        </div>
+      )}
+
       {error && <p className="text-xs font-bold text-rose-600">{error}</p>}
-      {success && <p className="text-xs font-bold text-emerald-600">تم إرسال الطلب للمعتمد بنجاح ✓</p>}
+      {success && <p className="text-xs font-bold text-emerald-600">{requestType === "injury_report" || requestType === "work_report" ? "تم إرسال البلاغ ✓" : "تم إرسال الطلب للمعتمد بنجاح ✓"}</p>}
 
       <button disabled={isPending} type="submit" className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition disabled:opacity-50 text-sm">
         <Send className="h-4 w-4" />
