@@ -1,7 +1,81 @@
 import Link from "next/link";
-import { Factory, Settings, Boxes, BarChart2, Users, ClipboardList, ShieldCheck } from "lucide-react";
+import { Factory, Settings, Boxes, BarChart2, Users, ClipboardList, ShieldCheck, ListChecks, Contact, ShoppingCart } from "lucide-react";
+import { getSession } from "@/lib/auth";
+import { canAccessPath } from "@/lib/access-control";
 
-export default function Home() {
+type Tile = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  bg: string;
+  hoverBg: string;
+  iconColor: string;
+  textColor: string;
+};
+
+const TILES: Tile[] = [
+  {
+    href: "/dashboard/sales", label: "ادارة علاقات الزبائن",
+    icon: <Contact className="w-8 h-8" />,
+    bg: "bg-purple-50", hoverBg: "hover:bg-purple-600", iconColor: "text-purple-600", textColor: "text-purple-900",
+  },
+  {
+    href: "/dashboard/production", label: "إدارة الإنتاج",
+    icon: <Factory className="w-8 h-8" />,
+    bg: "bg-indigo-50", hoverBg: "hover:bg-indigo-600", iconColor: "text-indigo-600", textColor: "text-indigo-900",
+  },
+  {
+    href: "/dashboard/inventory/warehouse", label: "إدارة المخزون",
+    icon: <Boxes className="w-8 h-8" />,
+    bg: "bg-sky-50", hoverBg: "hover:bg-sky-600", iconColor: "text-sky-600", textColor: "text-sky-900",
+  },
+  {
+    href: "/dashboard/purchasing", label: "إدارة المشتريات",
+    icon: <ShoppingCart className="w-8 h-8" />,
+    bg: "bg-rose-50", hoverBg: "hover:bg-rose-600", iconColor: "text-rose-600", textColor: "text-rose-900",
+  },
+  {
+    href: "/dashboard/maintenance", label: "إدارة الصيانة",
+    icon: <Settings className="w-8 h-8" />,
+    bg: "bg-orange-50", hoverBg: "hover:bg-orange-600", iconColor: "text-orange-600", textColor: "text-orange-900",
+  },
+  {
+    href: "/dashboard/staff", label: "إدارة الموظفين",
+    icon: <Users className="w-8 h-8" />,
+    bg: "bg-emerald-50", hoverBg: "hover:bg-emerald-600", iconColor: "text-emerald-600", textColor: "text-emerald-900",
+  },
+  {
+    href: "/dashboard/reports", label: "التقارير",
+    icon: <BarChart2 className="w-8 h-8" />,
+    bg: "bg-slate-100", hoverBg: "hover:bg-slate-800", iconColor: "text-slate-700", textColor: "text-slate-800",
+  },
+  {
+    href: "/dashboard/inventory/pricing-dashboard", label: "لوحة التسعير",
+    icon: <ShieldCheck className="w-8 h-8" />,
+    bg: "bg-teal-50", hoverBg: "hover:bg-teal-600", iconColor: "text-teal-600", textColor: "text-teal-900",
+  },
+  {
+    href: "/dashboard/agenda", label: "الأجندة اليومية",
+    icon: <ListChecks className="w-7 h-7" />,
+    bg: "bg-cyan-50", hoverBg: "hover:bg-cyan-600", iconColor: "text-cyan-600", textColor: "text-cyan-900",
+  },
+  {
+    href: "/dashboard/audit", label: "سجل التدقيق",
+    icon: <ClipboardList className="w-7 h-7" />,
+    bg: "bg-amber-50", hoverBg: "hover:bg-amber-600", iconColor: "text-amber-600", textColor: "text-amber-900",
+  },
+  {
+    href: "/dashboard/settings", label: "الإعدادات",
+    icon: <Settings className="w-7 h-7" />,
+    bg: "bg-gray-100", hoverBg: "hover:bg-gray-700", iconColor: "text-gray-600", textColor: "text-gray-800",
+  },
+];
+
+export default async function Home() {
+  const session = await getSession();
+  const role = session?.role || "";
+  const visibleTiles = TILES.filter((t) => canAccessPath(role, t.href));
+
   return (
     <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6" dir="rtl">
       <div className="max-w-4xl w-full bg-white p-10 rounded-3xl shadow-xl border border-slate-100 text-center space-y-8">
@@ -13,72 +87,24 @@ export default function Home() {
           <p className="text-xl text-slate-500 font-medium">النظام الشامل لإدارة الإنتاج، التسعير، والصيانة.</p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
-          {/* Row 1 */}
-          <Link href="/dashboard/sales"
-            className="group flex flex-col items-center gap-3 p-6 bg-purple-50 hover:bg-purple-600 rounded-2xl transition-all border border-purple-100">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-purple-600 group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            <span className="text-base font-bold text-purple-900 group-hover:text-white transition-colors">ادارة علاقات الزبائن</span>
+        {visibleTiles.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+            {visibleTiles.map((tile) => (
+              <Link
+                key={tile.href}
+                href={tile.href}
+                className={`group flex flex-col items-center gap-3 p-6 ${tile.bg} ${tile.hoverBg} rounded-2xl transition-all border border-slate-100`}
+              >
+                <span className={`${tile.iconColor} group-hover:text-white transition-colors`}>{tile.icon}</span>
+                <span className={`text-base font-bold ${tile.textColor} group-hover:text-white transition-colors`}>{tile.label}</span>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <Link href="/dashboard" className="block text-indigo-600 font-bold hover:underline pt-4">
+            الذهاب للوحة التحكم
           </Link>
-
-          <Link href="/dashboard/production"
-            className="group flex flex-col items-center gap-3 p-6 bg-indigo-50 hover:bg-indigo-600 rounded-2xl transition-all border border-indigo-100">
-            <Factory className="w-8 h-8 text-indigo-600 group-hover:text-white transition-colors" />
-            <span className="text-base font-bold text-indigo-900 group-hover:text-white transition-colors">إدارة الإنتاج</span>
-          </Link>
-
-          <Link href="/dashboard/inventory/warehouse"
-            className="group flex flex-col items-center gap-3 p-6 bg-sky-50 hover:bg-sky-600 rounded-2xl transition-all border border-sky-100">
-            <Boxes className="w-8 h-8 text-sky-600 group-hover:text-white transition-colors" />
-            <span className="text-base font-bold text-sky-900 group-hover:text-white transition-colors">إدارة المخزون</span>
-          </Link>
-
-          <Link href="/dashboard/purchasing"
-            className="group flex flex-col items-center gap-3 p-6 bg-rose-50 hover:bg-rose-600 rounded-2xl transition-all border border-rose-100">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-rose-600 group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-            <span className="text-base font-bold text-rose-900 group-hover:text-white transition-colors">إدارة المشتريات</span>
-          </Link>
-
-          {/* Row 2 */}
-          <Link href="/dashboard/maintenance"
-            className="group flex flex-col items-center gap-3 p-6 bg-orange-50 hover:bg-orange-600 rounded-2xl transition-all border border-orange-100">
-            <Settings className="w-8 h-8 text-orange-600 group-hover:text-white transition-colors" />
-            <span className="text-base font-bold text-orange-900 group-hover:text-white transition-colors">إدارة الصيانة</span>
-          </Link>
-
-          <Link href="/dashboard/staff"
-            className="group flex flex-col items-center gap-3 p-6 bg-emerald-50 hover:bg-emerald-600 rounded-2xl transition-all border border-emerald-100">
-            <Users className="w-8 h-8 text-emerald-600 group-hover:text-white transition-colors" />
-            <span className="text-base font-bold text-emerald-900 group-hover:text-white transition-colors">إدارة الموظفين</span>
-          </Link>
-
-          <Link href="/dashboard/reports"
-            className="group flex flex-col items-center gap-3 p-6 bg-slate-100 hover:bg-slate-800 rounded-2xl transition-all border border-slate-200">
-            <BarChart2 className="w-8 h-8 text-slate-700 group-hover:text-white transition-colors" />
-            <span className="text-base font-bold text-slate-800 group-hover:text-white transition-colors">التقارير</span>
-          </Link>
-
-          <Link href="/dashboard/inventory/pricing-dashboard"
-            className="group flex flex-col items-center gap-3 p-6 bg-teal-50 hover:bg-teal-600 rounded-2xl transition-all border border-teal-100">
-            <ShieldCheck className="w-8 h-8 text-teal-600 group-hover:text-white transition-colors" />
-            <span className="text-base font-bold text-teal-900 group-hover:text-white transition-colors">لوحة التسعير</span>
-          </Link>
-        </div>
-
-        {/* Second row: Audit, Settings */}
-        <div className="grid grid-cols-2 gap-4">
-          <Link href="/dashboard/audit"
-            className="group flex flex-col items-center gap-3 p-5 bg-amber-50 hover:bg-amber-600 rounded-2xl transition-all border border-amber-100">
-            <ClipboardList className="w-7 h-7 text-amber-600 group-hover:text-white transition-colors" />
-            <span className="text-base font-bold text-amber-900 group-hover:text-white transition-colors">سجل التدقيق</span>
-          </Link>
-
-          <Link href="/dashboard/settings"
-            className="group flex flex-col items-center gap-3 p-5 bg-gray-100 hover:bg-gray-700 rounded-2xl transition-all border border-gray-200">
-            <Settings className="w-7 h-7 text-gray-600 group-hover:text-white transition-colors" />
-            <span className="text-base font-bold text-gray-800 group-hover:text-white transition-colors">الإعدادات</span>
-          </Link>
-        </div>
+        )}
       </div>
     </main>
   );

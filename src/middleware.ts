@@ -34,7 +34,7 @@ export async function middleware(req: NextRequest) {
 
   const currentRole = staff.role;
 
-  if (pathname !== "/dashboard" && !canAccessPath(currentRole, pathname)) {
+  if (pathname !== "/dashboard" && pathname !== "/" && !canAccessPath(currentRole, pathname)) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
@@ -49,5 +49,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/dashboard/:path*", "/"],
 };
