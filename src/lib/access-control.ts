@@ -9,6 +9,7 @@ export const ROLE_ACCESS: Record<string, string[]> = {
   production: [...COMMON_PATHS, "/dashboard/production", "/dashboard/installation", "/dashboard/maintenance"],
   purchasing: [...COMMON_PATHS, "/dashboard/purchasing", "/dashboard/inventory"],
   order_processor: [...COMMON_PATHS, "/dashboard/sales/submissions", "/dashboard/production/door-orders", "/dashboard/inventory"],
+  hr: [...COMMON_PATHS, "/dashboard/staff"],
   employee: COMMON_PATHS,
 };
 

@@ -4,6 +4,7 @@ export const ROLE_LABELS: Record<string, string> = {
   production: "إنتاج ومصنع",
   purchasing: "مشتريات",
   order_processor: "معالج الطلبيات",
+  hr: "مسؤول الموارد البشرية",
   manager: "مدير النظام",
 };
 
@@ -13,5 +14,6 @@ export const ROLE_COLORS: Record<string, string> = {
   production: "bg-indigo-100 text-indigo-800",
   purchasing: "bg-amber-100 text-amber-800",
   order_processor: "bg-teal-100 text-teal-800",
+  hr: "bg-rose-100 text-rose-800",
   manager: "bg-purple-100 text-purple-800",
 };

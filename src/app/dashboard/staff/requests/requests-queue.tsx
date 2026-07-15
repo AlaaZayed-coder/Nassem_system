@@ -122,7 +122,7 @@ function ResolvedRow({ request }: { request: EmployeeRequest }) {
 export function RequestsQueue({ staff, pending, resolved }: { staff: Staff[]; pending: EmployeeRequest[]; resolved: EmployeeRequest[] }) {
   const router = useRouter();
   const [managerId, setManagerId] = useState("");
-  const managers = staff.filter((s) => s.role === "manager");
+  const managers = staff.filter((s) => s.role === "manager" || s.role === "hr");
 
   return (
     <div className="space-y-6">
