@@ -24,7 +24,7 @@ function SimpleHomePage({ role }: { role: string }) {
         <ListChecks className="w-8 h-8" />
       </div>
       <h1 className="text-2xl font-extrabold text-slate-800 mb-2">أهلاً بك 👋</h1>
-      <p className="text-slate-500 mb-8">تابع مهامك اليومية من "الأجندة اليومية"، أو ادخل مباشرة لقسمك.</p>
+      <p className="text-slate-500 mb-8">تابع مهامك اليومية من &quot;الأجندة اليومية&quot;، أو ادخل مباشرة لقسمك.</p>
       <div className="flex flex-col sm:flex-row gap-3 justify-center">
         <Link href="/dashboard/agenda" className="flex items-center justify-center gap-2 bg-white border border-slate-200 shadow-sm px-5 py-3 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition">
           <ListChecks className="h-4 w-4" /> الأجندة اليومية
