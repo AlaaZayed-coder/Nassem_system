@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySessionToken, SESSION_COOKIE } from "@/lib/auth";
+import { verifySessionToken, signSessionToken, SESSION_COOKIE, SESSION_COOKIE_OPTIONS } from "@/lib/auth";
 import { canAccessPath } from "@/lib/access-control";
+import { supabase } from "@/lib/supabase";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -15,11 +16,36 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
-  if (pathname !== "/dashboard" && !canAccessPath(session.role, pathname)) {
+  // نتحقق من الدور وحالة التفعيل الحالية بقاعدة البيانات في كل طلب، حتى تنعكس
+  // تغييرات الدور أو تعطيل الحساب فوراً بدل انتظار انتهاء صلاحية الجلسة (7 أيام).
+  const { data: staff } = await supabase
+    .from("erp_staff")
+    .select("role, name, is_active")
+    .eq("id", session.staffId)
+    .maybeSingle();
+
+  if (!staff || !staff.is_active) {
+    const loginUrl = new URL("/login", req.url);
+    loginUrl.searchParams.set("next", pathname);
+    const res = NextResponse.redirect(loginUrl);
+    res.cookies.delete(SESSION_COOKIE);
+    return res;
+  }
+
+  const currentRole = staff.role;
+
+  if (pathname !== "/dashboard" && !canAccessPath(currentRole, pathname)) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  return NextResponse.next();
+  const res = NextResponse.next();
+
+  if (currentRole !== session.role || staff.name !== session.name) {
+    const freshToken = await signSessionToken({ ...session, role: currentRole, name: staff.name });
+    res.cookies.set(SESSION_COOKIE, freshToken, SESSION_COOKIE_OPTIONS);
+  }
+
+  return res;
 }
 
 export const config = {

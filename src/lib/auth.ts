@@ -17,21 +17,26 @@ export type SessionPayload = {
   role: string;
 };
 
-export async function createSessionCookie(payload: SessionPayload) {
-  const token = await new SignJWT({ ...payload })
+export async function signSessionToken(payload: SessionPayload): Promise<string> {
+  return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
     .sign(getSecretKey());
+}
 
+export const SESSION_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  maxAge: SESSION_TTL_SECONDS,
+  path: "/",
+};
+
+export async function createSessionCookie(payload: SessionPayload) {
+  const token = await signSessionToken(payload);
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: SESSION_TTL_SECONDS,
-    path: "/",
-  });
+  cookieStore.set(SESSION_COOKIE, token, SESSION_COOKIE_OPTIONS);
 }
 
 export async function clearSessionCookie() {

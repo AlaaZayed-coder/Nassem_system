@@ -37,6 +37,28 @@ export async function createStaffAction(formData: FormData) {
   return data;
 }
 
+export async function updateStaffAction(id: string, formData: FormData) {
+  const name = formData.get("name") as string;
+  const role = formData.get("role") as string;
+  const phone = formData.get("phone") as string;
+  const telegram_chat_id = formData.get("telegram_chat_id") as string;
+
+  if (!name || !role) throw new Error("الاسم والدور مطلوبان");
+
+  const { error } = await supabase
+    .from("erp_staff")
+    .update({
+      name,
+      role,
+      phone: phone || null,
+      telegram_chat_id: telegram_chat_id || null,
+    })
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/dashboard/staff");
+}
+
 export async function deleteStaffAction(id: string) {
   const { error } = await supabase
     .from("erp_staff")

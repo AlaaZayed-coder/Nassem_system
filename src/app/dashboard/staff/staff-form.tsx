@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { createStaffAction } from "./actions";
 import { Save } from "lucide-react";
+import { ROLE_LABELS } from "@/lib/role-labels";
 
 export function StaffForm() {
   const [isPending, startTransition] = useTransition();
@@ -32,12 +33,9 @@ export function StaffForm() {
       <div>
         <label className="block text-sm font-bold text-slate-700 mb-1.5">القسم / الدور</label>
         <select required name="role" className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition bg-white">
-          <option value="employee">موظف</option>
-          <option value="sales">مبيعات</option>
-          <option value="production">إنتاج ومصنع</option>
-          <option value="purchasing">مشتريات</option>
-          <option value="order_processor">معالج الطلبيات</option>
-          <option value="manager">مدير النظام</option>
+          {Object.entries(ROLE_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
         </select>
       </div>
 
