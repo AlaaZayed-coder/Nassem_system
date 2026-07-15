@@ -1,4 +1,5 @@
-import { getStaffList } from "@/lib/staff-data";
+import { getStaffList, visibleStaffFor } from "@/lib/staff-data";
+import { getSession } from "@/lib/auth";
 import { Users, UserPlus, ShieldCheck } from "lucide-react";
 import { StaffForm } from "./staff-form";
 import { StaffCard } from "./staff-card";
@@ -6,7 +7,9 @@ import { StaffCard } from "./staff-card";
 export const dynamic = "force-dynamic";
 
 export default async function StaffPage() {
-  const staffList = await getStaffList();
+  const session = await getSession();
+  const fullList = await getStaffList();
+  const staffList = visibleStaffFor(fullList, session?.username || "");
 
   return (
     <div className="p-8 max-w-7xl mx-auto flex flex-col gap-8" dir="rtl">

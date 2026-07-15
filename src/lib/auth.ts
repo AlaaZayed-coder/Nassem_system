@@ -15,6 +15,7 @@ export type SessionPayload = {
   username: string;
   name: string;
   role: string;
+  extraAccess: string[];
 };
 
 export async function signSessionToken(payload: SessionPayload): Promise<string> {
@@ -56,6 +57,7 @@ export async function getSession(): Promise<SessionPayload | null> {
       username: payload.username as string,
       name: payload.name as string,
       role: payload.role as string,
+      extraAccess: (payload.extraAccess as string[]) || [],
     };
   } catch {
     return null;
@@ -70,6 +72,7 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
       username: payload.username as string,
       name: payload.name as string,
       role: payload.role as string,
+      extraAccess: (payload.extraAccess as string[]) || [],
     };
   } catch {
     return null;

@@ -18,7 +18,7 @@ export function DashboardShell({
 
   return (
     <div className="min-h-screen bg-slate-50 flex" dir="rtl">
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} counts={counts} role={session?.role || ""} />
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} counts={counts} role={session?.role || ""} extraAccess={session?.extraAccess || []} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <Header onMenuClick={() => setIsSidebarOpen(true)} counts={counts} session={session} />

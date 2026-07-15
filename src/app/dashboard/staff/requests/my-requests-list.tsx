@@ -37,24 +37,39 @@ export function MyRequestsList({ requests }: { requests: EmployeeRequest[] }) {
   return (
     <div>
       <h2 className="text-lg font-bold text-slate-800 mb-3">طلباتي ({requests.length})</h2>
-      <div className="space-y-2">
-        {requests.map((r) => (
-          <div key={r.id} className="p-3 rounded-xl border border-slate-100 bg-slate-50 text-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">{REQUEST_TYPE_LABEL[r.request_type]}</span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_COLOR[r.status] || "bg-slate-200 text-slate-600"}`}>{r.status}</span>
-              </div>
-              <span className="text-xs text-slate-400">{new Date(r.created_at).toLocaleDateString("en-GB")}</span>
-            </div>
-            <p className="text-slate-600 mt-1"><DetailLine request={r} /></p>
-            {r.action_notes && <p className="text-xs text-slate-400 mt-1">ملاحظة: {r.action_notes}</p>}
-          </div>
-        ))}
-        {requests.length === 0 && (
-          <div className="text-center text-slate-400 py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">لم تقدّم أي طلبات بعد</div>
-        )}
-      </div>
+      {requests.length === 0 ? (
+        <div className="text-center text-slate-400 py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">لم تقدّم أي طلبات بعد</div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+          <table className="w-full text-right min-w-[480px]">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500">
+                <th className="px-4 py-3 font-bold">النوع</th>
+                <th className="px-4 py-3 font-bold">التفاصيل</th>
+                <th className="px-4 py-3 font-bold">الحالة</th>
+                <th className="px-4 py-3 font-bold">التاريخ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.map((r) => (
+                <tr key={r.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70 transition align-top">
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">{REQUEST_TYPE_LABEL[r.request_type]}</span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-600 max-w-sm">
+                    <DetailLine request={r} />
+                    {r.action_notes && <p className="text-xs text-slate-400 mt-1">ملاحظة: {r.action_notes}</p>}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${STATUS_COLOR[r.status] || "bg-slate-200 text-slate-600"}`}>{r.status}</span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{new Date(r.created_at).toLocaleDateString("en-GB")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

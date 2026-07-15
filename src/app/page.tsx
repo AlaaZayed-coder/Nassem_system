@@ -74,7 +74,7 @@ const TILES: Tile[] = [
 export default async function Home() {
   const session = await getSession();
   const role = session?.role || "";
-  const visibleTiles = TILES.filter((t) => canAccessPath(role, t.href));
+  const visibleTiles = TILES.filter((t) => canAccessPath(role, t.href, session?.extraAccess || []));
 
   return (
     <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6" dir="rtl">

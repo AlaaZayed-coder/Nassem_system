@@ -1,12 +1,14 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { updateStaffAction } from "./actions";
 import { ROLE_LABELS } from "@/lib/role-labels";
+import { GRANTABLE_PATHS } from "@/lib/access-control";
 import type { Staff } from "@/lib/staff-data";
 
 export function StaffEditForm({ staff, allStaff, onCancel, onSaved }: { staff: Staff; allStaff: Staff[]; onCancel: () => void; onSaved: () => void }) {
   const [isPending, startTransition] = useTransition();
+  const [showExtraAccess, setShowExtraAccess] = useState(false);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -66,6 +68,33 @@ export function StaffEditForm({ staff, allStaff, onCancel, onSaved }: { staff: S
           <option key={s.id} value={s.id}>{s.name}</option>
         ))}
       </select>
+
+      <div className="border border-slate-200 rounded-lg overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowExtraAccess((v) => !v)}
+          className="w-full px-3 py-2 text-sm font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 transition text-right"
+        >
+          صلاحيات إضافية خارج دوره ({staff.extra_access?.length || 0})
+        </button>
+        {showExtraAccess && (
+          <div className="p-3 flex flex-col gap-1.5 max-h-48 overflow-y-auto">
+            {GRANTABLE_PATHS.map((g) => (
+              <label key={g.path} className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  name="extra_access"
+                  value={g.path}
+                  defaultChecked={staff.extra_access?.includes(g.path)}
+                  className="accent-indigo-600"
+                />
+                {g.label}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="flex gap-2">
         <button
           disabled={isPending}

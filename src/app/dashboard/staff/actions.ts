@@ -45,6 +45,7 @@ export async function updateStaffAction(id: string, formData: FormData) {
   const phone = formData.get("phone") as string;
   const telegram_chat_id = formData.get("telegram_chat_id") as string;
   const supervisor_id = (formData.get("supervisor_id") as string || "").trim();
+  const extra_access = formData.getAll("extra_access") as string[];
 
   if (!name || !role) throw new Error("الاسم والدور مطلوبان");
   if (supervisor_id === id) throw new Error("لا يمكن أن يكون الموظف مسؤوله المباشر عن نفسه");
@@ -57,6 +58,7 @@ export async function updateStaffAction(id: string, formData: FormData) {
       phone: phone || null,
       telegram_chat_id: telegram_chat_id || null,
       supervisor_id: supervisor_id || null,
+      extra_access,
     })
     .eq("id", id);
 

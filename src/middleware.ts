@@ -20,7 +20,7 @@ export async function middleware(req: NextRequest) {
   // تغييرات الدور أو تعطيل الحساب فوراً بدل انتظار انتهاء صلاحية الجلسة (7 أيام).
   const { data: staff } = await supabase
     .from("erp_staff")
-    .select("role, name, is_active")
+    .select("role, name, is_active, extra_access")
     .eq("id", session.staffId)
     .maybeSingle();
 
@@ -33,15 +33,17 @@ export async function middleware(req: NextRequest) {
   }
 
   const currentRole = staff.role;
+  const currentExtraAccess: string[] = staff.extra_access || [];
 
-  if (pathname !== "/dashboard" && pathname !== "/" && !canAccessPath(currentRole, pathname)) {
+  if (pathname !== "/dashboard" && pathname !== "/" && !canAccessPath(currentRole, pathname, currentExtraAccess)) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   const res = NextResponse.next();
 
-  if (currentRole !== session.role || staff.name !== session.name) {
-    const freshToken = await signSessionToken({ ...session, role: currentRole, name: staff.name });
+  const extraAccessChanged = JSON.stringify(currentExtraAccess) !== JSON.stringify(session.extraAccess || []);
+  if (currentRole !== session.role || staff.name !== session.name || extraAccessChanged) {
+    const freshToken = await signSessionToken({ ...session, role: currentRole, name: staff.name, extraAccess: currentExtraAccess });
     res.cookies.set(SESSION_COOKIE, freshToken, SESSION_COOKIE_OPTIONS);
   }
 

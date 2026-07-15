@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Phone, Trash2, Pencil, UserCog } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Phone, Trash2, Pencil, UserCog, TriangleAlert } from "lucide-react";
 import { deleteStaffAction } from "./actions";
 import { StaffEditForm } from "./staff-edit-form";
 import { StaffCredentialsForm } from "./staff-credentials-form";
@@ -10,7 +10,15 @@ import type { Staff } from "@/lib/staff-data";
 
 export function StaffCard({ staff, allStaff }: { staff: Staff; allStaff: Staff[] }) {
   const [editing, setEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [isDeleting, startDeleteTransition] = useTransition();
   const supervisor = staff.supervisor_id ? allStaff.find((s) => s.id === staff.supervisor_id) : null;
+
+  const handleDelete = () => {
+    startDeleteTransition(async () => {
+      await deleteStaffAction(staff.id);
+    });
+  };
 
   return (
     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3">
@@ -34,13 +42,40 @@ export function StaffCard({ staff, allStaff }: { staff: Staff; allStaff: Staff[]
               >
                 <Pencil className="h-4 w-4" />
               </button>
-              <form action={() => deleteStaffAction(staff.id)}>
-                <button type="submit" className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded-lg transition" title="حذف الموظف">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded-lg transition"
+                title="حذف الموظف"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
           </div>
+
+          {confirmingDelete && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 flex flex-col gap-2">
+              <p className="text-sm font-bold text-rose-700 flex items-center gap-1.5">
+                <TriangleAlert className="h-4 w-4" /> متأكد من حذف {staff.name}؟ لا يمكن التراجع عن هذا الإجراء.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  disabled={isDeleting}
+                  onClick={handleDelete}
+                  className="flex-1 bg-rose-600 text-white px-3 py-1.5 rounded-lg font-bold text-sm hover:bg-rose-700 transition disabled:opacity-50"
+                >
+                  {isDeleting ? "جاري الحذف..." : "نعم، احذف"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  className="px-3 py-1.5 rounded-lg font-bold text-sm text-slate-500 hover:bg-slate-100 transition"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="pt-3 border-t border-slate-100 flex flex-col gap-2 text-sm text-slate-600">
             {staff.phone && (

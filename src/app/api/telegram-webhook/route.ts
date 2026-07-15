@@ -330,7 +330,11 @@ export async function POST(req: Request) {
 
     if (!pending) {
       await startPendingTelegramSubmission(chatId);
-      await sendTelegramReplyKeyboard(chatId, "أهلاً بك 👋", [EMP_GATEWAY_LABEL]);
+      // زر "بوابة الموظفين" الثابت مخصص لتقديم الطلبات — مدير النظام يوافق/يرفض
+      // عبر أزرار كل إشعار مباشرة، فلا حاجة له لهذا الزر أسفل الشاشة.
+      if (staff.role !== "manager") {
+        await sendTelegramReplyKeyboard(chatId, "أهلاً بك 👋", [EMP_GATEWAY_LABEL]);
+      }
       await askMainMenu(chatId, staff.role);
       return NextResponse.json({ ok: true });
     }

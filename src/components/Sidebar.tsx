@@ -44,11 +44,13 @@ export function Sidebar({
   onClose,
   counts,
   role,
+  extraAccess,
 }: {
   isOpen: boolean;
   onClose: () => void;
   counts: { pendingSubmissions: number; pendingMaintenance: number; pendingPurchases: number; pendingInstallations: number; pendingEmployeeRequests: number };
   role: string;
+  extraAccess: string[];
 }) {
   const pathname = usePathname();
 
@@ -98,7 +100,7 @@ export function Sidebar({
     { name: "الإعدادات", icon: Settings, path: "/dashboard/settings" },
   ];
 
-  const isAllowed = (path: string) => path === "/dashboard" || canAccessPath(role, path);
+  const isAllowed = (path: string) => path === "/dashboard" || canAccessPath(role, path, extraAccess);
 
   // العناصر التي لا يُسمح بمسارها الأساسي لكن يُسمح ببعض أبنائها تُستبدل بروابط الأبناء المسموحة مباشرة.
   const menuItems: MenuEntry[] = allMenuItems.flatMap((item) => {
