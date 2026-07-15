@@ -112,6 +112,20 @@ export async function getEmployeeRequests(status?: string): Promise<EmployeeRequ
   return data || [];
 }
 
+export async function getEmployeeRequestsForStaff(staffId: string): Promise<EmployeeRequest[]> {
+  const { data, error } = await supabase
+    .from("erp_employee_requests")
+    .select("*, erp_staff!erp_employee_requests_staff_id_fkey(name)")
+    .eq("staff_id", staffId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching employee requests for staff:", error);
+    return [];
+  }
+  return data || [];
+}
+
 export async function getEmployeeRequestById(id: string): Promise<EmployeeRequest | null> {
   const { data, error } = await supabase
     .from("erp_employee_requests")

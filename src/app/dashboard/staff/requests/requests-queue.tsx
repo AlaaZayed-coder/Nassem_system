@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Staff } from "@/lib/staff-data";
 import { EmployeeRequest, REQUEST_TYPE_LABEL } from "@/lib/employee-requests-data";
 import { approveEmployeeRequestAction, rejectEmployeeRequestAction, cancelEmployeeRequestAction } from "./actions";
 import { CheckCircle2, XCircle, Ban, UserCircle2 } from "lucide-react";
@@ -30,7 +29,6 @@ function RequestRow({ request, managerId, onDone }: { request: EmployeeRequest; 
   const [error, setError] = useState<string | null>(null);
 
   const handleApprove = () => {
-    if (!managerId) { setError("اختر اسمك أولاً (من يوافق) من الأعلى"); return; }
     setError(null);
     startTransition(async () => {
       const result = await approveEmployeeRequestAction(request.id, managerId);
@@ -40,7 +38,6 @@ function RequestRow({ request, managerId, onDone }: { request: EmployeeRequest; 
   };
 
   const handleReject = () => {
-    if (!managerId) { setError("اختر اسمك أولاً (من يوافق) من الأعلى"); return; }
     setError(null);
     startTransition(async () => {
       const result = await rejectEmployeeRequestAction(request.id, managerId, reason);
@@ -119,23 +116,11 @@ function ResolvedRow({ request }: { request: EmployeeRequest }) {
   );
 }
 
-export function RequestsQueue({ staff, pending, resolved }: { staff: Staff[]; pending: EmployeeRequest[]; resolved: EmployeeRequest[] }) {
+export function RequestsQueue({ managerId, pending, resolved }: { managerId: string; pending: EmployeeRequest[]; resolved: EmployeeRequest[] }) {
   const router = useRouter();
-  const [managerId, setManagerId] = useState("");
-  const managers = staff.filter((s) => s.role === "manager" || s.role === "hr");
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <label className="block text-xs font-bold text-slate-600 mb-1.5">من يوافق (اسمك)</label>
-        <select value={managerId} onChange={(e) => setManagerId(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-300 outline-none text-sm bg-white">
-          <option value="">-- اختر اسمك --</option>
-          {managers.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-      </div>
-
       <div>
         <h2 className="text-lg font-bold text-slate-800 mb-3">بانتظار الاعتماد ({pending.length})</h2>
         <div className="space-y-3">

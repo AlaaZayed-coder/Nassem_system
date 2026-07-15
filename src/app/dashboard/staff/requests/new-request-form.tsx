@@ -1,16 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Staff } from "@/lib/staff-data";
 import { REQUEST_TYPE_LABEL, EmployeeRequestType } from "@/lib/employee-requests-data";
 import { createEmployeeRequestAction } from "./actions";
 import { Send } from "lucide-react";
 
 const REQUEST_TYPES = Object.keys(REQUEST_TYPE_LABEL) as EmployeeRequestType[];
 
-export function NewRequestForm({ staff }: { staff: Staff[] }) {
+export function NewRequestForm({ staffId }: { staffId: string }) {
   const [isPending, startTransition] = useTransition();
-  const [staffId, setStaffId] = useState("");
   const [requestType, setRequestType] = useState<EmployeeRequestType>("vacation");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -29,16 +27,6 @@ export function NewRequestForm({ staff }: { staff: Staff[] }) {
 
   return (
     <form action={handleSubmit} className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-      <div>
-        <label className="block text-xs font-bold text-slate-600 mb-1.5">أنا (اسمك)</label>
-        <select required value={staffId} onChange={(e) => setStaffId(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-300 outline-none text-sm bg-white">
-          <option value="">-- اختر اسمك --</option>
-          {staff.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-      </div>
-
       <div>
         <label className="block text-xs font-bold text-slate-600 mb-1.5">نوع الطلب</label>
         <select value={requestType} onChange={(e) => setRequestType(e.target.value as EmployeeRequestType)} className="w-full px-3 py-2 rounded-xl border border-slate-300 outline-none text-sm bg-white">

@@ -1,11 +1,13 @@
-import { getStaffList } from "@/lib/staff-data";
+import { getAgendaForRole } from "@/lib/agenda-data";
+import { getSession } from "@/lib/auth";
 import { AgendaView } from "./agenda-view";
 import { ListChecks } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function AgendaPage() {
-  const staff = await getStaffList();
+  const session = await getSession();
+  const items = session ? await getAgendaForRole(session.role) : [];
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4" dir="rtl">
@@ -14,12 +16,10 @@ export default async function AgendaPage() {
           <ListChecks className="h-8 w-8 text-indigo-600" />
           الأجندة اليومية
         </h1>
-        <p className="text-slate-500 mt-2">
-          كل ما يحتاج متابعة أو عملاً حسب دورك الوظيفي. لا يوجد تسجيل دخول لكل موظف بعد، لذا حدّد اسمك ليُطابَق دورك تلقائياً.
-        </p>
+        <p className="text-slate-500 mt-2">كل ما يحتاج متابعة أو عملاً حسب دورك الوظيفي.</p>
       </div>
 
-      <AgendaView staff={staff} />
+      <AgendaView items={items} />
     </div>
   );
 }
