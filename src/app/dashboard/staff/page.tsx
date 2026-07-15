@@ -25,7 +25,7 @@ export default async function StaffPage() {
               <UserPlus className="h-5 w-5 text-indigo-600" />
               إضافة موظف جديد
             </h2>
-            <StaffForm />
+            <StaffForm staff={staffList} />
           </div>
         </div>
 
@@ -37,7 +37,7 @@ export default async function StaffPage() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {staffList.map(staff => (
-              <StaffCard key={staff.id} staff={staff} />
+              <StaffCard key={staff.id} staff={staff} allStaff={staffList} />
             ))}
 
             {staffList.length === 0 && (

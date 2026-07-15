@@ -7,6 +7,7 @@ export type Staff = {
   telegram_chat_id: string | null;
   phone: string | null;
   username: string | null;
+  supervisor_id: string | null;
   is_active: boolean;
   created_at: string;
 };
@@ -14,7 +15,7 @@ export type Staff = {
 export async function getStaffList(): Promise<Staff[]> {
   const { data, error } = await supabase
     .from("erp_staff")
-    .select("id, name, role, telegram_chat_id, phone, username, is_active, created_at")
+    .select("id, name, role, telegram_chat_id, phone, username, supervisor_id, is_active, created_at")
     .order("created_at", { ascending: false });
 
   if (error) {

@@ -4,8 +4,9 @@ import { useState, useTransition } from "react";
 import { createStaffAction } from "./actions";
 import { Save } from "lucide-react";
 import { ROLE_LABELS } from "@/lib/role-labels";
+import type { Staff } from "@/lib/staff-data";
 
-export function StaffForm() {
+export function StaffForm({ staff }: { staff: Staff[] }) {
   const [isPending, startTransition] = useTransition();
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -48,6 +49,17 @@ export function StaffForm() {
         <label className="block text-sm font-bold text-slate-700 mb-1.5">معرف تليجرام Chat ID</label>
         <input name="telegram_chat_id" type="text" className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition dir-ltr text-left" placeholder="مثال: 123456789" />
         <p className="text-xs text-slate-500 mt-1.5">مطلوب لربط تطبيق وبوت تليجرام بالموظف.</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-bold text-slate-700 mb-1.5">المسؤول المباشر (اختياري)</label>
+        <select name="supervisor_id" defaultValue="" className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition bg-white">
+          <option value="">-- بدون --</option>
+          {staff.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+        <p className="text-xs text-slate-500 mt-1.5">تصله إشعارات موافقة إضافية على طلبات هذا الموظف.</p>
       </div>
 
       <div className="pt-3 border-t border-slate-100">

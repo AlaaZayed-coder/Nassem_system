@@ -1,20 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { Phone, Trash2, Pencil } from "lucide-react";
+import { Phone, Trash2, Pencil, UserCog } from "lucide-react";
 import { deleteStaffAction } from "./actions";
 import { StaffEditForm } from "./staff-edit-form";
 import { StaffCredentialsForm } from "./staff-credentials-form";
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/role-labels";
 import type { Staff } from "@/lib/staff-data";
 
-export function StaffCard({ staff }: { staff: Staff }) {
+export function StaffCard({ staff, allStaff }: { staff: Staff; allStaff: Staff[] }) {
   const [editing, setEditing] = useState(false);
+  const supervisor = staff.supervisor_id ? allStaff.find((s) => s.id === staff.supervisor_id) : null;
 
   return (
     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3">
       {editing ? (
-        <StaffEditForm staff={staff} onCancel={() => setEditing(false)} onSaved={() => setEditing(false)} />
+        <StaffEditForm staff={staff} allStaff={allStaff} onCancel={() => setEditing(false)} onSaved={() => setEditing(false)} />
       ) : (
         <>
           <div className="flex justify-between items-start">
@@ -54,6 +55,11 @@ export function StaffCard({ staff }: { staff: Staff }) {
               </div>
             ) : (
               <div className="text-slate-400 text-xs italic">لا يوجد معرف تليجرام مرتبط</div>
+            )}
+            {supervisor && (
+              <div className="flex items-center gap-2 text-indigo-600 font-medium">
+                <UserCog className="h-4 w-4" /> المسؤول المباشر: {supervisor.name}
+              </div>
             )}
           </div>
 

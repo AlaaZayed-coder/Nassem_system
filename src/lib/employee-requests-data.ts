@@ -154,6 +154,31 @@ export async function getEmployeeRequestsForStaff(staffId: string): Promise<Empl
   return data || [];
 }
 
+// طلبات الموظفين اللي مسؤولهم المباشر هو staffId — لواجهة "طلبات فريقي" لأي
+// موظف مُعيَّن كمسؤول مباشر لغيره، حتى لو دوره الوظيفي ليس مدير/HR.
+export async function getEmployeeRequestsForSupervisor(supervisorId: string): Promise<{ pending: EmployeeRequest[]; resolved: EmployeeRequest[] }> {
+  const { data: reports } = await supabase.from("erp_staff").select("id").eq("supervisor_id", supervisorId);
+  const staffIds = (reports || []).map((r) => r.id);
+  if (staffIds.length === 0) return { pending: [], resolved: [] };
+
+  const { data, error } = await supabase
+    .from("erp_employee_requests")
+    .select("*, erp_staff!erp_employee_requests_staff_id_fkey(name)")
+    .in("staff_id", staffIds)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching team requests:", error);
+    return { pending: [], resolved: [] };
+  }
+
+  const all = data || [];
+  return {
+    pending: all.filter((r) => r.status === "قيد الانتظار"),
+    resolved: all.filter((r) => r.status !== "قيد الانتظار").slice(0, 15),
+  };
+}
+
 export async function getEmployeeRequestById(id: string): Promise<EmployeeRequest | null> {
   const { data, error } = await supabase
     .from("erp_employee_requests")
@@ -255,11 +280,37 @@ async function reverseApprovalSideEffect(request: EmployeeRequest): Promise<void
 // مشتركة بين مسار الويب (تقديم من صفحة الطلبات) ومسار البوت.
 export async function notifyApproverWithContext(requestId: string) {
   const request = await getEmployeeRequestById(requestId);
-  if (!request || !request.current_approver_id) return;
+  if (!request) return;
 
-  const { data: approver } = await supabase.from("erp_staff").select("telegram_chat_id").eq("id", request.current_approver_id).single();
-  if (!approver?.telegram_chat_id) return;
+  const text = await buildApprovalContextText(request);
+  if (!text) return;
 
+  const buttons = [[
+    { text: "✅ موافقة", callback_data: `emp_approve:${request.id}` },
+    { text: "❌ رفض", callback_data: `emp_reject:${request.id}` },
+  ]];
+
+  // المدير العام (current_approver_id) + المسؤول المباشر للموظف مقدّم الطلب
+  // (supervisor_id) معاً — كلاهما يقدر يوافق/يرفض، أيهما تصرّف أولاً يُنفَّذ.
+  const recipientIds = new Set<string>();
+  if (request.current_approver_id) recipientIds.add(request.current_approver_id);
+
+  const { data: submitter } = await supabase.from("erp_staff").select("supervisor_id").eq("id", request.staff_id).single();
+  if (submitter?.supervisor_id) recipientIds.add(submitter.supervisor_id);
+
+  if (recipientIds.size === 0) return;
+
+  const { data: recipients } = await supabase
+    .from("erp_staff")
+    .select("telegram_chat_id")
+    .in("id", Array.from(recipientIds));
+
+  for (const r of recipients || []) {
+    if (r.telegram_chat_id) await sendTelegramInlineKeyboard(r.telegram_chat_id, text, buttons);
+  }
+}
+
+async function buildApprovalContextText(request: EmployeeRequest): Promise<string | null> {
   const staffName = request.erp_staff?.name || "موظف";
   const typeLabel = REQUEST_TYPE_LABEL[request.request_type];
   const contextLines: string[] = [];
@@ -296,18 +347,11 @@ export async function notifyApproverWithContext(requestId: string) {
     if (request.details.reason) detailLines.push(`السبب: ${request.details.reason}`);
   }
 
-  const text = [
+  return [
     `📋 طلب ${typeLabel} جديد من "${staffName}"`,
     ...detailLines,
     ...(contextLines.length > 0 ? ["", ...contextLines] : []),
   ].join("\n");
-
-  await sendTelegramInlineKeyboard(approver.telegram_chat_id, text, [
-    [
-      { text: "✅ موافقة", callback_data: `emp_approve:${request.id}` },
-      { text: "❌ رفض", callback_data: `emp_reject:${request.id}` },
-    ],
-  ]);
 }
 
 // إشعار جماعي لتبليغ الإصابة/تقرير العمل — يصل للمدير ومسؤول الموارد

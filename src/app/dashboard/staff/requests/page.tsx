@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { getEmployeeRequests, getEmployeeRequestsForStaff } from "@/lib/employee-requests-data";
+import { getEmployeeRequests, getEmployeeRequestsForStaff, getEmployeeRequestsForSupervisor } from "@/lib/employee-requests-data";
 import { NewRequestForm } from "./new-request-form";
 import { RequestsQueue } from "./requests-queue";
 import { MyRequestsList } from "./my-requests-list";
-import { ArrowRight, ClipboardList } from "lucide-react";
+import { ArrowRight, ClipboardList, Users2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -39,11 +39,14 @@ export default async function EmployeeRequestsPage() {
           </div>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-8">
           {canManageAll ? (
             <RequestsQueueSection managerId={session.staffId} />
           ) : (
-            <MyRequestsSection staffId={session.staffId} />
+            <>
+              <TeamRequestsSection supervisorId={session.staffId} />
+              <MyRequestsSection staffId={session.staffId} />
+            </>
           )}
         </div>
       </div>
@@ -59,6 +62,20 @@ async function RequestsQueueSection({ managerId }: { managerId: string }) {
   const resolvedOnly = resolved.filter((r) => r.status !== "قيد الانتظار").slice(0, 15);
 
   return <RequestsQueue managerId={managerId} pending={pending} resolved={resolvedOnly} />;
+}
+
+async function TeamRequestsSection({ supervisorId }: { supervisorId: string }) {
+  const { pending, resolved } = await getEmployeeRequestsForSupervisor(supervisorId);
+  if (pending.length === 0 && resolved.length === 0) return null;
+
+  return (
+    <div>
+      <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <Users2 className="h-5 w-5 text-indigo-600" /> طلبات فريقي
+      </h2>
+      <RequestsQueue managerId={supervisorId} pending={pending} resolved={resolved} />
+    </div>
+  );
 }
 
 async function MyRequestsSection({ staffId }: { staffId: string }) {

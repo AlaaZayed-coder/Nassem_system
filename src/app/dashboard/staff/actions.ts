@@ -11,6 +11,7 @@ export async function createStaffAction(formData: FormData) {
   const telegram_chat_id = formData.get("telegram_chat_id") as string;
   const username = (formData.get("username") as string || "").trim();
   const password = (formData.get("password") as string || "");
+  const supervisor_id = (formData.get("supervisor_id") as string || "").trim();
 
   if (!name || !role) throw new Error("الاسم والدور مطلوبان");
   if (username && !password) throw new Error("الرجاء إدخال كلمة مرور مع اسم المستخدم");
@@ -24,6 +25,7 @@ export async function createStaffAction(formData: FormData) {
       telegram_chat_id: telegram_chat_id || null,
       username: username || null,
       password_hash: password ? await hashPassword(password) : null,
+      supervisor_id: supervisor_id || null,
     }])
     .select()
     .single();
@@ -42,8 +44,10 @@ export async function updateStaffAction(id: string, formData: FormData) {
   const role = formData.get("role") as string;
   const phone = formData.get("phone") as string;
   const telegram_chat_id = formData.get("telegram_chat_id") as string;
+  const supervisor_id = (formData.get("supervisor_id") as string || "").trim();
 
   if (!name || !role) throw new Error("الاسم والدور مطلوبان");
+  if (supervisor_id === id) throw new Error("لا يمكن أن يكون الموظف مسؤوله المباشر عن نفسه");
 
   const { error } = await supabase
     .from("erp_staff")
@@ -52,6 +56,7 @@ export async function updateStaffAction(id: string, formData: FormData) {
       role,
       phone: phone || null,
       telegram_chat_id: telegram_chat_id || null,
+      supervisor_id: supervisor_id || null,
     })
     .eq("id", id);
 

@@ -5,7 +5,7 @@ import { updateStaffAction } from "./actions";
 import { ROLE_LABELS } from "@/lib/role-labels";
 import type { Staff } from "@/lib/staff-data";
 
-export function StaffEditForm({ staff, onCancel, onSaved }: { staff: Staff; onCancel: () => void; onSaved: () => void }) {
+export function StaffEditForm({ staff, allStaff, onCancel, onSaved }: { staff: Staff; allStaff: Staff[]; onCancel: () => void; onSaved: () => void }) {
   const [isPending, startTransition] = useTransition();
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -56,6 +56,16 @@ export function StaffEditForm({ staff, onCancel, onSaved }: { staff: Staff; onCa
         placeholder="معرف تليجرام Chat ID"
         className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition dir-ltr text-left text-sm"
       />
+      <select
+        name="supervisor_id"
+        defaultValue={staff.supervisor_id || ""}
+        className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition bg-white text-sm"
+      >
+        <option value="">-- بدون مسؤول مباشر --</option>
+        {allStaff.filter((s) => s.id !== staff.id).map((s) => (
+          <option key={s.id} value={s.id}>{s.name}</option>
+        ))}
+      </select>
       <div className="flex gap-2">
         <button
           disabled={isPending}

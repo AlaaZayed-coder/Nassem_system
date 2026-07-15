@@ -1,9 +1,43 @@
 import Link from "next/link";
 import { getExecutiveSummary } from "@/lib/executive-dashboard-data";
 import { getSlaWarnings } from "@/lib/sla-data";
-import { DoorClosed, ShoppingCart, Wrench, ClipboardList, AlertTriangle, Inbox, Truck } from "lucide-react";
+import { getSession } from "@/lib/auth";
+import { DoorClosed, ShoppingCart, Wrench, ClipboardList, AlertTriangle, Inbox, Truck, ListChecks, ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+// اللوحة التنفيذية بيانات تشغيلية عابرة لكل الأقسام (مبيعات + إنتاج + مشتريات...) —
+// مناسبة لمدير النظام فقط. لكل دور آخر واجهة ترحيب بسيطة بدل تحميله بأرقام لا تخصه.
+const ROLE_HOME: Record<string, { label: string; href: string }> = {
+  sales: { label: "إدارة المبيعات (CRM)", href: "/dashboard/sales" },
+  production: { label: "إدارة الإنتاج", href: "/dashboard/production" },
+  purchasing: { label: "إدارة المشتريات", href: "/dashboard/purchasing" },
+  order_processor: { label: "صندوق وارد الطلبيات", href: "/dashboard/sales/submissions" },
+  hr: { label: "إدارة الموظفين", href: "/dashboard/staff" },
+};
+
+function SimpleHomePage({ role }: { role: string }) {
+  const primary = ROLE_HOME[role];
+  return (
+    <div className="max-w-2xl mx-auto py-16 px-4 text-center" dir="rtl">
+      <div className="mx-auto bg-indigo-50 text-indigo-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6">
+        <ListChecks className="w-8 h-8" />
+      </div>
+      <h1 className="text-2xl font-extrabold text-slate-800 mb-2">أهلاً بك 👋</h1>
+      <p className="text-slate-500 mb-8">تابع مهامك اليومية من "الأجندة اليومية"، أو ادخل مباشرة لقسمك.</p>
+      <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <Link href="/dashboard/agenda" className="flex items-center justify-center gap-2 bg-white border border-slate-200 shadow-sm px-5 py-3 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition">
+          <ListChecks className="h-4 w-4" /> الأجندة اليومية
+        </Link>
+        {primary && (
+          <Link href={primary.href} className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-3 rounded-xl font-bold hover:bg-indigo-700 transition">
+            {primary.label} <ArrowLeft className="h-4 w-4" />
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function KpiCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: React.ReactNode; icon: any; color: string }) {
   return (
@@ -21,6 +55,11 @@ function KpiCard({ label, value, sub, icon: Icon, color }: { label: string; valu
 }
 
 export default async function ExecutiveDashboardPage() {
+  const session = await getSession();
+  if (!session || session.role !== "manager") {
+    return <SimpleHomePage role={session?.role || ""} />;
+  }
+
   const [summary, warnings] = await Promise.all([getExecutiveSummary(), getSlaWarnings()]);
 
   const CATEGORY_LABEL: Record<string, string> = {
