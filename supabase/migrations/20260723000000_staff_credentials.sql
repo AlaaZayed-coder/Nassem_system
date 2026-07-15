@@ -1,0 +1,3 @@
+ALTER TABLE erp_staff
+  ADD COLUMN IF NOT EXISTS username TEXT UNIQUE,
+  ADD COLUMN IF NOT EXISTS password_hash TEXT;

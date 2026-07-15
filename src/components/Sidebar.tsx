@@ -22,6 +22,7 @@ import {
   ChevronDown,
   X,
 } from "lucide-react";
+import { canAccessPath } from "@/lib/access-control";
 
 type LeafItem = {
   name: string;
@@ -42,14 +43,16 @@ export function Sidebar({
   isOpen,
   onClose,
   counts,
+  role,
 }: {
   isOpen: boolean;
   onClose: () => void;
   counts: { pendingSubmissions: number; pendingMaintenance: number; pendingPurchases: number; pendingInstallations: number; pendingEmployeeRequests: number };
+  role: string;
 }) {
   const pathname = usePathname();
 
-  const menuItems: MenuEntry[] = [
+  const allMenuItems: MenuEntry[] = [
     { name: "الرئيسية", icon: Factory, path: "/dashboard" },
     { name: "الأجندة اليومية", icon: ListChecks, path: "/dashboard/agenda" },
     {
@@ -94,6 +97,16 @@ export function Sidebar({
     { name: "سجل التدقيق", icon: ClipboardList, path: "/dashboard/audit" },
     { name: "الإعدادات", icon: Settings, path: "/dashboard/settings" },
   ];
+
+  const isAllowed = (path: string) => path === "/dashboard" || canAccessPath(role, path);
+
+  // العناصر التي لا يُسمح بمسارها الأساسي لكن يُسمح ببعض أبنائها تُستبدل بروابط الأبناء المسموحة مباشرة.
+  const menuItems: MenuEntry[] = allMenuItems.flatMap((item) => {
+    const allowedChildren = item.children?.filter((c) => isAllowed(c.path));
+    if (isAllowed(item.path)) return [{ ...item, children: allowedChildren }];
+    if (allowedChildren && allowedChildren.length > 0) return allowedChildren;
+    return [];
+  });
 
   const groupContainsActive = (item: MenuEntry) =>
     isPathActive(pathname, item.path) || !!item.children?.some((c) => isPathActive(pathname, c.path));

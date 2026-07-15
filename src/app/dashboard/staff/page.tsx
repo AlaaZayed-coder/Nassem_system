@@ -1,6 +1,7 @@
 import { getStaffList } from "@/lib/staff-data";
 import { Users, UserPlus, Phone, ShieldCheck, Trash2 } from "lucide-react";
 import { StaffForm } from "./staff-form";
+import { StaffCredentialsForm } from "./staff-credentials-form";
 import { deleteStaffAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -79,6 +80,8 @@ export default async function StaffPage() {
                     <div className="text-slate-400 text-xs italic">لا يوجد معرف تليجرام مرتبط</div>
                   )}
                 </div>
+
+                <StaffCredentialsForm staffId={staff.id} currentUsername={staff.username} />
               </div>
             ))}
 

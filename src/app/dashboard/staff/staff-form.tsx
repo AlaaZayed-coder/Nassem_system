@@ -52,6 +52,17 @@ export function StaffForm() {
         <p className="text-xs text-slate-500 mt-1.5">مطلوب لربط تطبيق وبوت تليجرام بالموظف.</p>
       </div>
 
+      <div className="pt-3 border-t border-slate-100">
+        <label className="block text-sm font-bold text-slate-700 mb-1.5">اسم المستخدم (لتسجيل الدخول للويب)</label>
+        <input name="username" type="text" className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition dir-ltr text-left" placeholder="اختياري" />
+      </div>
+
+      <div>
+        <label className="block text-sm font-bold text-slate-700 mb-1.5">كلمة المرور</label>
+        <input name="password" type="password" className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition dir-ltr text-left" placeholder="اختياري" />
+        <p className="text-xs text-slate-500 mt-1.5">اتركهما فارغتين لإضافتهما لاحقاً من بطاقة الموظف.</p>
+      </div>
+
       <button disabled={isPending} type="submit" className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-3 rounded-xl font-bold hover:bg-indigo-700 transition disabled:opacity-50 mt-2">
         <Save className="h-4 w-4" />
         {isPending ? "جاري الإضافة..." : "حفظ بيانات الموظف"}

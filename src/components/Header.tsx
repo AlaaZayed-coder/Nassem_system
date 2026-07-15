@@ -1,14 +1,19 @@
 "use client";
 
-import { Bell, User, Menu } from "lucide-react";
+import { Bell, User, Menu, LogOut } from "lucide-react";
 import { useState } from "react";
+import { logoutAction } from "@/app/login/actions";
+import { ROLE_LABELS } from "@/lib/role-labels";
+import type { SessionPayload } from "@/lib/auth";
 
 export function Header({
   onMenuClick,
   counts,
+  session,
 }: {
   onMenuClick: () => void;
   counts: { pendingSubmissions: number; pendingMaintenance: number; pendingPurchases: number; pendingInstallations: number; pendingEmployeeRequests: number };
+  session: SessionPayload | null;
 }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const totalPending = counts.pendingSubmissions + counts.pendingMaintenance + counts.pendingPurchases + counts.pendingInstallations + counts.pendingEmployeeRequests;
@@ -67,7 +72,15 @@ export function Header({
           <div className="bg-slate-100 p-2 rounded-full">
             <User className="h-4 w-4 text-slate-700" />
           </div>
-          <span className="text-sm font-semibold text-slate-700 hidden sm:inline">علاء زايد</span>
+          <div className="hidden sm:flex flex-col leading-tight">
+            <span className="text-sm font-semibold text-slate-700">{session?.name || ""}</span>
+            {session?.role && <span className="text-[11px] text-slate-400">{ROLE_LABELS[session.role] || session.role}</span>}
+          </div>
+          <form action={logoutAction}>
+            <button type="submit" title="تسجيل الخروج" className="text-slate-400 hover:text-rose-600 transition p-1.5">
+              <LogOut className="h-4 w-4" />
+            </button>
+          </form>
         </div>
       </div>
     </header>
