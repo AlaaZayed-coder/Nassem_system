@@ -1,6 +1,8 @@
 import { getDashboardStats } from "@/lib/settings-data";
 import Link from "next/link";
 import { ArrowRight, Zap } from "lucide-react";
+import { getSession } from "@/lib/auth";
+import { canAccessPath } from "@/lib/access-control";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,10 @@ const CAT_COLORS = ["#1D9E75","#378ADD","#EF9F27","#E05252","#7C5ABF","#888780",
 
 export default async function PricingDashboardPage() {
   const data = await getDashboardStats();
+  const session = await getSession();
+  // مستخدم عنده "لوحة التسعير" كصلاحية فردية فقط (بدون بقية إدارة المخزون)
+  // ما يقدر يفتح روابطها المؤدية لصفحات أخرى — تُعرض له كعناصر غير قابلة للنقر.
+  const canNavigateInventory = session ? canAccessPath(session.role, "/dashboard/inventory/items", session.extraAccess) : false;
 
   const d = data as any;
   const kpis = [
@@ -31,23 +37,34 @@ export default async function PricingDashboardPage() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link href="/dashboard/inventory" className="btn"><ArrowRight size={14} /></Link>
+          {canNavigateInventory && <Link href="/dashboard/inventory" className="btn"><ArrowRight size={14} /></Link>}
           <h3 className="section-title" style={{ margin: 0 }}>لوحة معلومات التسعير</h3>
         </div>
-        <Link href="/dashboard/inventory/items" className="btn btn-primary">
-          <Zap size={14} /> ابدأ التسعير
-        </Link>
+        {canNavigateInventory && (
+          <Link href="/dashboard/inventory/items" className="btn btn-primary">
+            <Zap size={14} /> ابدأ التسعير
+          </Link>
+        )}
       </div>
 
       {/* KPI grid */}
       <div className="kpi-grid" style={{ marginBottom: 16, gridTemplateColumns: "repeat(5, 1fr)" }}>
         {kpis.map(k => {
           const s = KPI_STYLES[k.label] || KPI_STYLES["إجمالي"];
-          return (
-            <a key={k.label} href={k.href} className="kpi" style={{ background: s.bg, textDecoration: "none" }}>
+          const content = (
+            <>
               <div className="kpi-label" style={{ color: s.label }}>{k.label}</div>
               <div className="kpi-value" style={{ color: s.value }}>{(k.value || 0).toLocaleString("en")}</div>
+            </>
+          );
+          return canNavigateInventory ? (
+            <a key={k.label} href={k.href} className="kpi" style={{ background: s.bg, textDecoration: "none" }}>
+              {content}
             </a>
+          ) : (
+            <div key={k.label} className="kpi" style={{ background: s.bg }}>
+              {content}
+            </div>
           );
         })}
       </div>
@@ -68,17 +85,20 @@ export default async function PricingDashboardPage() {
         <>
           <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 6 }}>
             التقدّم حسب التصنيف
-            <span style={{ color: "var(--color-text-tertiary)", fontSize: 11, marginRight: 6 }}>(اضغط أي صف لفتح أصنافه)</span>
+            {canNavigateInventory && <span style={{ color: "var(--color-text-tertiary)", fontSize: 11, marginRight: 6 }}>(اضغط أي صف لفتح أصنافه)</span>}
           </div>
           <div>
             {data.categories.map((r: any, i: number) => {
               const pct = r.total ? Math.round((r.approved / r.total) * 100) : 0;
               const col = CAT_COLORS[i % CAT_COLORS.length];
+              const Tag = canNavigateInventory ? "a" : "div";
               return (
-                <a key={r.category}
-                  href={r.category === 'بدون تصنيف'
-                    ? '/dashboard/inventory/items?no_category=1'
-                    : `/dashboard/inventory/items?main_category=${encodeURIComponent(r.category)}`}
+                <Tag key={r.category}
+                  {...(canNavigateInventory ? {
+                    href: r.category === 'بدون تصنيف'
+                      ? '/dashboard/inventory/items?no_category=1'
+                      : `/dashboard/inventory/items?main_category=${encodeURIComponent(r.category)}`,
+                  } : {})}
                   className="cat-row" style={{ textDecoration: "none", display: "flex" }}>
                   <div className="cat-name">{r.category}</div>
                   <div className="cat-bar-wrap">
@@ -86,7 +106,7 @@ export default async function PricingDashboardPage() {
                   </div>
                   <div className="cat-pct">{pct}%</div>
                   <div className="cat-count">{r.approved}/{r.total}</div>
-                </a>
+                </Tag>
               );
             })}
           </div>
