@@ -23,10 +23,18 @@ import {
   notifyApproverWithContext,
   notifyRecipientsWithContext,
   acknowledgeEmployeeRequest,
+  getEmployeeRequestsForStaff,
+  getEmployeeRequestsForSupervisor,
+  getAttendanceSummaryForStaff,
+  formatRequestLine,
   REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY,
   EmployeeRequestType,
 } from "@/lib/employee-requests-data";
 import { startEmployeeRequestDraft, updateEmployeeRequestDraft } from "@/lib/order-submissions-data";
+import { getDirectReports, searchStaffByName } from "@/lib/staff-data";
+import { getSlaWarnings } from "@/lib/sla-data";
+import { getDashboardNotificationCounts, ROLE_NOTIFICATION_SCOPE } from "@/lib/dashboard-notifications";
+import { ROLE_LABELS } from "@/lib/role-labels";
 
 const EMP_REJECT_REASONS = ["ضغط عمل تشغيلي", "الرصيد لا يسمح", "تأجيل للشهر القادم"];
 
@@ -139,7 +147,7 @@ async function advanceEmpField(chatId: string, staff: { id: string; role: string
   const field = fields?.[idx];
   if (!field) {
     await clearPendingTelegramSubmission(chatId);
-    await askMainMenu(chatId, staff.role);
+    await askMainMenu(chatId, staff);
     return;
   }
 
@@ -228,33 +236,169 @@ function withBack(rows: { text: string; callback_data: string }[][]): { text: st
   return [...rows, [BACK_BUTTON]];
 }
 
-// البوت مُقتصر مؤقتاً على بوابة الموظفين فقط — أزرار الطلبيات (إدخال مباشر/كشف
-// موقع) معطّلة مؤقتاً هنا ريثما يُعاد تفعيلها لاحقاً. لإعادة التفعيل: أعد صفّي
-// menu_direct/menu_site_visit ضمن rows (الشرط ["sales","manager"].includes(staffRole) أدناه).
-async function askMainMenu(chatId: string, staffRole: string) {
+// القائمة الرئيسية تتكيّف حسب الشخص: الكل يشوف "طلب جديد/طلباتي/دوامي"،
+// "فريقي" تظهر فقط لمن عنده مرؤوسين فعلاً (بغض النظر عن دوره)، و"بحث عن
+// موظف/ملخص اليوم" لمدير النظام ومسؤول الموارد البشرية فقط. أزرار الطلبيات
+// (إدخال مباشر/كشف موقع) معطّلة مؤقتاً هنا ريثما يُعاد تفعيلها لاحقاً.
+async function askMainMenu(chatId: string, staff: { id: string; role: string }) {
+  const isManagerOrHR = staff.role === "manager" || staff.role === "hr";
+  const directReports = await getDirectReports(staff.id);
+  const isSupervisor = directReports.length > 0;
+
   const rows: { text: string; callback_data: string }[][] = [
-    [{ text: EMP_GATEWAY_LABEL, callback_data: "emp_menu" }],
+    [
+      { text: "📝 طلب جديد", callback_data: "emp_menu" },
+      { text: "📋 طلباتي", callback_data: "emp_my_requests" },
+    ],
   ];
+
+  rows.push(
+    isSupervisor
+      ? [
+          { text: "🕐 دوامي", callback_data: "emp_attendance_summary" },
+          { text: "👥 فريقي", callback_data: "emp_team" },
+        ]
+      : [{ text: "🕐 دوامي", callback_data: "emp_attendance_summary" }]
+  );
+
+  if (isManagerOrHR) {
+    rows.push([{ text: "🔍 بحث عن موظف", callback_data: "emp_search_staff" }]);
+    rows.push([{ text: "📊 ملخص اليوم", callback_data: "emp_daily_summary" }]);
+  }
+
   await sendTelegramInlineKeyboard(chatId, "ماذا تريد أن تفعل؟", rows);
 }
 
 async function askEmpMenu(chatId: string) {
   await sendTelegramInlineKeyboard(chatId, "أي طلب تريد تقديمه؟", withBack([
-    [{ text: EMP_TYPE_LABEL.loan, callback_data: "emp_new:loan" }],
-    [{ text: EMP_TYPE_LABEL.vacation, callback_data: "emp_new:vacation" }],
-    [{ text: EMP_TYPE_LABEL.permission, callback_data: "emp_new:permission" }],
-    [{ text: EMP_TYPE_LABEL.complaint, callback_data: "emp_new:complaint" }],
-    [{ text: "🕐 إثبات دوام", callback_data: "emp_attendance_menu" }],
-    [{ text: "🚨 " + EMP_TYPE_LABEL.injury_report, callback_data: "emp_new:injury_report" }],
-    [{ text: "📝 " + EMP_TYPE_LABEL.work_report, callback_data: "emp_new:work_report" }],
+    [
+      { text: "💰 سلفة", callback_data: "emp_new:loan" },
+      { text: "🌴 إجازة", callback_data: "emp_new:vacation" },
+    ],
+    [
+      { text: "🚪 مغادرة", callback_data: "emp_new:permission" },
+      { text: "😠 شكوى", callback_data: "emp_new:complaint" },
+    ],
+    [
+      { text: "🕐 إثبات دوام", callback_data: "emp_attendance_menu" },
+      { text: "🚨 تبليغ إصابة", callback_data: "emp_new:injury_report" },
+    ],
+    [{ text: "📝 تقرير عمل", callback_data: "emp_new:work_report" }],
   ]));
 }
 
 async function askAttendanceMenu(chatId: string) {
   await sendTelegramInlineKeyboard(chatId, "أي نوع إثبات دوام؟", withBack([
-    [{ text: "🌅 " + EMP_TYPE_LABEL.attendance_fix_in, callback_data: "emp_new:attendance_fix_in" }],
-    [{ text: "🌇 " + EMP_TYPE_LABEL.attendance_fix_out, callback_data: "emp_new:attendance_fix_out" }],
+    [
+      { text: "🌅 حضور", callback_data: "emp_new:attendance_fix_in" },
+      { text: "🌇 مغادرة", callback_data: "emp_new:attendance_fix_out" },
+    ],
   ]));
+}
+
+// "طلباتي" — سجل الموظف لطلباته الخاصة وحالتها، للجميع.
+async function askMyRequests(chatId: string, staffId: string) {
+  const requests = await getEmployeeRequestsForStaff(staffId);
+  if (requests.length === 0) {
+    await sendTelegramInlineKeyboard(chatId, "لم تقدّم أي طلبات بعد.", withBack([]));
+    return;
+  }
+  const shown = requests.slice(0, 10);
+  const lines = shown.map((r) => formatRequestLine(r)).join("\n\n");
+  await sendTelegramInlineKeyboard(chatId, `📋 طلباتك (آخر ${shown.length}):\n\n${lines}`, withBack([]));
+}
+
+// "دوامي" — ملخص حضور/غياب الشهر الحالي، للجميع.
+async function askMyAttendance(chatId: string, staffId: string) {
+  const summary = await getAttendanceSummaryForStaff(staffId);
+  const monthLabel = MONTH_NAMES[new Date().getMonth()];
+  const text = [
+    `🕐 دوامك خلال ${monthLabel}:`,
+    "",
+    `✅ أيام حضور: ${summary.present}`,
+    `🚫 أيام غياب: ${summary.absent}`,
+    `📝 أيام مُبرَّرة: ${summary.justified}`,
+  ].join("\n");
+  await sendTelegramInlineKeyboard(chatId, text, withBack([]));
+}
+
+// "فريقي" — طلبات فريقه المعلّقة فقط (السجل الكامل يبقى بالويب)، كل طلب
+// برسالة مستقلة مع أزرار موافقة/رفض أو "تم الاستلام" حسب نوعه — نفس أزرار
+// الإشعارات المعتادة، فيقدر يتصرّف مباشرة من نفس المحادثة.
+async function askTeamRequests(chatId: string, supervisorId: string) {
+  const directReports = await getDirectReports(supervisorId);
+  if (directReports.length === 0) {
+    await sendTelegramInlineKeyboard(chatId, "لا يوجد فريق مرتبط بحسابك حالياً.", withBack([]));
+    return;
+  }
+
+  const { pending } = await getEmployeeRequestsForSupervisor(supervisorId);
+  if (pending.length === 0) {
+    await sendTelegramInlineKeyboard(chatId, "لا توجد طلبات معلّقة من فريقك حالياً ✅", withBack([]));
+    return;
+  }
+
+  await sendTelegramMessage(chatId, `👥 لديك ${pending.length} طلب معلّق من فريقك:`);
+  for (const r of pending) {
+    const text = formatRequestLine(r, { showName: true });
+    const ackOnly = REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY[r.request_type];
+    const buttons = ackOnly
+      ? [[{ text: "✅ تم الاستلام", callback_data: `emp_ack:${r.id}` }]]
+      : [[
+          { text: "✅ موافقة", callback_data: `emp_approve:${r.id}` },
+          { text: "❌ رفض", callback_data: `emp_reject:${r.id}` },
+        ]];
+    await sendTelegramInlineKeyboard(chatId, text, buttons);
+  }
+  await sendTelegramInlineKeyboard(chatId, "انتهت القائمة.", withBack([]));
+}
+
+const OPS_NOTIFICATION_LABELS: Record<string, string> = {
+  pendingSubmissions: "طلبيات واردة قيد المراجعة",
+  pendingMaintenance: "تذاكر صيانة معلّقة",
+  pendingPurchases: "طلبات شراء معلّقة",
+  pendingInstallations: "طلبيات بانتظار إخراج التركيب",
+};
+
+// "ملخص اليوم" — لمدير النظام ومسؤول الموارد البشرية فقط: التنبيهات
+// التشغيلية اللي تخص دوره + طلبات الموظفين المعلّقة + تنبيهات SLA المتأخرة.
+async function askDailySummary(chatId: string, role: string) {
+  const [warnings, counts] = await Promise.all([getSlaWarnings(), getDashboardNotificationCounts()]);
+  const scope = ROLE_NOTIFICATION_SCOPE[role] || [];
+
+  const lines = ["📊 ملخص اليوم:", ""];
+  for (const key of scope) {
+    lines.push(`${OPS_NOTIFICATION_LABELS[key]}: ${counts[key]}`);
+  }
+  lines.push(`طلبات موظفين معلّقة: ${counts.pendingEmployeeRequests}`);
+  lines.push("", `⚠️ عناصر متأخرة (SLA): ${warnings.length}`);
+
+  await sendTelegramInlineKeyboard(chatId, lines.join("\n"), withBack([]));
+}
+
+// "بحث عن موظف" — لمدير النظام ومسؤول الموارد البشرية فقط.
+async function askStaffSearchPrompt(chatId: string) {
+  await sendTelegramInlineKeyboard(chatId, "🔍 اكتب اسم الموظف (أو جزءاً منه):", withBack([]));
+}
+
+async function handleStaffSearchQuery(chatId: string, query: string) {
+  const results = await searchStaffByName(query);
+  await clearPendingTelegramSubmission(chatId);
+
+  if (results.length === 0) {
+    await sendTelegramMessage(chatId, "لا يوجد موظف مطابق.");
+    return;
+  }
+
+  for (const s of results) {
+    const lines = [
+      `👤 ${s.name}`,
+      `الدور: ${ROLE_LABELS[s.role] || s.role}`,
+      `الحساب: ${!s.is_active ? "معطّل" : s.username ? "مفعّل" : "بدون بيانات دخول بعد"}`,
+      `رصيد الإجازات: ${s.vacation_balance_days} يوم`,
+    ];
+    await sendTelegramMessage(chatId, lines.join("\n"));
+  }
 }
 
 async function askCustomerChoice(chatId: string) {
@@ -316,6 +460,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    if (pending?.stage === "emp_search_query") {
+      if (!message.text || message.text.startsWith("/")) {
+        await sendTelegramInlineKeyboard(chatId, "اكتب اسم الموظف نصاً.", withBack([]));
+        return NextResponse.json({ ok: true });
+      }
+      await handleStaffSearchQuery(chatId, message.text);
+      return NextResponse.json({ ok: true });
+    }
+
     if (pending?.stage?.startsWith("emp_reject_custom:")) {
       const requestId = pending.stage.replace("emp_reject_custom:", "");
       if (!message.text) {
@@ -331,12 +484,12 @@ export async function POST(req: Request) {
     if (!pending) {
       await startPendingTelegramSubmission(chatId);
       await sendTelegramReplyKeyboard(chatId, "أهلاً بك 👋", [EMP_GATEWAY_LABEL]);
-      await askMainMenu(chatId, staff.role);
+      await askMainMenu(chatId, staff);
       return NextResponse.json({ ok: true });
     }
 
     if (pending.stage === "main_menu") {
-      await askMainMenu(chatId, staff.role);
+      await askMainMenu(chatId, staff);
       return NextResponse.json({ ok: true });
     }
 
@@ -346,7 +499,7 @@ export async function POST(req: Request) {
       const field = EMP_FIELDS[requestType]?.[idx];
       if (!field) {
         await clearPendingTelegramSubmission(chatId);
-        await askMainMenu(chatId, staff.role);
+        await askMainMenu(chatId, staff);
         return NextResponse.json({ ok: true });
       }
 
@@ -549,9 +702,10 @@ async function handleCallbackQuery(callbackQuery: any) {
 
   if (data === "main_menu") {
     const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
     await setPendingTelegramStage(chatId, "main_menu");
     await answerCallbackQuery(callbackQuery.id);
-    await askMainMenu(chatId, staff?.role || "");
+    await askMainMenu(chatId, staff);
     return;
   }
 
@@ -571,6 +725,47 @@ async function handleCallbackQuery(callbackQuery: any) {
   if (data === "emp_attendance_menu") {
     await answerCallbackQuery(callbackQuery.id);
     await askAttendanceMenu(chatId);
+    return;
+  }
+
+  if (data === "emp_my_requests") {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    await answerCallbackQuery(callbackQuery.id);
+    await askMyRequests(chatId, staff.id);
+    return;
+  }
+
+  if (data === "emp_attendance_summary") {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    await answerCallbackQuery(callbackQuery.id);
+    await askMyAttendance(chatId, staff.id);
+    return;
+  }
+
+  if (data === "emp_team") {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    await answerCallbackQuery(callbackQuery.id);
+    await askTeamRequests(chatId, staff.id);
+    return;
+  }
+
+  if (data === "emp_daily_summary") {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    await answerCallbackQuery(callbackQuery.id);
+    await askDailySummary(chatId, staff.role);
+    return;
+  }
+
+  if (data === "emp_search_staff") {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    await supabase.from("erp_telegram_pending_submissions").upsert([{ chat_id: chatId, stage: "emp_search_query" }]);
+    await answerCallbackQuery(callbackQuery.id);
+    await askStaffSearchPrompt(chatId);
     return;
   }
 

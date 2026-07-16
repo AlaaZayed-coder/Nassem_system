@@ -55,6 +55,72 @@ export const REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY: Record<EmployeeRequestType, bo
   work_report: true,
 };
 
+const STATUS_EMOJI: Record<string, string> = {
+  "قيد الانتظار": "⏳",
+  "موافق عليه": "✅",
+  "مرفوض": "❌",
+  "ملغى": "🚫",
+  "مُصعَّد": "⏫",
+  "تم الاستلام": "📬",
+};
+
+// وصف مختصر لتفاصيل الطلب — سطر واحد أو سطرين، لعرض مضغوط بقوائم البوت
+// ("طلباتي"، "فريقي") بدل التفاصيل الكاملة المستخدمة برسائل الإشعار.
+function formatRequestDetail(request: EmployeeRequest): string {
+  const d = request.details || {};
+  switch (request.request_type) {
+    case "loan":
+      return `المبلغ: ${d.amount} ₪${d.repayment_method ? ` — ${d.repayment_method}` : ""}`;
+    case "vacation":
+      return `من ${d.start_date} إلى ${d.end_date}${d.reason ? ` — ${d.reason}` : ""}`;
+    case "permission":
+      return `${d.date} — من ${d.from_time || "—"} إلى ${d.to_time || "—"}`;
+    case "complaint":
+      return `${d.subject ? `${d.subject}: ` : ""}${d.description || ""}`;
+    case "attendance_fix":
+      return `${d.period ? `${d.period} — ` : ""}تاريخ: ${d.date}${d.time ? ` — ${d.time}` : ""}`;
+    case "injury_report":
+      return `${d.date} — ${d.description || ""}`;
+    case "work_report":
+      return d.content || (d.voice_url ? "🎤 تقرير صوتي" : "");
+    default:
+      return "";
+  }
+}
+
+// سطر مختصر جاهز للعرض بقوائم البوت — نوع + (اسم صاحب الطلب إن طُلب) + تفاصيل + حالة.
+export function formatRequestLine(request: EmployeeRequest, opts?: { showName?: boolean }): string {
+  const typeLabel = REQUEST_TYPE_LABEL[request.request_type];
+  const statusEmoji = STATUS_EMOJI[request.status] || "";
+  const name = opts?.showName && request.erp_staff?.name ? ` (${request.erp_staff.name})` : "";
+  const date = new Date(request.created_at).toLocaleDateString("en-GB");
+  return `${statusEmoji} ${typeLabel}${name} — ${request.status}\n${formatRequestDetail(request)}\n${date}`;
+}
+
+export type AttendanceSummary = { present: number; absent: number; justified: number };
+
+// ملخص دوام الشهر الحالي لموظف — لزر "دوامي" بالبوت.
+export async function getAttendanceSummaryForStaff(staffId: string): Promise<AttendanceSummary> {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
+
+  const { data } = await supabase
+    .from("erp_attendance_logs")
+    .select("status")
+    .eq("staff_id", staffId)
+    .gte("log_date", start)
+    .lt("log_date", end);
+
+  const summary: AttendanceSummary = { present: 0, absent: 0, justified: 0 };
+  for (const row of data || []) {
+    if (row.status === "حاضر") summary.present++;
+    else if (row.status === "غائب") summary.absent++;
+    else if (row.status === "مُبرَّر") summary.justified++;
+  }
+  return summary;
+}
+
 async function getPrimaryManagerId(): Promise<string | null> {
   const { data } = await supabase
     .from("erp_staff")
