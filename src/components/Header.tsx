@@ -4,7 +4,15 @@ import { Bell, User, Menu, LogOut } from "lucide-react";
 import { useState } from "react";
 import { logoutAction } from "@/app/login/actions";
 import { ROLE_LABELS } from "@/lib/role-labels";
+import { ROLE_NOTIFICATION_SCOPE } from "@/lib/dashboard-notifications";
 import type { SessionPayload } from "@/lib/auth";
+
+const NOTIFICATION_LABELS: Record<string, string> = {
+  pendingSubmissions: "طلبيات واردة قيد المراجعة",
+  pendingMaintenance: "تذاكر صيانة معلّقة",
+  pendingPurchases: "طلبات شراء معلّقة",
+  pendingInstallations: "طلبيات بانتظار إخراج التركيب",
+};
 
 export function Header({
   onMenuClick,
@@ -16,7 +24,9 @@ export function Header({
   session: SessionPayload | null;
 }) {
   const [showNotifications, setShowNotifications] = useState(false);
-  const totalPending = counts.pendingSubmissions + counts.pendingMaintenance + counts.pendingPurchases + counts.pendingInstallations + counts.pendingEmployeeRequests;
+  // كل حساب يشوف تنبيهات تخصه هو فقط، مو تنبيهات المدراء/المشرفين الشاملة.
+  const scope = ROLE_NOTIFICATION_SCOPE[session?.role || ""] || [];
+  const totalPending = scope.reduce((sum, key) => sum + counts[key], 0);
 
   return (
     <header className="bg-white shadow-sm h-16 flex items-center justify-between px-4 md:px-6 relative">
@@ -43,27 +53,14 @@ export function Header({
 
           {showNotifications && (
             <div className="absolute left-0 top-10 w-64 bg-white rounded-xl shadow-lg border border-slate-200 p-3 z-50 text-sm">
-              <div className="flex items-center justify-between py-1.5">
-                <span className="text-slate-600">طلبيات واردة قيد المراجعة</span>
-                <span className="font-bold text-slate-800">{counts.pendingSubmissions}</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-t border-slate-100">
-                <span className="text-slate-600">تذاكر صيانة معلّقة</span>
-                <span className="font-bold text-slate-800">{counts.pendingMaintenance}</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-t border-slate-100">
-                <span className="text-slate-600">طلبات شراء معلّقة</span>
-                <span className="font-bold text-slate-800">{counts.pendingPurchases}</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-t border-slate-100">
-                <span className="text-slate-600">طلبيات بانتظار إخراج التركيب</span>
-                <span className="font-bold text-slate-800">{counts.pendingInstallations}</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-t border-slate-100">
-                <span className="text-slate-600">طلبات موظفين بانتظار الاعتماد</span>
-                <span className="font-bold text-slate-800">{counts.pendingEmployeeRequests}</span>
-              </div>
-              {totalPending === 0 && <div className="text-center text-slate-400 py-2">لا توجد تنبيهات حالياً</div>}
+              {scope.map((key, i) => (
+                <div key={key} className={`flex items-center justify-between py-1.5 ${i > 0 ? "border-t border-slate-100" : ""}`}>
+                  <span className="text-slate-600">{NOTIFICATION_LABELS[key]}</span>
+                  <span className="font-bold text-slate-800">{counts[key]}</span>
+                </div>
+              ))}
+              {scope.length === 0 && <div className="text-center text-slate-400 py-2">لا توجد تنبيهات تخصك حالياً</div>}
+              {scope.length > 0 && totalPending === 0 && <div className="text-center text-slate-400 py-2">لا توجد تنبيهات حالياً</div>}
             </div>
           )}
         </div>

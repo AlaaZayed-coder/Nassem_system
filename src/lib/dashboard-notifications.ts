@@ -8,6 +8,16 @@ export type DashboardNotificationCounts = {
   pendingEmployeeRequests: number;
 };
 
+// أي فئات تنبيه يشوفها كل دور بجرس الإشعارات — كل دور يشوف فقط ما يخصه، لا
+// كل شيء دائماً. "طلبات موظفين بانتظار الاعتماد" مُستثناة عمداً من الجرس
+// حالياً (تُعرض بدلاً منها كـ badge على رابط "طلبات الموظفين" بالقائمة الجانبية).
+export const ROLE_NOTIFICATION_SCOPE: Record<string, (keyof Omit<DashboardNotificationCounts, "pendingEmployeeRequests">)[]> = {
+  manager: ["pendingSubmissions", "pendingMaintenance", "pendingPurchases", "pendingInstallations"],
+  order_processor: ["pendingSubmissions"],
+  production: ["pendingMaintenance", "pendingInstallations"],
+  purchasing: ["pendingPurchases"],
+};
+
 export async function getDashboardNotificationCounts(): Promise<DashboardNotificationCounts> {
   const [{ count: pendingSubmissions }, { count: pendingMaintenance }, { count: pendingPurchases }, { count: pendingInstallations }, { count: pendingEmployeeRequests }] = await Promise.all([
     supabase.from("erp_order_submissions").select("*", { count: "exact", head: true }).eq("status", "قيد المراجعة"),
