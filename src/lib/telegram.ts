@@ -12,7 +12,7 @@ export async function sendTelegramMessage(chatId: string, text: string, withMini
         chat_id: chatId,
         text,
         ...(withMiniAppButton
-          ? { reply_markup: { inline_keyboard: [[{ text: "فتح تطبيق المصنع", web_app: { url: TELEGRAM_MINI_APP_URL } }]] } }
+          ? { reply_markup: { inline_keyboard: [[{ text: "Business hub", web_app: { url: TELEGRAM_MINI_APP_URL } }]] } }
           : {}),
       }),
     });

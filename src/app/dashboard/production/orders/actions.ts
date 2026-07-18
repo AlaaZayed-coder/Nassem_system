@@ -64,7 +64,7 @@ export async function createProductionOrderAction(formData: FormData) {
                 text: message,
                 reply_markup: {
                   inline_keyboard: [[
-                    { text: "فتح تطبيق المصنع", web_app: { url: "https://nassem-system.vercel.app/telegram-app" } }
+                    { text: "Business hub", web_app: { url: "https://nassem-system.vercel.app/telegram-app" } }
                   ]]
                 }
               })
