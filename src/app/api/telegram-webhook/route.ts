@@ -36,7 +36,7 @@ import { getDirectReports, searchStaffByName } from "@/lib/staff-data";
 import { getSlaWarnings } from "@/lib/sla-data";
 import { getDashboardNotificationCounts, ROLE_NOTIFICATION_SCOPE } from "@/lib/dashboard-notifications";
 import { ROLE_LABELS } from "@/lib/role-labels";
-import { sendBroadcastMessage, type BroadcastTarget } from "@/lib/broadcast";
+import { sendBroadcastMessage, sendTrackedMessage, type BroadcastTarget } from "@/lib/broadcast";
 
 const EMP_REJECT_REASONS = ["ضغط عمل تشغيلي", "الرصيد لا يسمح", "تأجيل للشهر القادم"];
 
@@ -639,12 +639,17 @@ export async function POST(req: Request) {
       }
       const { data: sender } = await supabase
         .from("erp_staff")
-        .select("telegram_chat_id")
+        .select("id, telegram_chat_id")
         .eq("id", senderStaffId)
         .maybeSingle();
 
       if (sender?.telegram_chat_id) {
-        await sendTelegramMessage(sender.telegram_chat_id, `↩️ رد من ${staff.name}:\n\n${message.text}`);
+        await sendTrackedMessage({
+          senderStaffId: staff.id,
+          recipientStaffId: sender.id,
+          recipientChatId: sender.telegram_chat_id,
+          text: `↩️ رد من ${staff.name}:\n\n${message.text}`,
+        });
         await sendTelegramInlineKeyboard(chatId, "✅ تم إرسال ردك.", withBack([]));
       } else {
         await sendTelegramInlineKeyboard(chatId, "تعذّر إيصال ردك، حساب المُرسل غير متاح حالياً.", withBack([]));

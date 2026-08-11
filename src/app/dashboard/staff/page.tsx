@@ -9,15 +9,18 @@ import { BroadcastForm } from "./broadcast-form";
 import { StaffFilters } from "./staff-filters";
 import { ExportCsvButton } from "./export-csv-button";
 import { PrintButton } from "@/components/PrintButton";
+import { MessagesLog } from "./messages-log";
+import { getBroadcastMessagesLog } from "@/lib/broadcast";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = { tab?: string; q?: string; role?: string; status?: string };
+type SearchParams = { tab?: string; q?: string; role?: string; status?: string; page?: string };
 
 const TABS = [
   { key: "list", label: "الموظفين المسجلين" },
   { key: "add", label: "إضافة موظف جديد" },
   { key: "broadcast", label: "إرسال رسالة" },
+  { key: "messages", label: "سجل الرسائل" },
 ] as const;
 
 export default async function StaffPage({ searchParams }: { searchParams: SearchParams }) {
@@ -30,6 +33,8 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
   const q = (searchParams.q || "").trim();
   const roleFilter = searchParams.role || "";
   const statusFilter = searchParams.status || "";
+  const messagesPage = Number(searchParams.page) || 1;
+  const messagesLog = activeTab === "messages" ? await getBroadcastMessagesLog(messagesPage) : null;
 
   const filteredList = staffList.filter((s) => {
     if (q && !s.name.includes(q)) return false;
@@ -111,7 +116,14 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
         </div>
       )}
 
-      {activeTab !== "add" && activeTab !== "broadcast" && (
+      {activeTab === "messages" && messagesLog && (
+        <MessagesLog
+          entries={messagesLog.data}
+          pagination={{ page: messagesLog.page, pageSize: messagesLog.pageSize, total: messagesLog.total }}
+        />
+      )}
+
+      {activeTab !== "add" && activeTab !== "broadcast" && activeTab !== "messages" && (
         <div className="space-y-4">
           <div className="print:hidden flex items-center justify-between flex-wrap gap-3">
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">

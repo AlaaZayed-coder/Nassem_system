@@ -19,10 +19,11 @@ export async function sendTelegramMessage(chatId: string, text: string, withMini
   } catch (err) {}
 }
 
-// نفس sendTelegramMessage لكن مع زر شفاف "↩️ رد" ملتصق بالرسالة — عند
-// الضغط عليه يدخل الموظف بوضع كتابة رد يُوجَّه تلقائياً لمُرسِل الرسالة
-// الأصلي (انظر معالجة bmsg_reply: بملف بوت تيليجرام). يرجّع معرّف الرسالة
-// المُرسَلة للتوثيق فقط.
+// نفس sendTelegramMessage لكن مع زر شفاف "↩️ رد" + "🔙 القائمة الرئيسية"
+// ملتصقين بالرسالة دائماً معاً — عند الضغط على "رد" يدخل الموظف بوضع كتابة
+// رد يُوجَّه تلقائياً لمُرسِل الرسالة الأصلي (انظر معالجة bmsg_reply: بملف
+// بوت تيليجرام)، وزر القائمة الرئيسية يبقى متاحاً دائماً بجانبه للخروج من
+// أي وقت. يرجّع معرّف الرسالة المُرسَلة للتوثيق فقط.
 export async function sendTelegramMessageWithReplyButton(
   chatId: string,
   text: string,
@@ -38,7 +39,12 @@ export async function sendTelegramMessageWithReplyButton(
       body: JSON.stringify({
         chat_id: chatId,
         text,
-        reply_markup: { inline_keyboard: [[{ text: "↩️ رد", callback_data: callbackData }]] },
+        reply_markup: {
+          inline_keyboard: [[
+            { text: "↩️ رد", callback_data: callbackData },
+            { text: "🔙 القائمة الرئيسية", callback_data: "main_menu" },
+          ]],
+        },
       }),
     });
     const data = await res.json();
