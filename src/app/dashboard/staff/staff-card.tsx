@@ -11,12 +11,18 @@ import type { Staff } from "@/lib/staff-data";
 export function StaffCard({ staff, allStaff }: { staff: Staff; allStaff: Staff[] }) {
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
   const supervisor = staff.supervisor_id ? allStaff.find((s) => s.id === staff.supervisor_id) : null;
 
   const handleDelete = () => {
+    setDeleteError(null);
     startDeleteTransition(async () => {
-      await deleteStaffAction(staff.id);
+      const result = await deleteStaffAction(staff.id);
+      if (result?.error) {
+        setDeleteError(result.error);
+        setConfirmingDelete(false);
+      }
     });
   };
 
@@ -29,9 +35,16 @@ export function StaffCard({ staff, allStaff }: { staff: Staff; allStaff: Staff[]
           <div className="flex justify-between items-start">
             <div>
               <h3 className="font-bold text-lg text-slate-800">{staff.name}</h3>
-              <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${ROLE_COLORS[staff.role] || "bg-slate-100 text-slate-800"}`}>
-                {ROLE_LABELS[staff.role] || staff.role}
-              </span>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${ROLE_COLORS[staff.role] || "bg-slate-100 text-slate-800"}`}>
+                  {ROLE_LABELS[staff.role] || staff.role}
+                </span>
+                {!staff.is_active && (
+                  <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-200 text-slate-600">
+                    معطّل
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-1">
               <button
@@ -52,6 +65,13 @@ export function StaffCard({ staff, allStaff }: { staff: Staff; allStaff: Staff[]
               </button>
             </div>
           </div>
+
+          {deleteError && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-1.5">
+              <TriangleAlert className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+              <p className="text-sm font-bold text-rose-700">{deleteError}</p>
+            </div>
+          )}
 
           {confirmingDelete && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 flex flex-col gap-2">

@@ -69,6 +69,11 @@ export function StaffEditForm({ staff, allStaff, onCancel, onSaved }: { staff: S
         ))}
       </select>
 
+      <label className="flex items-center gap-2 text-sm text-slate-700 px-1">
+        <input type="checkbox" name="is_active" defaultChecked={staff.is_active} className="accent-indigo-600" />
+        الحساب نشط (إلغاء التحديد يعطّل حساب الموظف دون حذف بياناته)
+      </label>
+
       <div className="border border-slate-200 rounded-lg overflow-hidden">
         <button
           type="button"

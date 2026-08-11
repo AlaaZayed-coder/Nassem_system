@@ -48,6 +48,7 @@ export async function updateStaffAction(id: string, formData: FormData) {
   const telegram_chat_id = formData.get("telegram_chat_id") as string;
   const supervisor_id = (formData.get("supervisor_id") as string || "").trim();
   const extra_access = formData.getAll("extra_access") as string[];
+  const is_active = formData.get("is_active") === "on";
 
   if (!name || !role) throw new Error("الاسم والدور مطلوبان");
   if (supervisor_id === id) throw new Error("لا يمكن أن يكون الموظف مسؤوله المباشر عن نفسه");
@@ -61,6 +62,7 @@ export async function updateStaffAction(id: string, formData: FormData) {
       telegram_chat_id: telegram_chat_id || null,
       supervisor_id: supervisor_id || null,
       extra_access,
+      is_active,
     })
     .eq("id", id);
 
@@ -68,14 +70,24 @@ export async function updateStaffAction(id: string, formData: FormData) {
   revalidatePath("/dashboard/staff");
 }
 
-export async function deleteStaffAction(id: string) {
+// حذف نهائي — يُرفض من قاعدة البيانات (23503) لو للموظف سجلات مرتبطة
+// (طلبات، رسائل مُرسلة/مستلمة...) حفاظاً على السجل التاريخي/التدقيقي؛
+// الخيار البديل حينها هو تعطيل الحساب (is_active) بدل حذفه فعلياً.
+export async function deleteStaffAction(id: string): Promise<{ error?: string }> {
   const { error } = await supabase
     .from("erp_staff")
     .delete()
     .eq("id", id);
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (error.code === "23503") {
+      return { error: "لا يمكن حذف هذا الموظف لوجود سجلات مرتبطة به (طلبات، رسائل، أو موظفون تابعون له إدارياً). يمكنك تعطيل حسابه بدلاً من ذلك من زر التعديل." };
+    }
+    return { error: error.message };
+  }
+
   revalidatePath("/dashboard/staff");
+  return {};
 }
 
 // إرسال رسالة عبر تيليجرام — تعميم لكل الموظفين، أو لعدد مختار منهم. المنطق
