@@ -2,7 +2,7 @@
 
 import { supabase } from "@/lib/supabase";
 import { hashPassword } from "@/lib/password";
-import { sendTelegramMessage, sendTelegramMessageWithReply } from "@/lib/telegram";
+import { sendTelegramMessage, sendTelegramMessageWithReplyButton } from "@/lib/telegram";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
@@ -79,10 +79,10 @@ export async function deleteStaffAction(id: string) {
 }
 
 // إرسال رسالة عبر تيليجرام — تعميم لكل الموظفين، أو لعدد مختار منهم. تُرسل
-// بخاصية "الرد السريع" (force_reply) وتُسجَّل بجدول erp_broadcast_messages
-// حتى لو ردّ الموظف عليها، نوجّه ردّه تلقائياً لنفس الشخص اللي أرسلها (انظر
-// معالجة reply_to_message بملف بوت تيليجرام). متاحة فقط من صفحة إدارة
-// الموظفين (مدير النظام ومسؤول الموارد البشرية، حسب صلاحيات الصفحة نفسها).
+// مع زر شفاف "↩️ رد" وتُسجَّل بجدول erp_broadcast_messages، فإذا ضغط
+// الموظف الزر نوجّه ردّه تلقائياً لنفس الشخص اللي أرسلها (انظر معالجة
+// bmsg_reply: بملف بوت تيليجرام). متاحة فقط من صفحة إدارة الموظفين (مدير
+// النظام ومسؤول الموارد البشرية، حسب صلاحيات الصفحة نفسها).
 export async function broadcastMessageAction(formData: FormData): Promise<{ error?: string; sent?: number }> {
   const session = await getSession();
   if (!session) return { error: "غير مصرح" };
@@ -134,15 +134,22 @@ export async function broadcastMessageAction(formData: FormData): Promise<{ erro
     if (!r.telegram_chat_id) continue;
 
     if (senderChatId) {
-      const messageId = await sendTelegramMessageWithReply(r.telegram_chat_id, text);
-      if (messageId) {
-        await supabase.from("erp_broadcast_messages").insert([{
+      const { data: logRow } = await supabase
+        .from("erp_broadcast_messages")
+        .insert([{
           sender_staff_id: session.staffId,
           recipient_staff_id: r.id,
-          telegram_message_id: messageId,
           telegram_chat_id: r.telegram_chat_id,
           message_text: text,
-        }]);
+        }])
+        .select("id")
+        .single();
+
+      if (logRow) {
+        const messageId = await sendTelegramMessageWithReplyButton(r.telegram_chat_id, text, `bmsg_reply:${logRow.id}`);
+        if (messageId) {
+          await supabase.from("erp_broadcast_messages").update({ telegram_message_id: messageId }).eq("id", logRow.id);
+        }
       }
     } else {
       // المُرسِل نفسه بدون حساب تيليجرام مرتبط — ما فيه وين يرجع الرد، رسالة عادية بلا تتبع.

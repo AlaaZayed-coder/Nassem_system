@@ -438,13 +438,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // رد على رسالة "تعميم/رسالة فردية" أُرسلت من الويب (تحمل force_reply) —
-    // يُحوَّل مباشرة لنفس الشخص اللي أرسلها، بغض النظر عن أي محادثة جارية.
-    if (message.reply_to_message?.message_id) {
-      const handled = await handleBroadcastReply(chatId, message.reply_to_message.message_id, message.text, staff);
-      if (handled) return NextResponse.json({ ok: true });
-    }
-
     // زر ثابت أسفل الشاشة يعمل من أي مكان في أي محادثة جارية — يقاطعها
     // وينقل الموظف مباشرة لقائمة طلباته دون فقدان تسجيله ككل.
     if (message.text === EMP_GATEWAY_LABEL) {
@@ -473,6 +466,28 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true });
       }
       await handleStaffSearchQuery(chatId, message.text);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (pending?.stage?.startsWith("bmsg_reply_compose:")) {
+      const senderStaffId = pending.stage.replace("bmsg_reply_compose:", "");
+      if (!message.text || message.text.startsWith("/")) {
+        await sendTelegramMessage(chatId, "الرجاء إرسال ردك نصاً.");
+        return NextResponse.json({ ok: true });
+      }
+      const { data: sender } = await supabase
+        .from("erp_staff")
+        .select("telegram_chat_id")
+        .eq("id", senderStaffId)
+        .maybeSingle();
+
+      if (sender?.telegram_chat_id) {
+        await sendTelegramMessage(sender.telegram_chat_id, `↩️ رد من ${staff.name}:\n\n${message.text}`);
+        await sendTelegramMessage(chatId, "✅ تم إرسال ردك.");
+      } else {
+        await sendTelegramMessage(chatId, "تعذّر إيصال ردك، حساب المُرسل غير متاح حالياً.");
+      }
+      await setPendingTelegramStage(chatId, "main_menu");
       return NextResponse.json({ ok: true });
     }
 
@@ -794,6 +809,24 @@ async function handleCallbackQuery(callbackQuery: any) {
     return;
   }
 
+  if (data.startsWith("bmsg_reply:")) {
+    const broadcastId = data.replace("bmsg_reply:", "");
+    const { data: original } = await supabase
+      .from("erp_broadcast_messages")
+      .select("sender_staff_id")
+      .eq("id", broadcastId)
+      .maybeSingle();
+
+    if (!original) { await answerCallbackQuery(callbackQuery.id, "تعذّر إيجاد الرسالة"); return; }
+
+    await supabase.from("erp_telegram_pending_submissions").upsert([{
+      chat_id: chatId, stage: `bmsg_reply_compose:${original.sender_staff_id}`,
+    }]);
+    await answerCallbackQuery(callbackQuery.id);
+    await sendTelegramMessage(chatId, "✍️ اكتب ردك:");
+    return;
+  }
+
   if (data === "noop") {
     await answerCallbackQuery(callbackQuery.id);
     return;
@@ -930,39 +963,6 @@ async function uploadTelegramFileToStorage(fileId: string, ext: string): Promise
   return data.publicUrl;
 }
 
-// يتحقق هل الرسالة رد على تعميم/رسالة فردية أُرسلت من الويب، وإذا كانت
-// كذلك يحوّل نص الرد لنفس المُرسِل الأصلي عبر تيليجرام. يرجّع false لو
-// الرسالة اللي رُدّ عليها مو من نوع التعميم، فتكمل بقية المعالجة الطبيعية.
-async function handleBroadcastReply(chatId: string, replyToMessageId: number, replyText: string | undefined, staff: { name: string }): Promise<boolean> {
-  const { data: original } = await supabase
-    .from("erp_broadcast_messages")
-    .select("sender_staff_id")
-    .eq("telegram_chat_id", chatId)
-    .eq("telegram_message_id", replyToMessageId)
-    .maybeSingle();
-
-  if (!original) return false;
-
-  if (!replyText || replyText.startsWith("/")) {
-    await sendTelegramMessage(chatId, "الرجاء إرسال ردك نصاً.");
-    return true;
-  }
-
-  const { data: sender } = await supabase
-    .from("erp_staff")
-    .select("telegram_chat_id")
-    .eq("id", original.sender_staff_id)
-    .maybeSingle();
-
-  if (!sender?.telegram_chat_id) {
-    await sendTelegramMessage(chatId, "تعذّر إيصال ردك، حساب المُرسل غير متاح حالياً.");
-    return true;
-  }
-
-  await sendTelegramMessage(sender.telegram_chat_id, `↩️ رد من ${staff.name}:\n\n${replyText}`);
-  await sendTelegramMessage(chatId, "✅ تم إرسال ردك.");
-  return true;
-}
 
 async function notifyOrderProcessors(senderName: string, customerName: string) {
   const { data: processors } = await supabase

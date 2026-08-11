@@ -1,11 +1,12 @@
--- يربط كل رسالة تُرسل من الويب (تعميم/فردية) بمعرّف رسالة تيليجرام الفعلي +
--- مُرسِلها، حتى لو ردّ الموظف عليها (Telegram reply) نقدر نوجّه الرد لنفس
--- الشخص اللي أرسلها، بدل ما يضيع أو يدخل في تدفق البوت العادي.
+-- يربط كل رسالة تُرسل من الويب (تعميم/فردية) بمُرسِلها، حتى لو ضغط الموظف
+-- زر "↩️ رد" الملتصق بالرسالة نقدر نوجّه ردّه لنفس الشخص اللي أرسلها. الصف
+-- يُنشأ قبل إرسال الرسالة فعلياً (لتضمين معرّفه بزر الرد نفسه)، لذا
+-- telegram_message_id يُملأ لاحقاً وهو قابل لأن يكون فارغاً.
 CREATE TABLE IF NOT EXISTS erp_broadcast_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   sender_staff_id UUID NOT NULL REFERENCES erp_staff(id),
   recipient_staff_id UUID NOT NULL REFERENCES erp_staff(id),
-  telegram_message_id BIGINT NOT NULL,
+  telegram_message_id BIGINT,
   telegram_chat_id TEXT NOT NULL,
   message_text TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()

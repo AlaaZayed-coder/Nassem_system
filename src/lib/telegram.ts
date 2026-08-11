@@ -19,10 +19,15 @@ export async function sendTelegramMessage(chatId: string, text: string, withMini
   } catch (err) {}
 }
 
-// نفس sendTelegramMessage لكن بـ force_reply — يفتح صندوق الرد تلقائياً عند
-// المستلم، ويرجّع معرّف الرسالة المُرسَلة (لازم لربط رد الموظف لاحقاً
-// بمُرسِلها الأصلي عبر جدول erp_broadcast_messages).
-export async function sendTelegramMessageWithReply(chatId: string, text: string): Promise<number | null> {
+// نفس sendTelegramMessage لكن مع زر شفاف "↩️ رد" ملتصق بالرسالة — عند
+// الضغط عليه يدخل الموظف بوضع كتابة رد يُوجَّه تلقائياً لمُرسِل الرسالة
+// الأصلي (انظر معالجة bmsg_reply: بملف بوت تيليجرام). يرجّع معرّف الرسالة
+// المُرسَلة للتوثيق فقط.
+export async function sendTelegramMessageWithReplyButton(
+  chatId: string,
+  text: string,
+  callbackData: string
+): Promise<number | null> {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!botToken) return null;
 
@@ -33,7 +38,7 @@ export async function sendTelegramMessageWithReply(chatId: string, text: string)
       body: JSON.stringify({
         chat_id: chatId,
         text,
-        reply_markup: { force_reply: true },
+        reply_markup: { inline_keyboard: [[{ text: "↩️ رد", callback_data: callbackData }]] },
       }),
     });
     const data = await res.json();
