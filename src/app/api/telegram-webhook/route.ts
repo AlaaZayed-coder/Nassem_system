@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { sendTelegramMessage, sendTelegramInlineKeyboard, sendTelegramReplyKeyboard, getTelegramFileUrl } from "@/lib/telegram";
+import { sendTelegramMessage, sendTelegramInlineKeyboard, sendTelegramReplyKeyboard, sendTelegramVoice, getTelegramFileUrl } from "@/lib/telegram";
 import {
   getStaffByTelegramChatId,
   createOrderSubmission,
@@ -25,6 +25,7 @@ import {
   acknowledgeEmployeeRequest,
   getEmployeeRequestsForStaff,
   getEmployeeRequestsForSupervisor,
+  getEmployeeRequests,
   getAttendanceSummaryForStaff,
   formatRequestLine,
   REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY,
@@ -263,11 +264,7 @@ async function askMainMenu(chatId: string, staff: { id: string; role: string }) 
   );
 
   if (isManagerOrHR) {
-    rows.push([
-      { text: "🔍 بحث عن موظف", callback_data: "emp_search_staff" },
-      { text: "📊 ملخص اليوم", callback_data: "emp_daily_summary" },
-    ]);
-    rows.push([{ text: "📢 إرسال رسالة", callback_data: "bmsg_menu" }]);
+    rows.push([{ text: "⚙️ أدوات الإدارة", callback_data: "admin_tools_menu" }]);
   }
 
   await sendTelegramInlineKeyboard(chatId, "ماذا تريد أن تفعل؟", rows);
@@ -363,6 +360,100 @@ const OPS_NOTIFICATION_LABELS: Record<string, string> = {
   pendingPurchases: "طلبات شراء معلّقة",
   pendingInstallations: "طلبيات بانتظار إخراج التركيب",
 };
+
+// قائمة أدوات الإدارة — نقطة دخول واحدة على القائمة الرئيسية لمدير النظام
+// ومسؤول الموارد البشرية، تجمع كل أدوات الإدارة بدل تكديسها كأزرار منفصلة.
+async function askAdminToolsMenu(chatId: string) {
+  await sendTelegramInlineKeyboard(chatId, "⚙️ أدوات الإدارة:", withBack([
+    [
+      { text: "🔍 بحث عن موظف", callback_data: "emp_search_staff" },
+      { text: "📊 ملخص اليوم", callback_data: "emp_daily_summary" },
+    ],
+    [
+      { text: "📢 إرسال رسالة", callback_data: "bmsg_menu" },
+      { text: "📋 كل الطلبات المعلّقة", callback_data: "admin_all_pending" },
+    ],
+    [
+      { text: "📝 آخر تقارير العمل", callback_data: "admin_work_reports" },
+      { text: "➕ إضافة موظف", callback_data: "admin_add_staff" },
+    ],
+    [{ text: "🚫 تعطيل/تفعيل موظف", callback_data: "admin_toggle_staff" }],
+  ]));
+}
+
+// "كل الطلبات المعلّقة" — عرض شامل لكل طلبات الموظفين المعلّقة بالشركة (لا
+// يقتصر على فريق مباشر)، فمدير النظام هو المعتمِد الافتراضي لأي طلب بغض
+// النظر عن التسلسل الإداري. نفس أزرار الموافقة/الرفض/الاستلام المعتادة.
+async function askAllPendingRequests(chatId: string) {
+  const pending = await getEmployeeRequests("قيد الانتظار");
+  if (pending.length === 0) {
+    await sendTelegramInlineKeyboard(chatId, "لا توجد طلبات معلّقة حالياً ✅", withBack([]));
+    return;
+  }
+
+  await sendTelegramMessage(chatId, `📋 يوجد ${pending.length} طلب معلّق بالشركة:`);
+  for (const r of pending) {
+    const text = formatRequestLine(r, { showName: true });
+    const ackOnly = REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY[r.request_type];
+    const buttons = ackOnly
+      ? [[{ text: "✅ تم الاستلام", callback_data: `emp_ack:${r.id}` }]]
+      : [[
+          { text: "✅ موافقة", callback_data: `emp_approve:${r.id}` },
+          { text: "❌ رفض", callback_data: `emp_reject:${r.id}` },
+        ]];
+    await sendTelegramInlineKeyboard(chatId, text, buttons);
+  }
+  await sendTelegramInlineKeyboard(chatId, "انتهت القائمة.", withBack([]));
+}
+
+// "آخر تقارير العمل" — آخر تقارير العمل الواردة (نصية أو صوتية)، لمتابعتها
+// لو فات أحداً إشعارها اللحظي.
+async function askRecentWorkReports(chatId: string) {
+  const reports = (await getEmployeeRequests()).filter((r) => r.request_type === "work_report").slice(0, 8);
+  if (reports.length === 0) {
+    await sendTelegramInlineKeyboard(chatId, "لا توجد تقارير عمل بعد.", withBack([]));
+    return;
+  }
+
+  for (const r of reports) {
+    const name = r.erp_staff?.name || "—";
+    const date = new Date(r.created_at).toLocaleDateString("en-GB");
+    await sendTelegramMessage(chatId, `📝 تقرير عمل من ${name} — ${date}`);
+    if (r.details?.content) {
+      await sendTelegramMessage(chatId, r.details.content);
+    } else if (r.details?.voice_url) {
+      await sendTelegramVoice(chatId, r.details.voice_url);
+    }
+  }
+  await sendTelegramInlineKeyboard(chatId, "انتهت القائمة.", withBack([]));
+}
+
+// "إضافة موظف" — نموذج مختصر عبر البوت (اسم/دور/هاتف/شات آيدي) بدل إلزام
+// المدير فتح الويب لكل تسجيل جديد. البيانات الجزئية تُحفظ بعمود emp_draft
+// (نفس آلية طلبات الموظفين متعددة الحقول) حتى تكتمل كل الحقول.
+async function askAdminAddRole(chatId: string) {
+  const roles = Object.entries(ROLE_LABELS);
+  const rows: { text: string; callback_data: string }[][] = [];
+  for (let i = 0; i < roles.length; i += 2) {
+    rows.push(roles.slice(i, i + 2).map(([key, label]) => ({ text: label, callback_data: `admin_add_role:${key}` })));
+  }
+  await sendTelegramInlineKeyboard(chatId, "اختر دور الموظف الجديد:", withBack(rows));
+}
+
+// "تعطيل/تفعيل موظف" — بحث بالاسم ثم تبديل حالة الحساب بضغطة واحدة.
+async function askToggleStaffSearch(chatId: string) {
+  await sendTelegramInlineKeyboard(chatId, "🔍 اكتب اسم الموظف المطلوب تعطيله أو تفعيله:", withBack([]));
+}
+
+async function handleToggleStaffSearch(chatId: string, query: string) {
+  const results = await searchStaffByName(query);
+  if (results.length === 0) {
+    await sendTelegramInlineKeyboard(chatId, "لا يوجد موظف مطابق.", withBack([]));
+    return;
+  }
+  const rows = results.slice(0, 8).map((s) => [{ text: `${s.name} ${s.is_active ? "🟢" : "🔴"}`, callback_data: `admin_toggle_pick:${s.id}` }]);
+  await sendTelegramInlineKeyboard(chatId, "اختر الموظف:", withBack(rows));
+}
 
 // "ملخص اليوم" — لمدير النظام ومسؤول الموارد البشرية فقط: التنبيهات
 // التشغيلية اللي تخص دوره + طلبات الموظفين المعلّقة + تنبيهات SLA المتأخرة.
@@ -532,7 +623,11 @@ export async function POST(req: Request) {
 
       const result = await sendBroadcastMessage({ senderStaffId: staff.id, target, targetIds, message: message.text });
       await setPendingTelegramStage(chatId, "main_menu");
-      await sendTelegramMessage(chatId, result.error ? `تعذّر الإرسال: ${result.error}` : `✅ تم الإرسال إلى ${result.sent} موظف`);
+      await sendTelegramInlineKeyboard(
+        chatId,
+        result.error ? `تعذّر الإرسال: ${result.error}` : `✅ تم الإرسال إلى ${result.sent} موظف`,
+        withBack([])
+      );
       return NextResponse.json({ ok: true });
     }
 
@@ -550,11 +645,82 @@ export async function POST(req: Request) {
 
       if (sender?.telegram_chat_id) {
         await sendTelegramMessage(sender.telegram_chat_id, `↩️ رد من ${staff.name}:\n\n${message.text}`);
-        await sendTelegramMessage(chatId, "✅ تم إرسال ردك.");
+        await sendTelegramInlineKeyboard(chatId, "✅ تم إرسال ردك.", withBack([]));
       } else {
-        await sendTelegramMessage(chatId, "تعذّر إيصال ردك، حساب المُرسل غير متاح حالياً.");
+        await sendTelegramInlineKeyboard(chatId, "تعذّر إيصال ردك، حساب المُرسل غير متاح حالياً.", withBack([]));
       }
       await setPendingTelegramStage(chatId, "main_menu");
+      return NextResponse.json({ ok: true });
+    }
+
+    if (pending?.stage === "admin_toggle_search") {
+      if (!message.text || message.text.startsWith("/")) {
+        await sendTelegramInlineKeyboard(chatId, "اكتب اسم الموظف نصاً.", withBack([]));
+        return NextResponse.json({ ok: true });
+      }
+      if (staff.role !== "manager" && staff.role !== "hr") {
+        await clearPendingTelegramSubmission(chatId);
+        await sendTelegramMessage(chatId, "غير مصرح.");
+        return NextResponse.json({ ok: true });
+      }
+      await handleToggleStaffSearch(chatId, message.text);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (pending?.stage?.startsWith("admin_add_staff:")) {
+      if (staff.role !== "manager" && staff.role !== "hr") {
+        await clearPendingTelegramSubmission(chatId);
+        await sendTelegramMessage(chatId, "غير مصرح.");
+        return NextResponse.json({ ok: true });
+      }
+      const idx = Number(pending.stage.replace("admin_add_staff:", ""));
+      const draft = { ...(pending.emp_draft || {}) };
+
+      if (idx === 1) {
+        await askAdminAddRole(chatId);
+        return NextResponse.json({ ok: true });
+      }
+
+      if (!message.text || message.text.startsWith("/")) {
+        await sendTelegramInlineKeyboard(chatId, "اكتب نصاً.", withBack([]));
+        return NextResponse.json({ ok: true });
+      }
+      const value = message.text.trim();
+
+      if (idx === 0) {
+        draft.name = value;
+        await updateEmployeeRequestDraft(chatId, draft, "admin_add_staff:1");
+        await askAdminAddRole(chatId);
+        return NextResponse.json({ ok: true });
+      }
+
+      if (idx === 2) {
+        draft.phone = value === "تخطي" ? null : value;
+        await updateEmployeeRequestDraft(chatId, draft, "admin_add_staff:3");
+        await sendTelegramInlineKeyboard(
+          chatId,
+          "🔗 رقم الشات على تيليجرام إن وُجد (اطلب من الموظف إرسال /start للبوت ليحصل عليه)، أو اكتب \"تخطي\":",
+          withBack([])
+        );
+        return NextResponse.json({ ok: true });
+      }
+
+      if (idx === 3) {
+        draft.telegram_chat_id = value === "تخطي" ? null : value;
+        const { error } = await supabase.from("erp_staff").insert([{
+          name: draft.name, role: draft.role, phone: draft.phone || null, telegram_chat_id: draft.telegram_chat_id || null,
+        }]);
+        await clearPendingTelegramSubmission(chatId);
+        await sendTelegramInlineKeyboard(
+          chatId,
+          error ? `تعذّرت الإضافة: ${error.message}` : `✅ تمت إضافة ${draft.name} بنجاح`,
+          withBack([])
+        );
+        return NextResponse.json({ ok: true });
+      }
+
+      await clearPendingTelegramSubmission(chatId);
+      await askMainMenu(chatId, staff);
       return NextResponse.json({ ok: true });
     }
 
@@ -873,6 +1039,92 @@ async function handleCallbackQuery(callbackQuery: any) {
     await startEmployeeRequestDraft(chatId, requestType);
     await answerCallbackQuery(callbackQuery.id);
     await promptEmpField(chatId, fields[0], `${EMP_TYPE_LABEL[requestType]}:`);
+    return;
+  }
+
+  if (data === "admin_tools_menu") {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    await answerCallbackQuery(callbackQuery.id);
+    await askAdminToolsMenu(chatId);
+    return;
+  }
+
+  if (data === "admin_all_pending") {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    await answerCallbackQuery(callbackQuery.id);
+    await askAllPendingRequests(chatId);
+    return;
+  }
+
+  if (data === "admin_work_reports") {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    await answerCallbackQuery(callbackQuery.id);
+    await askRecentWorkReports(chatId);
+    return;
+  }
+
+  if (data === "admin_add_staff") {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    await supabase.from("erp_telegram_pending_submissions").upsert([{ chat_id: chatId, stage: "admin_add_staff:0", emp_draft: {} }]);
+    await answerCallbackQuery(callbackQuery.id);
+    await sendTelegramInlineKeyboard(chatId, "👤 اسم الموظف الجديد؟", withBack([]));
+    return;
+  }
+
+  if (data.startsWith("admin_add_role:")) {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    const role = data.replace("admin_add_role:", "");
+    const pending = await getPendingTelegramSubmission(chatId);
+    const draft = { ...(pending?.emp_draft || {}), role };
+    await updateEmployeeRequestDraft(chatId, draft, "admin_add_staff:2");
+    await answerCallbackQuery(callbackQuery.id);
+    await sendTelegramInlineKeyboard(chatId, "📱 رقم الهاتف؟ (اكتب \"تخطي\" إن لم تحدد)", withBack([]));
+    return;
+  }
+
+  if (data === "admin_toggle_staff") {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    await supabase.from("erp_telegram_pending_submissions").upsert([{ chat_id: chatId, stage: "admin_toggle_search" }]);
+    await answerCallbackQuery(callbackQuery.id);
+    await askToggleStaffSearch(chatId);
+    return;
+  }
+
+  if (data.startsWith("admin_toggle_pick:")) {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    const targetId = data.replace("admin_toggle_pick:", "");
+    const { data: target } = await supabase.from("erp_staff").select("id, name, is_active").eq("id", targetId).maybeSingle();
+    if (!target) { await answerCallbackQuery(callbackQuery.id, "تعذّر إيجاد الموظف"); return; }
+    await answerCallbackQuery(callbackQuery.id);
+    const nextVal = target.is_active ? "0" : "1";
+    const actionLabel = target.is_active ? "⛔ تعطيله الآن" : "✅ تفعيله الآن";
+    await sendTelegramInlineKeyboard(
+      chatId,
+      `${target.name} حالياً ${target.is_active ? "🟢 نشط" : "🔴 معطّل"}.`,
+      withBack([[{ text: actionLabel, callback_data: `admin_toggle_do:${target.id}:${nextVal}` }]])
+    );
+    return;
+  }
+
+  if (data.startsWith("admin_toggle_do:")) {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    const [, targetId, nextValStr] = data.split(":");
+    const nextVal = nextValStr === "1";
+    const { error } = await supabase.from("erp_staff").update({ is_active: nextVal }).eq("id", targetId);
+    await answerCallbackQuery(callbackQuery.id, error ? "فشل" : "تم");
+    await sendTelegramInlineKeyboard(
+      chatId,
+      error ? `تعذّر: ${error.message}` : `✅ تم ${nextVal ? "تفعيل" : "تعطيل"} الموظف بنجاح`,
+      withBack([])
+    );
     return;
   }
 
