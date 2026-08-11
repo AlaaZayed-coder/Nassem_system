@@ -5,14 +5,18 @@ import { Send, Megaphone } from "lucide-react";
 import { broadcastMessageAction } from "./actions";
 import type { Staff } from "@/lib/staff-data";
 
+type Target = "all" | "managers" | "hr" | "specific";
+
 export function BroadcastForm({ staff }: { staff: Staff[] }) {
   const [isPending, startTransition] = useTransition();
-  const [target, setTarget] = useState<"all" | "specific">("all");
+  const [target, setTarget] = useState<Target>("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<{ error?: string; sent?: number } | null>(null);
 
   const eligible = staff.filter((s) => s.telegram_chat_id);
+  const managersCount = eligible.filter((s) => s.role === "manager").length;
+  const hrCount = eligible.filter((s) => s.role === "hr").length;
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -39,20 +43,36 @@ export function BroadcastForm({ staff }: { staff: Staff[] }) {
       <form onSubmit={handleSubmit} className="space-y-3">
         <input type="hidden" name="target" value={target} />
 
-        <div className="flex gap-2 text-sm">
+        <div className="grid grid-cols-2 gap-2 text-sm">
           <button
             type="button"
             onClick={() => setTarget("all")}
-            className={`flex-1 px-3 py-2 rounded-xl font-bold transition ${target === "all" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+            className={`px-3 py-2 rounded-xl font-bold transition ${target === "all" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
           >
             📢 الكل ({eligible.length})
           </button>
           <button
             type="button"
             onClick={() => setTarget("specific")}
-            className={`flex-1 px-3 py-2 rounded-xl font-bold transition ${target === "specific" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+            className={`px-3 py-2 rounded-xl font-bold transition ${target === "specific" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
           >
             👥 تحديد موظفين
+          </button>
+          <button
+            type="button"
+            onClick={() => setTarget("managers")}
+            disabled={managersCount === 0}
+            className={`px-3 py-2 rounded-xl font-bold transition disabled:opacity-40 ${target === "managers" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+          >
+            🧑‍💼 مدير النظام ({managersCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setTarget("hr")}
+            disabled={hrCount === 0}
+            className={`px-3 py-2 rounded-xl font-bold transition disabled:opacity-40 ${target === "hr" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+          >
+            🗂️ الموارد البشرية ({hrCount})
           </button>
         </div>
 

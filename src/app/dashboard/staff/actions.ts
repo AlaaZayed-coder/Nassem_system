@@ -92,9 +92,10 @@ export async function broadcastMessageAction(formData: FormData): Promise<{ erro
   const message = (formData.get("message") as string || "").trim();
 
   if (!message) return { error: "الرسالة مطلوبة" };
-  if (target !== "all" && targetIds.length === 0) return { error: "الرجاء اختيار موظف واحد على الأقل" };
+  if (target === "specific" && targetIds.length === 0) return { error: "الرجاء اختيار موظف واحد على الأقل" };
 
   let recipients: { id: string; telegram_chat_id: string | null }[] = [];
+  const roleForTarget: Record<string, string> = { managers: "manager", hr: "hr" };
 
   if (target === "all") {
     const { data, error } = await supabase
@@ -104,6 +105,16 @@ export async function broadcastMessageAction(formData: FormData): Promise<{ erro
       .eq("is_active", true);
     if (error) return { error: error.message };
     recipients = data || [];
+  } else if (target === "managers" || target === "hr") {
+    const { data, error } = await supabase
+      .from("erp_staff")
+      .select("id, telegram_chat_id")
+      .eq("role", roleForTarget[target])
+      .not("telegram_chat_id", "is", null)
+      .eq("is_active", true);
+    if (error) return { error: error.message };
+    recipients = data || [];
+    if (recipients.length === 0) return { error: "لا يوجد أحد بهذا الدور له حساب تيليجرام مرتبط" };
   } else {
     const { data, error } = await supabase
       .from("erp_staff")
@@ -116,7 +127,7 @@ export async function broadcastMessageAction(formData: FormData): Promise<{ erro
 
   const { data: sender } = await supabase.from("erp_staff").select("telegram_chat_id").eq("id", session.staffId).maybeSingle();
   const senderChatId = sender?.telegram_chat_id || null;
-  const text = target === "all" ? `📢 ${message}` : message;
+  const text = target === "specific" ? message : `📢 ${message}`;
 
   let sent = 0;
   for (const r of recipients) {
