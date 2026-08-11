@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { Users, UserPlus, ShieldCheck } from "lucide-react";
 import { StaffForm } from "./staff-form";
 import { StaffCard } from "./staff-card";
+import { BroadcastForm } from "./broadcast-form";
 
 export const dynamic = "force-dynamic";
 
@@ -22,14 +23,15 @@ export default async function StaffPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1">
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 sticky top-8">
+        <div className="lg:col-span-1 flex flex-col gap-8 sticky top-8 self-start">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
             <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-indigo-600" />
               إضافة موظف جديد
             </h2>
             <StaffForm staff={staffList} />
           </div>
+          <BroadcastForm staff={staffList} />
         </div>
 
         <div className="lg:col-span-2 space-y-4">

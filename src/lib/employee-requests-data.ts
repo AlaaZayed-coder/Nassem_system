@@ -206,6 +206,48 @@ export async function getEmployeeRequests(status?: string): Promise<EmployeeRequ
   return data || [];
 }
 
+export type ResolvedRequestFilters = {
+  type?: string;
+  status?: string;
+  employeeName?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export type ResolvedRequestsResult = {
+  data: EmployeeRequest[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+// سجل "آخر الطلبات المعالَجة" مع فلترة (نوع/حالة/اسم موظف) وترقيم صفحات —
+// بخلاف getEmployeeRequests العامة، هذي مخصصة لجدول قابل للنمو بلا حد.
+export async function getResolvedEmployeeRequests(filters: ResolvedRequestFilters = {}): Promise<ResolvedRequestsResult> {
+  const page = filters.page && filters.page > 0 ? filters.page : 1;
+  const pageSize = filters.pageSize && filters.pageSize > 0 ? filters.pageSize : 15;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = supabase
+    .from("erp_employee_requests")
+    .select("*, erp_staff!erp_employee_requests_staff_id_fkey!inner(name)", { count: "exact" })
+    .neq("status", "قيد الانتظار")
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (filters.type) query = query.eq("request_type", filters.type);
+  if (filters.status) query = query.eq("status", filters.status);
+  if (filters.employeeName) query = query.ilike("erp_staff.name", `%${filters.employeeName}%`);
+
+  const { data, error, count } = await query;
+  if (error) {
+    console.error("Error fetching resolved employee requests:", error);
+    return { data: [], total: 0, page, pageSize };
+  }
+  return { data: data || [], total: count || 0, page, pageSize };
+}
+
 export async function getEmployeeRequestsForStaff(staffId: string): Promise<EmployeeRequest[]> {
   const { data, error } = await supabase
     .from("erp_employee_requests")
@@ -542,6 +584,22 @@ export async function cancelEmployeeRequest(id: string, actionNotes?: string): P
   if (wasApproved) {
     await reverseApprovalSideEffect(request);
   }
+
+  return {};
+}
+
+// حذف نهائي للسجل — يعكس أثره أولاً إن كان مُعتمداً (زي الإلغاء) قبل الحذف
+// الفعلي، حتى ما تبقى قيود مالية/رصيد بلا سجل طلب يفسّرها.
+export async function deleteEmployeeRequest(id: string): Promise<{ error?: string }> {
+  const request = await getEmployeeRequestById(id);
+  if (!request) return { error: "الطلب غير موجود" };
+
+  if (request.status === "موافق عليه") {
+    await reverseApprovalSideEffect(request);
+  }
+
+  const { error } = await supabase.from("erp_employee_requests").delete().eq("id", id);
+  if (error) return { error: error.message };
 
   return {};
 }

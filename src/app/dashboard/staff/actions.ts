@@ -2,6 +2,7 @@
 
 import { supabase } from "@/lib/supabase";
 import { hashPassword } from "@/lib/password";
+import { sendTelegramMessage } from "@/lib/telegram";
 import { revalidatePath } from "next/cache";
 
 export async function createStaffAction(formData: FormData) {
@@ -74,6 +75,48 @@ export async function deleteStaffAction(id: string) {
 
   if (error) throw new Error(error.message);
   revalidatePath("/dashboard/staff");
+}
+
+// إرسال رسالة عبر تيليجرام — إما تعميم لكل الموظفين النشطين المرتبطين
+// بالبوت، أو لموظف واحد محدد. متاحة فقط من صفحة إدارة الموظفين (مدير
+// النظام ومسؤول الموارد البشرية، حسب صلاحيات الصفحة نفسها).
+export async function broadcastMessageAction(formData: FormData): Promise<{ error?: string; sent?: number }> {
+  const target = (formData.get("target") as string || "").trim();
+  const message = (formData.get("message") as string || "").trim();
+
+  if (!message) return { error: "الرسالة مطلوبة" };
+  if (!target) return { error: "الرجاء اختيار المستلم" };
+
+  if (target === "all") {
+    const { data: staffList, error } = await supabase
+      .from("erp_staff")
+      .select("telegram_chat_id")
+      .not("telegram_chat_id", "is", null)
+      .eq("is_active", true);
+
+    if (error) return { error: error.message };
+
+    let sent = 0;
+    for (const s of staffList || []) {
+      if (s.telegram_chat_id) {
+        await sendTelegramMessage(s.telegram_chat_id, `📢 ${message}`);
+        sent++;
+      }
+    }
+    return { sent };
+  }
+
+  const { data: staff, error } = await supabase
+    .from("erp_staff")
+    .select("telegram_chat_id")
+    .eq("id", target)
+    .maybeSingle();
+
+  if (error) return { error: error.message };
+  if (!staff?.telegram_chat_id) return { error: "هذا الموظف ما عنده حساب تيليجرام مرتبط" };
+
+  await sendTelegramMessage(staff.telegram_chat_id, message);
+  return { sent: 1 };
 }
 
 export async function setStaffCredentialsAction(id: string, formData: FormData) {

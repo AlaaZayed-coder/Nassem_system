@@ -1,10 +1,118 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { EmployeeRequest, REQUEST_TYPE_LABEL, REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY } from "@/lib/employee-requests-data";
-import { approveEmployeeRequestAction, rejectEmployeeRequestAction, cancelEmployeeRequestAction, acknowledgeEmployeeRequestAction } from "./actions";
-import { CheckCircle2, XCircle, Ban, UserCircle2 } from "lucide-react";
+import { approveEmployeeRequestAction, rejectEmployeeRequestAction, cancelEmployeeRequestAction, acknowledgeEmployeeRequestAction, deleteEmployeeRequestAction } from "./actions";
+import { CheckCircle2, XCircle, Ban, UserCircle2, Trash2, Filter, ChevronRight, ChevronLeft, X } from "lucide-react";
+
+const RESOLVED_STATUSES = ["موافق عليه", "مرفوض", "ملغى", "تم الاستلام", "مُصعَّد"];
+
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const usp = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "" && value !== 1) usp.set(key, String(value));
+  }
+  const qs = usp.toString();
+  return qs ? `?${qs}` : "";
+}
+
+function ResolvedFilters({ filters }: { filters: { type: string; status: string; employeeName: string } }) {
+  const pathname = usePathname();
+  const hasFilters = !!(filters.type || filters.status || filters.employeeName);
+
+  return (
+    <form action={pathname} method="get" className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-2 mb-3">
+      <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500 shrink-0">
+        <Filter className="h-3.5 w-3.5" /> تصفية:
+      </span>
+      <select name="type" defaultValue={filters.type} className="px-2.5 py-1.5 rounded-lg border border-slate-300 outline-none text-xs bg-white">
+        <option value="">كل الأنواع</option>
+        {Object.entries(REQUEST_TYPE_LABEL).map(([value, label]) => (
+          <option key={value} value={value}>{label}</option>
+        ))}
+      </select>
+      <select name="status" defaultValue={filters.status} className="px-2.5 py-1.5 rounded-lg border border-slate-300 outline-none text-xs bg-white">
+        <option value="">كل الحالات</option>
+        {RESOLVED_STATUSES.map((s) => (
+          <option key={s} value={s}>{s}</option>
+        ))}
+      </select>
+      <input
+        name="employee"
+        type="text"
+        defaultValue={filters.employeeName}
+        placeholder="اسم الموظف..."
+        className="px-2.5 py-1.5 rounded-lg border border-slate-300 outline-none text-xs flex-1 min-w-[120px]"
+      />
+      <button type="submit" className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition">تطبيق</button>
+      {hasFilters && (
+        <Link href={pathname} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-rose-600 transition">
+          <X className="h-3 w-3" /> مسح
+        </Link>
+      )}
+    </form>
+  );
+}
+
+function ResolvedPagination({ page, pageSize, total, filters }: { page: number; pageSize: number; total: number; filters: { type: string; status: string; employeeName: string } }) {
+  const pathname = usePathname();
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (totalPages <= 1) return null;
+
+  const linkFor = (p: number) => `${pathname}${buildQuery({ type: filters.type, status: filters.status, employee: filters.employeeName, page: p })}`;
+
+  return (
+    <div className="flex items-center justify-between mt-3 text-xs text-slate-500">
+      <span>صفحة {page} من {totalPages} — {total} طلب</span>
+      <div className="flex items-center gap-2">
+        {page > 1 ? (
+          <Link href={linkFor(page - 1)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition font-bold">
+            <ChevronRight className="h-3.5 w-3.5" /> السابق
+          </Link>
+        ) : (
+          <span className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-100 text-slate-300 font-bold"><ChevronRight className="h-3.5 w-3.5" /> السابق</span>
+        )}
+        {page < totalPages ? (
+          <Link href={linkFor(page + 1)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition font-bold">
+            التالي <ChevronLeft className="h-3.5 w-3.5" />
+          </Link>
+        ) : (
+          <span className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-100 text-slate-300 font-bold">التالي <ChevronLeft className="h-3.5 w-3.5" /></span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DeleteRequestButton({ requestId, onDone }: { requestId: string; onDone: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  const handleDelete = () => {
+    startTransition(async () => {
+      const result = await deleteEmployeeRequestAction(requestId);
+      if (!result.error) onDone();
+    });
+  };
+
+  if (confirming) {
+    return (
+      <div className="flex items-center gap-1 whitespace-nowrap">
+        <span className="text-[10px] text-rose-600 font-bold">متأكد؟</span>
+        <button disabled={isPending} onClick={handleDelete} className="text-rose-600 hover:text-rose-800 text-[11px] font-bold px-1">نعم</button>
+        <button type="button" onClick={() => setConfirming(false)} className="text-slate-400 hover:text-slate-600 text-[11px] px-1">إلغاء</button>
+      </div>
+    );
+  }
+
+  return (
+    <button type="button" onClick={() => setConfirming(true)} title="حذف الطلب نهائياً" className="text-slate-300 hover:text-rose-600 transition p-1 shrink-0">
+      <Trash2 className="h-3.5 w-3.5" />
+    </button>
+  );
+}
 
 function DetailLine({ request }: { request: EmployeeRequest }) {
   const d = request.details || {};
@@ -87,30 +195,35 @@ function PendingRow({ request, managerId, onDone }: { request: EmployeeRequest; 
       </td>
       <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{new Date(request.created_at).toLocaleDateString("en-GB")}</td>
       <td className="px-4 py-3">
-        {ackOnly ? (
-          <button disabled={isPending} onClick={handleAcknowledge} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-600 text-white text-xs font-bold hover:bg-sky-700 transition disabled:opacity-50 whitespace-nowrap">
-            <CheckCircle2 className="h-3.5 w-3.5" /> تم الاستلام
-          </button>
-        ) : !showReject ? (
-          <div className="flex gap-2">
-            <button disabled={isPending} onClick={handleApprove} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition disabled:opacity-50 whitespace-nowrap">
-              <CheckCircle2 className="h-3.5 w-3.5" /> موافقة
-            </button>
-            <button disabled={isPending} onClick={() => setShowReject(true)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-xs font-bold hover:bg-rose-100 transition disabled:opacity-50 whitespace-nowrap">
-              <XCircle className="h-3.5 w-3.5" /> رفض
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2 min-w-[180px]">
-            <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="سبب الرفض..." className="px-3 py-1.5 rounded-lg border border-slate-300 outline-none text-xs" />
-            <div className="flex gap-2">
-              <button disabled={isPending} onClick={handleReject} className="flex-1 px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition disabled:opacity-50">
-                تأكيد الرفض
+        <div className="flex items-start gap-2">
+          <div className="flex-1">
+            {ackOnly ? (
+              <button disabled={isPending} onClick={handleAcknowledge} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-600 text-white text-xs font-bold hover:bg-sky-700 transition disabled:opacity-50 whitespace-nowrap">
+                <CheckCircle2 className="h-3.5 w-3.5" /> تم الاستلام
               </button>
-              <button type="button" onClick={() => setShowReject(false)} className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold">إلغاء</button>
-            </div>
+            ) : !showReject ? (
+              <div className="flex gap-2">
+                <button disabled={isPending} onClick={handleApprove} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition disabled:opacity-50 whitespace-nowrap">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> موافقة
+                </button>
+                <button disabled={isPending} onClick={() => setShowReject(true)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-xs font-bold hover:bg-rose-100 transition disabled:opacity-50 whitespace-nowrap">
+                  <XCircle className="h-3.5 w-3.5" /> رفض
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 min-w-[180px]">
+                <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="سبب الرفض..." className="px-3 py-1.5 rounded-lg border border-slate-300 outline-none text-xs" />
+                <div className="flex gap-2">
+                  <button disabled={isPending} onClick={handleReject} className="flex-1 px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition disabled:opacity-50">
+                    تأكيد الرفض
+                  </button>
+                  <button type="button" onClick={() => setShowReject(false)} className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold">إلغاء</button>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+          <DeleteRequestButton requestId={request.id} onDone={onDone} />
+        </div>
       </td>
     </tr>
   );
@@ -145,18 +258,35 @@ function ResolvedRow({ request }: { request: EmployeeRequest }) {
         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${STATUS_COLOR[request.status] || "bg-slate-200 text-slate-600"}`}>{request.status}</span>
       </td>
       <td className="px-4 py-3">
-        {request.status === "موافق عليه" && (
-          <button disabled={isPending} onClick={handleCancel} className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-rose-600 transition disabled:opacity-50 whitespace-nowrap">
-            <Ban className="h-3.5 w-3.5" /> إلغاء وعكس الأثر
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {request.status === "موافق عليه" && (
+            <button disabled={isPending} onClick={handleCancel} className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-rose-600 transition disabled:opacity-50 whitespace-nowrap">
+              <Ban className="h-3.5 w-3.5" /> إلغاء وعكس الأثر
+            </button>
+          )}
+          <DeleteRequestButton requestId={request.id} onDone={() => router.refresh()} />
+        </div>
       </td>
     </tr>
   );
 }
 
-export function RequestsQueue({ managerId, pending, resolved }: { managerId: string; pending: EmployeeRequest[]; resolved: EmployeeRequest[] }) {
+export function RequestsQueue({
+  managerId,
+  pending,
+  resolved,
+  resolvedPagination,
+  filters,
+}: {
+  managerId: string;
+  pending: EmployeeRequest[];
+  resolved: EmployeeRequest[];
+  resolvedPagination?: { page: number; pageSize: number; total: number };
+  filters?: { type: string; status: string; employeeName: string };
+}) {
   const router = useRouter();
+  const activeFilters = filters || { type: "", status: "", employeeName: "" };
+  const hasActiveFilters = !!(activeFilters.type || activeFilters.status || activeFilters.employeeName);
 
   return (
     <div className="space-y-8">
@@ -188,8 +318,11 @@ export function RequestsQueue({ managerId, pending, resolved }: { managerId: str
 
       <div>
         <h2 className="text-lg font-bold text-slate-800 mb-3">آخر الطلبات المعالَجة</h2>
+        {resolvedPagination && <ResolvedFilters filters={activeFilters} />}
         {resolved.length === 0 ? (
-          <div className="text-center text-slate-400 py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">لا توجد طلبات مُعالَجة بعد</div>
+          <div className="text-center text-slate-400 py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+            {hasActiveFilters ? "لا توجد نتائج مطابقة لهذه التصفية" : "لا توجد طلبات مُعالَجة بعد"}
+          </div>
         ) : (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
             <table className="w-full text-right min-w-[640px]">
@@ -209,6 +342,14 @@ export function RequestsQueue({ managerId, pending, resolved }: { managerId: str
               </tbody>
             </table>
           </div>
+        )}
+        {resolvedPagination && (
+          <ResolvedPagination
+            page={resolvedPagination.page}
+            pageSize={resolvedPagination.pageSize}
+            total={resolvedPagination.total}
+            filters={activeFilters}
+          />
         )}
       </div>
     </div>

@@ -5,6 +5,7 @@ import {
   createEmployeeRequest,
   resolveEmployeeRequest,
   cancelEmployeeRequest,
+  deleteEmployeeRequest,
   acknowledgeEmployeeRequest,
   notifyApproverWithContext,
   notifyRecipientsWithContext,
@@ -74,6 +75,12 @@ export async function rejectEmployeeRequestAction(id: string, managerId: string,
 
 export async function cancelEmployeeRequestAction(id: string, reason?: string): Promise<{ error?: string }> {
   const result = await cancelEmployeeRequest(id, reason);
+  revalidatePath("/dashboard/staff/requests");
+  return result;
+}
+
+export async function deleteEmployeeRequestAction(id: string): Promise<{ error?: string }> {
+  const result = await deleteEmployeeRequest(id);
   revalidatePath("/dashboard/staff/requests");
   return result;
 }

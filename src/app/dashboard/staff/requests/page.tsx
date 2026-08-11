@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { getEmployeeRequests, getEmployeeRequestsForStaff, getEmployeeRequestsForSupervisor } from "@/lib/employee-requests-data";
+import { getEmployeeRequests, getResolvedEmployeeRequests, getEmployeeRequestsForStaff, getEmployeeRequestsForSupervisor } from "@/lib/employee-requests-data";
 import { NewRequestForm } from "./new-request-form";
 import { RequestsQueue } from "./requests-queue";
 import { MyRequestsList } from "./my-requests-list";
@@ -8,7 +8,9 @@ import { ArrowRight, ClipboardList, Users2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default async function EmployeeRequestsPage() {
+type SearchParams = { [key: string]: string | string[] | undefined };
+
+export default async function EmployeeRequestsPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await getSession();
   if (!session) return null;
 
@@ -41,7 +43,7 @@ export default async function EmployeeRequestsPage() {
 
         <div className="lg:col-span-2 space-y-8">
           {canManageAll ? (
-            <RequestsQueueSection managerId={session.staffId} />
+            <RequestsQueueSection managerId={session.staffId} searchParams={searchParams} />
           ) : (
             <>
               <TeamRequestsSection supervisorId={session.staffId} />
@@ -54,14 +56,30 @@ export default async function EmployeeRequestsPage() {
   );
 }
 
-async function RequestsQueueSection({ managerId }: { managerId: string }) {
-  const [pending, resolved] = await Promise.all([
-    getEmployeeRequests("قيد الانتظار"),
-    getEmployeeRequests(),
-  ]);
-  const resolvedOnly = resolved.filter((r) => r.status !== "قيد الانتظار").slice(0, 15);
+function firstParam(v: string | string[] | undefined): string {
+  return (Array.isArray(v) ? v[0] : v) || "";
+}
 
-  return <RequestsQueue managerId={managerId} pending={pending} resolved={resolvedOnly} />;
+async function RequestsQueueSection({ managerId, searchParams }: { managerId: string; searchParams: SearchParams }) {
+  const page = Number(firstParam(searchParams.page)) || 1;
+  const type = firstParam(searchParams.type);
+  const status = firstParam(searchParams.status);
+  const employeeName = firstParam(searchParams.employee);
+
+  const [pending, resolvedResult] = await Promise.all([
+    getEmployeeRequests("قيد الانتظار"),
+    getResolvedEmployeeRequests({ page, type: type || undefined, status: status || undefined, employeeName: employeeName || undefined }),
+  ]);
+
+  return (
+    <RequestsQueue
+      managerId={managerId}
+      pending={pending}
+      resolved={resolvedResult.data}
+      resolvedPagination={{ page: resolvedResult.page, pageSize: resolvedResult.pageSize, total: resolvedResult.total }}
+      filters={{ type, status, employeeName }}
+    />
+  );
 }
 
 async function TeamRequestsSection({ supervisorId }: { supervisorId: string }) {
