@@ -2,7 +2,8 @@
 
 import { supabase } from "@/lib/supabase";
 import { hashPassword } from "@/lib/password";
-import { sendTelegramMessage } from "@/lib/telegram";
+import { sendTelegramMessage, sendTelegramMessageWithReply } from "@/lib/telegram";
+import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export async function createStaffAction(formData: FormData) {
@@ -77,46 +78,69 @@ export async function deleteStaffAction(id: string) {
   revalidatePath("/dashboard/staff");
 }
 
-// إرسال رسالة عبر تيليجرام — إما تعميم لكل الموظفين النشطين المرتبطين
-// بالبوت، أو لموظف واحد محدد. متاحة فقط من صفحة إدارة الموظفين (مدير
-// النظام ومسؤول الموارد البشرية، حسب صلاحيات الصفحة نفسها).
+// إرسال رسالة عبر تيليجرام — تعميم لكل الموظفين، أو لعدد مختار منهم. تُرسل
+// بخاصية "الرد السريع" (force_reply) وتُسجَّل بجدول erp_broadcast_messages
+// حتى لو ردّ الموظف عليها، نوجّه ردّه تلقائياً لنفس الشخص اللي أرسلها (انظر
+// معالجة reply_to_message بملف بوت تيليجرام). متاحة فقط من صفحة إدارة
+// الموظفين (مدير النظام ومسؤول الموارد البشرية، حسب صلاحيات الصفحة نفسها).
 export async function broadcastMessageAction(formData: FormData): Promise<{ error?: string; sent?: number }> {
+  const session = await getSession();
+  if (!session) return { error: "غير مصرح" };
+
   const target = (formData.get("target") as string || "").trim();
+  const targetIds = formData.getAll("target_ids") as string[];
   const message = (formData.get("message") as string || "").trim();
 
   if (!message) return { error: "الرسالة مطلوبة" };
-  if (!target) return { error: "الرجاء اختيار المستلم" };
+  if (target !== "all" && targetIds.length === 0) return { error: "الرجاء اختيار موظف واحد على الأقل" };
+
+  let recipients: { id: string; telegram_chat_id: string | null }[] = [];
 
   if (target === "all") {
-    const { data: staffList, error } = await supabase
+    const { data, error } = await supabase
       .from("erp_staff")
-      .select("telegram_chat_id")
+      .select("id, telegram_chat_id")
       .not("telegram_chat_id", "is", null)
       .eq("is_active", true);
-
     if (error) return { error: error.message };
-
-    let sent = 0;
-    for (const s of staffList || []) {
-      if (s.telegram_chat_id) {
-        await sendTelegramMessage(s.telegram_chat_id, `📢 ${message}`);
-        sent++;
-      }
-    }
-    return { sent };
+    recipients = data || [];
+  } else {
+    const { data, error } = await supabase
+      .from("erp_staff")
+      .select("id, telegram_chat_id")
+      .in("id", targetIds);
+    if (error) return { error: error.message };
+    recipients = (data || []).filter((r) => r.telegram_chat_id);
+    if (recipients.length === 0) return { error: "لا يوجد بين المختارين من عنده حساب تيليجرام مرتبط" };
   }
 
-  const { data: staff, error } = await supabase
-    .from("erp_staff")
-    .select("telegram_chat_id")
-    .eq("id", target)
-    .maybeSingle();
+  const { data: sender } = await supabase.from("erp_staff").select("telegram_chat_id").eq("id", session.staffId).maybeSingle();
+  const senderChatId = sender?.telegram_chat_id || null;
+  const text = target === "all" ? `📢 ${message}` : message;
 
-  if (error) return { error: error.message };
-  if (!staff?.telegram_chat_id) return { error: "هذا الموظف ما عنده حساب تيليجرام مرتبط" };
+  let sent = 0;
+  for (const r of recipients) {
+    if (!r.telegram_chat_id) continue;
 
-  await sendTelegramMessage(staff.telegram_chat_id, message);
-  return { sent: 1 };
+    if (senderChatId) {
+      const messageId = await sendTelegramMessageWithReply(r.telegram_chat_id, text);
+      if (messageId) {
+        await supabase.from("erp_broadcast_messages").insert([{
+          sender_staff_id: session.staffId,
+          recipient_staff_id: r.id,
+          telegram_message_id: messageId,
+          telegram_chat_id: r.telegram_chat_id,
+          message_text: text,
+        }]);
+      }
+    } else {
+      // المُرسِل نفسه بدون حساب تيليجرام مرتبط — ما فيه وين يرجع الرد، رسالة عادية بلا تتبع.
+      await sendTelegramMessage(r.telegram_chat_id, text);
+    }
+    sent++;
+  }
+
+  return { sent };
 }
 
 export async function setStaffCredentialsAction(id: string, formData: FormData) {

@@ -438,6 +438,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    // رد على رسالة "تعميم/رسالة فردية" أُرسلت من الويب (تحمل force_reply) —
+    // يُحوَّل مباشرة لنفس الشخص اللي أرسلها، بغض النظر عن أي محادثة جارية.
+    if (message.reply_to_message?.message_id) {
+      const handled = await handleBroadcastReply(chatId, message.reply_to_message.message_id, message.text, staff);
+      if (handled) return NextResponse.json({ ok: true });
+    }
+
     // زر ثابت أسفل الشاشة يعمل من أي مكان في أي محادثة جارية — يقاطعها
     // وينقل الموظف مباشرة لقائمة طلباته دون فقدان تسجيله ككل.
     if (message.text === EMP_GATEWAY_LABEL) {
@@ -921,6 +928,40 @@ async function uploadTelegramFileToStorage(fileId: string, ext: string): Promise
 
   const { data } = supabase.storage.from("order-submissions").getPublicUrl(path);
   return data.publicUrl;
+}
+
+// يتحقق هل الرسالة رد على تعميم/رسالة فردية أُرسلت من الويب، وإذا كانت
+// كذلك يحوّل نص الرد لنفس المُرسِل الأصلي عبر تيليجرام. يرجّع false لو
+// الرسالة اللي رُدّ عليها مو من نوع التعميم، فتكمل بقية المعالجة الطبيعية.
+async function handleBroadcastReply(chatId: string, replyToMessageId: number, replyText: string | undefined, staff: { name: string }): Promise<boolean> {
+  const { data: original } = await supabase
+    .from("erp_broadcast_messages")
+    .select("sender_staff_id")
+    .eq("telegram_chat_id", chatId)
+    .eq("telegram_message_id", replyToMessageId)
+    .maybeSingle();
+
+  if (!original) return false;
+
+  if (!replyText || replyText.startsWith("/")) {
+    await sendTelegramMessage(chatId, "الرجاء إرسال ردك نصاً.");
+    return true;
+  }
+
+  const { data: sender } = await supabase
+    .from("erp_staff")
+    .select("telegram_chat_id")
+    .eq("id", original.sender_staff_id)
+    .maybeSingle();
+
+  if (!sender?.telegram_chat_id) {
+    await sendTelegramMessage(chatId, "تعذّر إيصال ردك، حساب المُرسل غير متاح حالياً.");
+    return true;
+  }
+
+  await sendTelegramMessage(sender.telegram_chat_id, `↩️ رد من ${staff.name}:\n\n${replyText}`);
+  await sendTelegramMessage(chatId, "✅ تم إرسال ردك.");
+  return true;
 }
 
 async function notifyOrderProcessors(senderName: string, customerName: string) {

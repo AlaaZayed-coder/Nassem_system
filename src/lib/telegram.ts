@@ -19,6 +19,30 @@ export async function sendTelegramMessage(chatId: string, text: string, withMini
   } catch (err) {}
 }
 
+// نفس sendTelegramMessage لكن بـ force_reply — يفتح صندوق الرد تلقائياً عند
+// المستلم، ويرجّع معرّف الرسالة المُرسَلة (لازم لربط رد الموظف لاحقاً
+// بمُرسِلها الأصلي عبر جدول erp_broadcast_messages).
+export async function sendTelegramMessageWithReply(chatId: string, text: string): Promise<number | null> {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) return null;
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        reply_markup: { force_reply: true },
+      }),
+    });
+    const data = await res.json();
+    return data?.result?.message_id ?? null;
+  } catch (err) {
+    return null;
+  }
+}
+
 export async function sendTelegramInlineKeyboard(
   chatId: string,
   text: string,
