@@ -2,9 +2,9 @@
 
 import { supabase } from "@/lib/supabase";
 import { hashPassword } from "@/lib/password";
-import { sendTelegramMessage, sendTelegramMessageWithReplyButton } from "@/lib/telegram";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { sendBroadcastMessage, type BroadcastTarget } from "@/lib/broadcast";
 
 export async function createStaffAction(formData: FormData) {
   const name = formData.get("name") as string;
@@ -78,87 +78,19 @@ export async function deleteStaffAction(id: string) {
   revalidatePath("/dashboard/staff");
 }
 
-// إرسال رسالة عبر تيليجرام — تعميم لكل الموظفين، أو لعدد مختار منهم. تُرسل
-// مع زر شفاف "↩️ رد" وتُسجَّل بجدول erp_broadcast_messages، فإذا ضغط
-// الموظف الزر نوجّه ردّه تلقائياً لنفس الشخص اللي أرسلها (انظر معالجة
-// bmsg_reply: بملف بوت تيليجرام). متاحة فقط من صفحة إدارة الموظفين (مدير
-// النظام ومسؤول الموارد البشرية، حسب صلاحيات الصفحة نفسها).
+// إرسال رسالة عبر تيليجرام — تعميم لكل الموظفين، أو لعدد مختار منهم. المنطق
+// الفعلي مشترك مع بوت تيليجرام نفسه (انظر lib/broadcast.ts)، فمدير النظام
+// ومسؤول الموارد البشرية يقدروا يرسلوا نفس الرسائل من الويب أو من داخل
+// البوت مباشرة. متاحة فقط من صفحة إدارة الموظفين (حسب صلاحيات الصفحة نفسها).
 export async function broadcastMessageAction(formData: FormData): Promise<{ error?: string; sent?: number }> {
   const session = await getSession();
   if (!session) return { error: "غير مصرح" };
 
-  const target = (formData.get("target") as string || "").trim();
+  const target = (formData.get("target") as string || "").trim() as BroadcastTarget;
   const targetIds = formData.getAll("target_ids") as string[];
   const message = (formData.get("message") as string || "").trim();
 
-  if (!message) return { error: "الرسالة مطلوبة" };
-  if (target === "specific" && targetIds.length === 0) return { error: "الرجاء اختيار موظف واحد على الأقل" };
-
-  let recipients: { id: string; telegram_chat_id: string | null }[] = [];
-  const roleForTarget: Record<string, string> = { managers: "manager", hr: "hr" };
-
-  if (target === "all") {
-    const { data, error } = await supabase
-      .from("erp_staff")
-      .select("id, telegram_chat_id")
-      .not("telegram_chat_id", "is", null)
-      .eq("is_active", true);
-    if (error) return { error: error.message };
-    recipients = data || [];
-  } else if (target === "managers" || target === "hr") {
-    const { data, error } = await supabase
-      .from("erp_staff")
-      .select("id, telegram_chat_id")
-      .eq("role", roleForTarget[target])
-      .not("telegram_chat_id", "is", null)
-      .eq("is_active", true);
-    if (error) return { error: error.message };
-    recipients = data || [];
-    if (recipients.length === 0) return { error: "لا يوجد أحد بهذا الدور له حساب تيليجرام مرتبط" };
-  } else {
-    const { data, error } = await supabase
-      .from("erp_staff")
-      .select("id, telegram_chat_id")
-      .in("id", targetIds);
-    if (error) return { error: error.message };
-    recipients = (data || []).filter((r) => r.telegram_chat_id);
-    if (recipients.length === 0) return { error: "لا يوجد بين المختارين من عنده حساب تيليجرام مرتبط" };
-  }
-
-  const { data: sender } = await supabase.from("erp_staff").select("telegram_chat_id").eq("id", session.staffId).maybeSingle();
-  const senderChatId = sender?.telegram_chat_id || null;
-  const text = target === "specific" ? message : `📢 ${message}`;
-
-  let sent = 0;
-  for (const r of recipients) {
-    if (!r.telegram_chat_id) continue;
-
-    if (senderChatId) {
-      const { data: logRow } = await supabase
-        .from("erp_broadcast_messages")
-        .insert([{
-          sender_staff_id: session.staffId,
-          recipient_staff_id: r.id,
-          telegram_chat_id: r.telegram_chat_id,
-          message_text: text,
-        }])
-        .select("id")
-        .single();
-
-      if (logRow) {
-        const messageId = await sendTelegramMessageWithReplyButton(r.telegram_chat_id, text, `bmsg_reply:${logRow.id}`);
-        if (messageId) {
-          await supabase.from("erp_broadcast_messages").update({ telegram_message_id: messageId }).eq("id", logRow.id);
-        }
-      }
-    } else {
-      // المُرسِل نفسه بدون حساب تيليجرام مرتبط — ما فيه وين يرجع الرد، رسالة عادية بلا تتبع.
-      await sendTelegramMessage(r.telegram_chat_id, text);
-    }
-    sent++;
-  }
-
-  return { sent };
+  return sendBroadcastMessage({ senderStaffId: session.staffId, target, targetIds, message });
 }
 
 export async function setStaffCredentialsAction(id: string, formData: FormData) {

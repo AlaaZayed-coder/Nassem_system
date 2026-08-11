@@ -35,6 +35,7 @@ import { getDirectReports, searchStaffByName } from "@/lib/staff-data";
 import { getSlaWarnings } from "@/lib/sla-data";
 import { getDashboardNotificationCounts, ROLE_NOTIFICATION_SCOPE } from "@/lib/dashboard-notifications";
 import { ROLE_LABELS } from "@/lib/role-labels";
+import { sendBroadcastMessage, type BroadcastTarget } from "@/lib/broadcast";
 
 const EMP_REJECT_REASONS = ["ضغط عمل تشغيلي", "الرصيد لا يسمح", "تأجيل للشهر القادم"];
 
@@ -262,8 +263,11 @@ async function askMainMenu(chatId: string, staff: { id: string; role: string }) 
   );
 
   if (isManagerOrHR) {
-    rows.push([{ text: "🔍 بحث عن موظف", callback_data: "emp_search_staff" }]);
-    rows.push([{ text: "📊 ملخص اليوم", callback_data: "emp_daily_summary" }]);
+    rows.push([
+      { text: "🔍 بحث عن موظف", callback_data: "emp_search_staff" },
+      { text: "📊 ملخص اليوم", callback_data: "emp_daily_summary" },
+    ]);
+    rows.push([{ text: "📢 إرسال رسالة", callback_data: "bmsg_menu" }]);
   }
 
   await sendTelegramInlineKeyboard(chatId, "ماذا تريد أن تفعل؟", rows);
@@ -376,6 +380,39 @@ async function askDailySummary(chatId: string, role: string) {
   await sendTelegramInlineKeyboard(chatId, lines.join("\n"), withBack([]));
 }
 
+// "إرسال رسالة" — لمدير النظام ومسؤول الموارد البشرية فقط: يختار الجهة
+// المستهدفة (نفس خيارات الويب) ثم يكتب نص الرسالة، وتُرسل بنفس منطق
+// lib/broadcast.ts المشترك مع صفحة إدارة الموظفين بالويب.
+async function askBroadcastTargetMenu(chatId: string) {
+  await sendTelegramInlineKeyboard(chatId, "📢 لمن تريد إرسال الرسالة؟", withBack([
+    [
+      { text: "📢 الكل", callback_data: "bmsg_target:all" },
+      { text: "🔍 موظف محدد", callback_data: "bmsg_target:specific" },
+    ],
+    [
+      { text: "🧑‍💼 مدير النظام", callback_data: "bmsg_target:managers" },
+      { text: "🗂️ الموارد البشرية", callback_data: "bmsg_target:hr" },
+    ],
+  ]));
+}
+
+async function askBroadcastComposePrompt(chatId: string, stage: string) {
+  await supabase.from("erp_telegram_pending_submissions").upsert([{ chat_id: chatId, stage }]);
+  await sendTelegramInlineKeyboard(chatId, "✍️ اكتب نص الرسالة:", withBack([]));
+}
+
+async function handleBroadcastPickSearch(chatId: string, query: string) {
+  const results = (await searchStaffByName(query)).filter((s) => s.telegram_chat_id);
+
+  if (results.length === 0) {
+    await sendTelegramInlineKeyboard(chatId, "لا يوجد موظف مطابق له حساب تيليجرام مرتبط. حاول باسم آخر.", withBack([]));
+    return;
+  }
+
+  const rows = results.slice(0, 8).map((s) => [{ text: s.name, callback_data: `bmsg_pick:${s.id}` }]);
+  await sendTelegramInlineKeyboard(chatId, "اختر الموظف:", withBack(rows));
+}
+
 // "بحث عن موظف" — لمدير النظام ومسؤول الموارد البشرية فقط.
 async function askStaffSearchPrompt(chatId: string) {
   await sendTelegramInlineKeyboard(chatId, "🔍 اكتب اسم الموظف (أو جزءاً منه):", withBack([]));
@@ -466,6 +503,36 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true });
       }
       await handleStaffSearchQuery(chatId, message.text);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (pending?.stage === "bmsg_pick_search") {
+      if (!message.text || message.text.startsWith("/")) {
+        await sendTelegramInlineKeyboard(chatId, "اكتب اسم الموظف نصاً.", withBack([]));
+        return NextResponse.json({ ok: true });
+      }
+      await handleBroadcastPickSearch(chatId, message.text);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (pending?.stage?.startsWith("bmsg_send_compose:")) {
+      const suffix = pending.stage.replace("bmsg_send_compose:", "");
+      if (!message.text || message.text.startsWith("/")) {
+        await sendTelegramInlineKeyboard(chatId, "اكتب نص الرسالة.", withBack([]));
+        return NextResponse.json({ ok: true });
+      }
+      if (staff.role !== "manager" && staff.role !== "hr") {
+        await clearPendingTelegramSubmission(chatId);
+        await sendTelegramMessage(chatId, "غير مصرح.");
+        return NextResponse.json({ ok: true });
+      }
+
+      const target: BroadcastTarget = suffix.startsWith("specific:") ? "specific" : (suffix as BroadcastTarget);
+      const targetIds = suffix.startsWith("specific:") ? [suffix.replace("specific:", "")] : [];
+
+      const result = await sendBroadcastMessage({ senderStaffId: staff.id, target, targetIds, message: message.text });
+      await setPendingTelegramStage(chatId, "main_menu");
+      await sendTelegramMessage(chatId, result.error ? `تعذّر الإرسال: ${result.error}` : `✅ تم الإرسال إلى ${result.sent} موظف`);
       return NextResponse.json({ ok: true });
     }
 
@@ -806,6 +873,41 @@ async function handleCallbackQuery(callbackQuery: any) {
     await startEmployeeRequestDraft(chatId, requestType);
     await answerCallbackQuery(callbackQuery.id);
     await promptEmpField(chatId, fields[0], `${EMP_TYPE_LABEL[requestType]}:`);
+    return;
+  }
+
+  if (data === "bmsg_menu") {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    await answerCallbackQuery(callbackQuery.id);
+    await askBroadcastTargetMenu(chatId);
+    return;
+  }
+
+  if (data === "bmsg_target:specific") {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    await supabase.from("erp_telegram_pending_submissions").upsert([{ chat_id: chatId, stage: "bmsg_pick_search" }]);
+    await answerCallbackQuery(callbackQuery.id);
+    await sendTelegramInlineKeyboard(chatId, "🔍 اكتب اسم الموظف (أو جزءاً منه):", withBack([]));
+    return;
+  }
+
+  if (data.startsWith("bmsg_target:")) {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    const target = data.replace("bmsg_target:", "");
+    await answerCallbackQuery(callbackQuery.id);
+    await askBroadcastComposePrompt(chatId, `bmsg_send_compose:${target}`);
+    return;
+  }
+
+  if (data.startsWith("bmsg_pick:")) {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    const pickedId = data.replace("bmsg_pick:", "");
+    await answerCallbackQuery(callbackQuery.id);
+    await askBroadcastComposePrompt(chatId, `bmsg_send_compose:specific:${pickedId}`);
     return;
   }
 
