@@ -6,8 +6,38 @@ import Link from "next/link";
 import { EmployeeRequest, REQUEST_TYPE_LABEL, REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY } from "@/lib/employee-requests-data";
 import { approveEmployeeRequestAction, rejectEmployeeRequestAction, cancelEmployeeRequestAction, acknowledgeEmployeeRequestAction, deleteEmployeeRequestAction } from "./actions";
 import { CheckCircle2, XCircle, Ban, UserCircle2, Trash2, Filter, ChevronRight, ChevronLeft, X } from "lucide-react";
+import { ExportRequestsCsvButton } from "./export-csv-button";
+import { PrintButton } from "@/components/PrintButton";
 
 const RESOLVED_STATUSES = ["موافق عليه", "مرفوض", "ملغى", "تم الاستلام", "مُصعَّد"];
+
+const REQUEST_TYPE_COLOR: Record<string, string> = {
+  loan: "bg-amber-100 text-amber-700",
+  vacation: "bg-emerald-100 text-emerald-700",
+  permission: "bg-sky-100 text-sky-700",
+  complaint: "bg-rose-100 text-rose-700",
+  attendance_fix: "bg-indigo-100 text-indigo-700",
+  injury_report: "bg-red-100 text-red-700",
+  work_report: "bg-violet-100 text-violet-700",
+};
+
+const REQUEST_TYPE_ICON: Record<string, string> = {
+  loan: "💰",
+  vacation: "🌴",
+  permission: "🚪",
+  complaint: "😠",
+  attendance_fix: "🕐",
+  injury_report: "🚨",
+  work_report: "📝",
+};
+
+function TypeBadge({ type }: { type: string }) {
+  return (
+    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${REQUEST_TYPE_COLOR[type] || "bg-slate-200 text-slate-600"}`}>
+      {REQUEST_TYPE_ICON[type] || ""} {REQUEST_TYPE_LABEL[type as keyof typeof REQUEST_TYPE_LABEL] || type}
+    </span>
+  );
+}
 
 function buildQuery(params: Record<string, string | number | undefined>): string {
   const usp = new URLSearchParams();
@@ -184,7 +214,7 @@ function PendingRow({ request, managerId, onDone }: { request: EmployeeRequest; 
   return (
     <tr className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70 transition align-top">
       <td className="px-4 py-3 whitespace-nowrap">
-        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">{REQUEST_TYPE_LABEL[request.request_type]}</span>
+        <TypeBadge type={request.request_type} />
       </td>
       <td className="px-4 py-3 whitespace-nowrap">
         <span className="font-bold text-slate-800 text-sm flex items-center gap-1.5"><UserCircle2 className="h-4 w-4 text-slate-400" /> {request.erp_staff?.name || "غير معروف"}</span>
@@ -246,7 +276,7 @@ function ResolvedRow({ request }: { request: EmployeeRequest }) {
   return (
     <tr className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70 transition align-top">
       <td className="px-4 py-3 whitespace-nowrap">
-        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">{REQUEST_TYPE_LABEL[request.request_type]}</span>
+        <TypeBadge type={request.request_type} />
       </td>
       <td className="px-4 py-3 whitespace-nowrap font-bold text-slate-700 text-sm">{request.erp_staff?.name || "غير معروف"}</td>
       <td className="px-4 py-3 text-sm text-slate-600 max-w-sm">
@@ -271,6 +301,106 @@ function ResolvedRow({ request }: { request: EmployeeRequest }) {
   );
 }
 
+export function PendingQueueTable({ managerId, pending }: { managerId: string; pending: EmployeeRequest[] }) {
+  const router = useRouter();
+
+  return (
+    <div>
+      <div className="print:hidden flex items-center justify-between mb-3">
+        <h2 className="text-lg font-bold text-slate-800">بانتظار الاعتماد ({pending.length})</h2>
+        <div className="flex items-center gap-2">
+          <ExportRequestsCsvButton requests={pending} filenamePrefix="pending-requests" />
+          <PrintButton />
+        </div>
+      </div>
+      <h2 className="hidden print:block text-lg font-bold text-slate-800 mb-3">بانتظار الاعتماد ({pending.length})</h2>
+
+      {pending.length === 0 ? (
+        <div className="text-center text-slate-400 py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">لا توجد طلبات بانتظار الاعتماد</div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+          <table className="w-full text-right min-w-[640px]">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500">
+                <th className="px-4 py-3 font-bold">النوع</th>
+                <th className="px-4 py-3 font-bold">الموظف</th>
+                <th className="px-4 py-3 font-bold">التفاصيل</th>
+                <th className="px-4 py-3 font-bold">التاريخ</th>
+                <th className="px-4 py-3 font-bold print:hidden">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pending.map((r) => (
+                <PendingRow key={r.id} request={r} managerId={managerId} onDone={() => router.refresh()} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ResolvedQueueTable({
+  resolved,
+  resolvedPagination,
+  filters,
+}: {
+  resolved: EmployeeRequest[];
+  resolvedPagination?: { page: number; pageSize: number; total: number };
+  filters?: { type: string; status: string; employeeName: string };
+}) {
+  const activeFilters = filters || { type: "", status: "", employeeName: "" };
+  const hasActiveFilters = !!(activeFilters.type || activeFilters.status || activeFilters.employeeName);
+
+  return (
+    <div>
+      <div className="print:hidden flex items-center justify-between mb-3">
+        <h2 className="text-lg font-bold text-slate-800">آخر الطلبات المعالَجة</h2>
+        <div className="flex items-center gap-2">
+          <ExportRequestsCsvButton requests={resolved} filenamePrefix="resolved-requests" />
+          <PrintButton />
+        </div>
+      </div>
+      <h2 className="hidden print:block text-lg font-bold text-slate-800 mb-3">آخر الطلبات المعالَجة</h2>
+
+      {resolvedPagination && <ResolvedFilters filters={activeFilters} />}
+      {resolved.length === 0 ? (
+        <div className="text-center text-slate-400 py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+          {hasActiveFilters ? "لا توجد نتائج مطابقة لهذه التصفية" : "لا توجد طلبات مُعالَجة بعد"}
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+          <table className="w-full text-right min-w-[640px]">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500">
+                <th className="px-4 py-3 font-bold">النوع</th>
+                <th className="px-4 py-3 font-bold">الموظف</th>
+                <th className="px-4 py-3 font-bold">التفاصيل</th>
+                <th className="px-4 py-3 font-bold">الحالة</th>
+                <th className="px-4 py-3 font-bold print:hidden">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resolved.map((r) => (
+                <ResolvedRow key={r.id} request={r} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {resolvedPagination && (
+        <ResolvedPagination
+          page={resolvedPagination.page}
+          pageSize={resolvedPagination.pageSize}
+          total={resolvedPagination.total}
+          filters={activeFilters}
+        />
+      )}
+    </div>
+  );
+}
+
 export function RequestsQueue({
   managerId,
   pending,
@@ -284,74 +414,10 @@ export function RequestsQueue({
   resolvedPagination?: { page: number; pageSize: number; total: number };
   filters?: { type: string; status: string; employeeName: string };
 }) {
-  const router = useRouter();
-  const activeFilters = filters || { type: "", status: "", employeeName: "" };
-  const hasActiveFilters = !!(activeFilters.type || activeFilters.status || activeFilters.employeeName);
-
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-lg font-bold text-slate-800 mb-3">بانتظار الاعتماد ({pending.length})</h2>
-        {pending.length === 0 ? (
-          <div className="text-center text-slate-400 py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">لا توجد طلبات بانتظار الاعتماد</div>
-        ) : (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-            <table className="w-full text-right min-w-[640px]">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500">
-                  <th className="px-4 py-3 font-bold">النوع</th>
-                  <th className="px-4 py-3 font-bold">الموظف</th>
-                  <th className="px-4 py-3 font-bold">التفاصيل</th>
-                  <th className="px-4 py-3 font-bold">التاريخ</th>
-                  <th className="px-4 py-3 font-bold">إجراءات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pending.map((r) => (
-                  <PendingRow key={r.id} request={r} managerId={managerId} onDone={() => router.refresh()} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <div>
-        <h2 className="text-lg font-bold text-slate-800 mb-3">آخر الطلبات المعالَجة</h2>
-        {resolvedPagination && <ResolvedFilters filters={activeFilters} />}
-        {resolved.length === 0 ? (
-          <div className="text-center text-slate-400 py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-            {hasActiveFilters ? "لا توجد نتائج مطابقة لهذه التصفية" : "لا توجد طلبات مُعالَجة بعد"}
-          </div>
-        ) : (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-            <table className="w-full text-right min-w-[640px]">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500">
-                  <th className="px-4 py-3 font-bold">النوع</th>
-                  <th className="px-4 py-3 font-bold">الموظف</th>
-                  <th className="px-4 py-3 font-bold">التفاصيل</th>
-                  <th className="px-4 py-3 font-bold">الحالة</th>
-                  <th className="px-4 py-3 font-bold">إجراءات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {resolved.map((r) => (
-                  <ResolvedRow key={r.id} request={r} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {resolvedPagination && (
-          <ResolvedPagination
-            page={resolvedPagination.page}
-            pageSize={resolvedPagination.pageSize}
-            total={resolvedPagination.total}
-            filters={activeFilters}
-          />
-        )}
-      </div>
+      <PendingQueueTable managerId={managerId} pending={pending} />
+      <ResolvedQueueTable resolved={resolved} resolvedPagination={resolvedPagination} filters={filters} />
     </div>
   );
 }

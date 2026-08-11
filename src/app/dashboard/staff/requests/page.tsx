@@ -2,13 +2,17 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { getEmployeeRequests, getResolvedEmployeeRequests, getEmployeeRequestsForStaff, getEmployeeRequestsForSupervisor } from "@/lib/employee-requests-data";
 import { NewRequestForm } from "./new-request-form";
-import { RequestsQueue } from "./requests-queue";
+import { RequestsQueue, PendingQueueTable, ResolvedQueueTable } from "./requests-queue";
 import { MyRequestsList } from "./my-requests-list";
 import { ArrowRight, ClipboardList, Users2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 type SearchParams = { [key: string]: string | string[] | undefined };
+
+function firstParam(v: string | string[] | undefined): string {
+  return (Array.isArray(v) ? v[0] : v) || "";
+}
 
 export default async function EmployeeRequestsPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await getSession();
@@ -18,7 +22,7 @@ export default async function EmployeeRequestsPage({ searchParams }: { searchPar
 
   return (
     <div className="p-8 max-w-6xl mx-auto flex flex-col gap-8" dir="rtl">
-      <div className="flex items-center justify-between">
+      <div className="print:hidden flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight flex items-center gap-3">
             <ClipboardList className="h-8 w-8 text-indigo-600" />
@@ -33,34 +37,34 @@ export default async function EmployeeRequestsPage({ searchParams }: { searchPar
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1">
-          <div className="sticky top-8">
-            <h2 className="text-lg font-bold text-slate-800 mb-4">تقديم طلب جديد</h2>
-            <NewRequestForm staffId={session.staffId} />
+      {canManageAll ? (
+        <ManagerTabbedView searchParams={searchParams} staffId={session.staffId} />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1">
+            <div className="sticky top-8">
+              <h2 className="text-lg font-bold text-slate-800 mb-4">تقديم طلب جديد</h2>
+              <NewRequestForm staffId={session.staffId} />
+            </div>
+          </div>
+          <div className="lg:col-span-2 space-y-8">
+            <TeamRequestsSection supervisorId={session.staffId} />
+            <MyRequestsSection staffId={session.staffId} />
           </div>
         </div>
-
-        <div className="lg:col-span-2 space-y-8">
-          {canManageAll ? (
-            <RequestsQueueSection managerId={session.staffId} searchParams={searchParams} />
-          ) : (
-            <>
-              <TeamRequestsSection supervisorId={session.staffId} />
-              <MyRequestsSection staffId={session.staffId} />
-            </>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
-function firstParam(v: string | string[] | undefined): string {
-  return (Array.isArray(v) ? v[0] : v) || "";
-}
+const TABS = [
+  { key: "pending", label: "بانتظار الاعتماد" },
+  { key: "resolved", label: "آخر الطلبات المعالَجة" },
+  { key: "new", label: "تقديم طلب جديد" },
+] as const;
 
-async function RequestsQueueSection({ managerId, searchParams }: { managerId: string; searchParams: SearchParams }) {
+async function ManagerTabbedView({ searchParams, staffId }: { searchParams: SearchParams; staffId: string }) {
+  const activeTab = firstParam(searchParams.tab) || "pending";
   const page = Number(firstParam(searchParams.page)) || 1;
   const type = firstParam(searchParams.type);
   const status = firstParam(searchParams.status);
@@ -72,13 +76,44 @@ async function RequestsQueueSection({ managerId, searchParams }: { managerId: st
   ]);
 
   return (
-    <RequestsQueue
-      managerId={managerId}
-      pending={pending}
-      resolved={resolvedResult.data}
-      resolvedPagination={{ page: resolvedResult.page, pageSize: resolvedResult.pageSize, total: resolvedResult.total }}
-      filters={{ type, status, employeeName }}
-    />
+    <div className="flex flex-col gap-6">
+      <div className="print:hidden flex flex-wrap gap-2 border-b border-slate-200">
+        {TABS.map((t) => {
+          const isActive = activeTab === t.key;
+          const count = t.key === "pending" ? pending.length : t.key === "resolved" ? resolvedResult.total : undefined;
+          return (
+            <Link
+              key={t.key}
+              href={`?tab=${t.key}`}
+              className={`px-4 py-2.5 text-sm font-bold border-b-2 -mb-px transition ${
+                isActive ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {t.label}
+              {count !== undefined ? ` (${count})` : ""}
+            </Link>
+          );
+        })}
+      </div>
+
+      {activeTab === "new" && (
+        <div className="max-w-xl">
+          <NewRequestForm staffId={staffId} />
+        </div>
+      )}
+
+      {activeTab === "resolved" && (
+        <ResolvedQueueTable
+          resolved={resolvedResult.data}
+          resolvedPagination={{ page: resolvedResult.page, pageSize: resolvedResult.pageSize, total: resolvedResult.total }}
+          filters={{ type, status, employeeName }}
+        />
+      )}
+
+      {activeTab !== "new" && activeTab !== "resolved" && (
+        <PendingQueueTable managerId={staffId} pending={pending} />
+      )}
+    </div>
   );
 }
 

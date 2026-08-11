@@ -5,7 +5,7 @@ import { getStaffById, getDirectReports, type Staff } from "@/lib/staff-data";
 import { getEmployeeRequestsForStaff, formatRequestLine } from "@/lib/employee-requests-data";
 import { ROLE_LABELS } from "@/lib/role-labels";
 import { GRANTABLE_PATHS } from "@/lib/access-control";
-import { PrintButton } from "./print-button";
+import { PrintButton } from "@/components/PrintButton";
 
 export const dynamic = "force-dynamic";
 
