@@ -53,17 +53,18 @@ function ResolvedFilters({ filters }: { filters: { type: string; status: string;
   const hasFilters = !!(filters.type || filters.status || filters.employeeName);
 
   return (
-    <form action={pathname} method="get" className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-2 mb-3">
+    <form action={pathname} method="get" className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-nowrap items-center gap-2 mb-3 overflow-x-auto">
+      <input type="hidden" name="tab" value="resolved" />
       <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500 shrink-0">
         <Filter className="h-3.5 w-3.5" /> تصفية:
       </span>
-      <select name="type" defaultValue={filters.type} className="px-2.5 py-1.5 rounded-lg border border-slate-300 outline-none text-xs bg-white">
+      <select name="type" defaultValue={filters.type} className="shrink-0 px-2.5 py-1.5 rounded-lg border border-slate-300 outline-none text-xs bg-white">
         <option value="">كل الأنواع</option>
         {Object.entries(REQUEST_TYPE_LABEL).map(([value, label]) => (
           <option key={value} value={value}>{label}</option>
         ))}
       </select>
-      <select name="status" defaultValue={filters.status} className="px-2.5 py-1.5 rounded-lg border border-slate-300 outline-none text-xs bg-white">
+      <select name="status" defaultValue={filters.status} className="shrink-0 px-2.5 py-1.5 rounded-lg border border-slate-300 outline-none text-xs bg-white">
         <option value="">كل الحالات</option>
         {RESOLVED_STATUSES.map((s) => (
           <option key={s} value={s}>{s}</option>
@@ -76,9 +77,9 @@ function ResolvedFilters({ filters }: { filters: { type: string; status: string;
         placeholder="اسم الموظف..."
         className="px-2.5 py-1.5 rounded-lg border border-slate-300 outline-none text-xs flex-1 min-w-[120px]"
       />
-      <button type="submit" className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition">تطبيق</button>
+      <button type="submit" className="shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition whitespace-nowrap">تطبيق</button>
       {hasFilters && (
-        <Link href={pathname} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-rose-600 transition">
+        <Link href={`${pathname}?tab=resolved`} className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-rose-600 transition whitespace-nowrap">
           <X className="h-3 w-3" /> مسح
         </Link>
       )}
@@ -91,7 +92,7 @@ function ResolvedPagination({ page, pageSize, total, filters }: { page: number; 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   if (totalPages <= 1) return null;
 
-  const linkFor = (p: number) => `${pathname}${buildQuery({ type: filters.type, status: filters.status, employee: filters.employeeName, page: p })}`;
+  const linkFor = (p: number) => `${pathname}${buildQuery({ tab: "resolved", type: filters.type, status: filters.status, employee: filters.employeeName, page: p })}`;
 
   return (
     <div className="flex items-center justify-between mt-3 text-xs text-slate-500">
