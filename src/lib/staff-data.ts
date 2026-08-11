@@ -29,6 +29,20 @@ export async function getStaffList(): Promise<Staff[]> {
   return data || [];
 }
 
+export async function getStaffById(id: string): Promise<Staff | null> {
+  const { data, error } = await supabase
+    .from("erp_staff")
+    .select(STAFF_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error fetching staff by id:", error);
+    return null;
+  }
+  return data;
+}
+
 // موظفون مسؤولهم المباشر هو staffId — تُستخدم لتحديد هل الشخص "مسؤول عن
 // فريق" (لإظهار زر "فريقي" بالبوت) ولعرض قائمة الفريق نفسها.
 export async function getDirectReports(staffId: string): Promise<Staff[]> {

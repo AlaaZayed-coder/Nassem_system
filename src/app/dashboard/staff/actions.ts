@@ -90,6 +90,31 @@ export async function deleteStaffAction(id: string): Promise<{ error?: string }>
   return {};
 }
 
+// حذف نهائي يشمل كل السجلات المرتبطة — لمدير النظام فقط (وليس HR)، ويُستخدم
+// فقط لما يكون deleteStaffAction العادي مرفوضاً بسبب سجلات مرتبطة. يحذف
+// طلبات الموظف الخاصة به ورسائله المُرسلة/المُستلمة نهائياً (لا يمكن
+// التراجع)، ويُفرغ فقط المراجع التي تخصه كـ"مسؤول" على سجلات غيره (مسؤول
+// مباشر، معتمِد طلب...) بدل حذف تلك السجلات نفسها.
+export async function forceDeleteStaffAction(id: string): Promise<{ error?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "manager") return { error: "هذا الإجراء متاح لمدير النظام فقط" };
+
+  await supabase.from("erp_broadcast_messages").delete().or(`sender_staff_id.eq.${id},recipient_staff_id.eq.${id}`);
+  await supabase.from("erp_employee_requests").update({ manager_id: null }).eq("manager_id", id);
+  await supabase.from("erp_employee_requests").update({ current_approver_id: null }).eq("current_approver_id", id);
+  await supabase.from("erp_employee_requests").delete().eq("staff_id", id);
+  await supabase.from("erp_staff").update({ supervisor_id: null }).eq("supervisor_id", id);
+  await supabase.from("erp_door_orders").update({ responsible_staff_id: null }).eq("responsible_staff_id", id);
+  await supabase.from("erp_door_orders").update({ dispatched_by_staff_id: null }).eq("dispatched_by_staff_id", id);
+  await supabase.from("erp_order_submissions").update({ submitted_by_staff_id: null }).eq("submitted_by_staff_id", id);
+
+  const { error } = await supabase.from("erp_staff").delete().eq("id", id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/staff");
+  return {};
+}
+
 // إرسال رسالة عبر تيليجرام — تعميم لكل الموظفين، أو لعدد مختار منهم. المنطق
 // الفعلي مشترك مع بوت تيليجرام نفسه (انظر lib/broadcast.ts)، فمدير النظام
 // ومسؤول الموارد البشرية يقدروا يرسلوا نفس الرسائل من الويب أو من داخل

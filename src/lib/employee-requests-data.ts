@@ -121,6 +121,26 @@ export async function getAttendanceSummaryForStaff(staffId: string): Promise<Att
   return summary;
 }
 
+// معرّفات الموظفين في إجازة معتمدة تشمل تاريخ اليوم — لبطاقة إحصائية بصفحة
+// إدارة الموظفين. الفلترة بالتاريخ تتم بالكود (لا فهرس جديد) لأن الفريق صغير.
+export async function getOngoingVacationStaffIds(): Promise<Set<string>> {
+  const { data } = await supabase
+    .from("erp_employee_requests")
+    .select("staff_id, details")
+    .eq("request_type", "vacation")
+    .eq("status", "موافق عليه");
+
+  const today = new Date().toISOString().slice(0, 10);
+  const ids = new Set<string>();
+  for (const row of data || []) {
+    const { start_date, end_date } = row.details || {};
+    if (start_date && end_date && start_date <= today && today <= end_date) {
+      ids.add(row.staff_id);
+    }
+  }
+  return ids;
+}
+
 async function getPrimaryManagerId(): Promise<string | null> {
   const { data } = await supabase
     .from("erp_staff")
