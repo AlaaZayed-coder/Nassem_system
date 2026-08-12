@@ -4,6 +4,17 @@
 
 @import "./legacy-tokens.css";
 @import "./legacy-app.css";
+
+/* legacy-app.css forces select/input width:100% globally, which wins over
+   Tailwind utility classes because Tailwind wraps its own utilities in a
+   named CSS layer (lower cascade priority than any unlayered rule). Newer
+   Tailwind-only UI (e.g. compact inline filter bars) opts out via this class.
+   Only direct-child text inputs are reset — a search box nested inside its
+   own wrapper div (for the search icon) is meant to be full width already. */
+.filter-bar-compact select,
+.filter-bar-compact > input[type="text"] {
+  width: auto;
+}
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
