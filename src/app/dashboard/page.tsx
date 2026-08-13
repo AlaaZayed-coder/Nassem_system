@@ -17,34 +17,31 @@ export default async function DashboardHomePage() {
     .filter((g) => g.items.length > 0);
 
   return (
-    <div className="max-w-6xl mx-auto py-4" dir="rtl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">أهلاً بك، {session?.name || ""} 👋</h1>
-        <p className="text-slate-500 mt-1">اختر القسم اللي تريد العمل عليه.</p>
-      </div>
+    <div className="max-w-5xl mx-auto py-2" dir="rtl">
+      <h1 className="text-lg font-extrabold text-slate-800 mb-3">أهلاً بك، {session?.name || ""} 👋</h1>
 
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-3">
         {visibleGroups.map((g) => (
-          <div key={g.group}>
-            <h2 className="text-sm font-bold text-slate-400 mb-3">{g.group}</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <div key={g.group} className="flex items-start gap-3">
+            <span className="shrink-0 w-24 sm:w-28 pt-1.5 text-[11px] font-bold text-slate-400 text-left">{g.group}</span>
+            <div className="flex-1 grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
               {g.items.map((item) => {
                 const badge = item.badgeKey ? counts[item.badgeKey] : 0;
                 return (
                   <Link
                     key={item.path}
                     href={item.path}
-                    className="relative bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col items-center gap-2 text-center hover:border-indigo-300 hover:shadow-md transition"
+                    className="relative bg-white rounded-xl border border-slate-200 shadow-sm p-2 flex flex-col items-center gap-1 text-center hover:border-indigo-300 hover:shadow-md transition"
                   >
                     {!!badge && (
-                      <span className="absolute top-2 left-2 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                      <span className="absolute top-1 left-1 bg-rose-500 text-white text-[9px] font-bold px-1 py-0.5 rounded-full min-w-[15px] leading-none text-center">
                         {badge}
                       </span>
                     )}
-                    <div className="bg-indigo-50 text-indigo-600 w-11 h-11 rounded-xl flex items-center justify-center">
-                      <item.icon className="h-5 w-5" />
+                    <div className="bg-indigo-50 text-indigo-600 w-7 h-7 rounded-lg flex items-center justify-center">
+                      <item.icon className="h-3.5 w-3.5" />
                     </div>
-                    <span className="text-xs font-bold text-slate-700 leading-tight">{item.name}</span>
+                    <span className="text-[9.5px] font-bold text-slate-700 leading-tight">{item.name}</span>
                   </Link>
                 );
               })}

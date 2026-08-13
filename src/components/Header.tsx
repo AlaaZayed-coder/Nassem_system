@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, User, Home, LogOut } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Bell, User, Home, LogOut, ChevronLeft } from "lucide-react";
 import { useState } from "react";
 import { logoutAction } from "@/app/login/actions";
 import { ROLE_LABELS } from "@/lib/role-labels";
 import { ROLE_NOTIFICATION_SCOPE } from "@/lib/dashboard-notifications";
+import { NAV_GROUPS } from "@/lib/nav-modules";
+import { canAccessPath } from "@/lib/access-control";
 import type { SessionPayload } from "@/lib/auth";
 
 const NOTIFICATION_LABELS: Record<string, string> = {
@@ -15,6 +18,10 @@ const NOTIFICATION_LABELS: Record<string, string> = {
   pendingInstallations: "طلبيات بانتظار إخراج التركيب",
 };
 
+function isPathActive(pathname: string, path: string): boolean {
+  return pathname === path || pathname.startsWith(path + "/");
+}
+
 export function Header({
   counts,
   session,
@@ -23,18 +30,30 @@ export function Header({
   session: SessionPayload | null;
 }) {
   const [showNotifications, setShowNotifications] = useState(false);
+  const pathname = usePathname() || "";
   // كل حساب يشوف تنبيهات تخصه هو فقط، مو تنبيهات المدراء/المشرفين الشاملة.
   const scope = ROLE_NOTIFICATION_SCOPE[session?.role || ""] || [];
   const totalPending = scope.reduce((sum, key) => sum + counts[key], 0);
 
+  // شريط سياقي رفيع يظهر فقط وأنت داخل قسم (مو بالرئيسية نفسها) — يعرض
+  // اسم المجموعة الحالية وروابط سريعة لباقي صفحاتها، بدل القائمة الجانبية
+  // القديمة اللي كانت تفتح نفس الروابط كأبناء قابلين للطي.
+  const role = session?.role || "";
+  const extraAccess = session?.extraAccess || [];
+  const currentGroup = pathname && pathname !== "/dashboard"
+    ? NAV_GROUPS.find((g) => g.items.some((item) => isPathActive(pathname, item.path)))
+    : null;
+  const groupItems = currentGroup?.items.filter((item) => canAccessPath(role, item.path, extraAccess)) || [];
+
   return (
-    <header className="bg-white shadow-sm h-16 flex items-center justify-between px-4 md:px-6 relative">
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="flex items-center gap-2 text-slate-700 hover:text-indigo-600 transition font-bold">
-          <Home className="h-5 w-5" />
-          <span className="hidden sm:inline text-lg md:text-xl">الرئيسية</span>
-        </Link>
-      </div>
+    <>
+      <header className="bg-white shadow-sm h-16 flex items-center justify-between px-4 md:px-6 relative">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="flex items-center gap-2 text-slate-700 hover:text-indigo-600 transition font-bold">
+            <Home className="h-5 w-5" />
+            <span className="hidden sm:inline text-lg md:text-xl">الرئيسية</span>
+          </Link>
+        </div>
 
       <div className="flex items-center gap-3 md:gap-5 text-slate-600">
         <div className="relative">
@@ -79,6 +98,29 @@ export function Header({
           </form>
         </div>
       </div>
-    </header>
+      </header>
+
+      {currentGroup && groupItems.length > 0 && (
+        <div className="print:hidden bg-white border-t border-slate-100 px-4 md:px-6 py-2 flex items-center gap-2 overflow-x-auto">
+          <Link href="/dashboard" className="shrink-0 text-xs font-bold text-slate-400 hover:text-indigo-600 transition whitespace-nowrap">
+            الرئيسية
+          </Link>
+          <ChevronLeft className="h-3 w-3 text-slate-300 shrink-0" />
+          <span className="shrink-0 text-xs font-bold text-slate-500 whitespace-nowrap">{currentGroup.group}</span>
+          <div className="w-px h-4 bg-slate-200 mx-1 shrink-0" />
+          {groupItems.map((item) => (
+            <Link
+              key={item.path}
+              href={item.path}
+              className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap transition ${
+                isPathActive(pathname, item.path) ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              {item.name}
+            </Link>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
