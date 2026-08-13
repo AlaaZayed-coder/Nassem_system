@@ -1,6 +1,7 @@
 "use client";
 
-import { Bell, User, Menu, LogOut } from "lucide-react";
+import Link from "next/link";
+import { Bell, User, Home, LogOut } from "lucide-react";
 import { useState } from "react";
 import { logoutAction } from "@/app/login/actions";
 import { ROLE_LABELS } from "@/lib/role-labels";
@@ -15,11 +16,9 @@ const NOTIFICATION_LABELS: Record<string, string> = {
 };
 
 export function Header({
-  onMenuClick,
   counts,
   session,
 }: {
-  onMenuClick: () => void;
   counts: { pendingSubmissions: number; pendingMaintenance: number; pendingPurchases: number; pendingInstallations: number; pendingEmployeeRequests: number };
   session: SessionPayload | null;
 }) {
@@ -31,10 +30,10 @@ export function Header({
   return (
     <header className="bg-white shadow-sm h-16 flex items-center justify-between px-4 md:px-6 relative">
       <div className="flex items-center gap-3">
-        <button onClick={onMenuClick} className="lg:hidden text-slate-600 hover:text-slate-900">
-          <Menu className="h-6 w-6" />
-        </button>
-        <h1 className="text-lg md:text-xl font-semibold text-slate-800">لوحة التحكم</h1>
+        <Link href="/dashboard" className="flex items-center gap-2 text-slate-700 hover:text-indigo-600 transition font-bold">
+          <Home className="h-5 w-5" />
+          <span className="hidden sm:inline text-lg md:text-xl">الرئيسية</span>
+        </Link>
       </div>
 
       <div className="flex items-center gap-3 md:gap-5 text-slate-600">

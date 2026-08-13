@@ -1,45 +1,15 @@
 import Link from "next/link";
 import { getExecutiveSummary } from "@/lib/executive-dashboard-data";
 import { getSlaWarnings } from "@/lib/sla-data";
+import { getDashboardNotificationCounts } from "@/lib/dashboard-notifications";
 import { getSession } from "@/lib/auth";
-import { DoorClosed, ShoppingCart, Wrench, ClipboardList, AlertTriangle, Inbox, Truck, ListChecks, ArrowLeft } from "lucide-react";
+import { canAccessPath } from "@/lib/access-control";
+import { NAV_GROUPS } from "@/lib/nav-modules";
+import { DoorClosed, ShoppingCart, Wrench, ClipboardList, AlertTriangle, Inbox, Truck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-// اللوحة التنفيذية بيانات تشغيلية عابرة لكل الأقسام (مبيعات + إنتاج + مشتريات...) —
-// مناسبة لمدير النظام فقط. لكل دور آخر واجهة ترحيب بسيطة بدل تحميله بأرقام لا تخصه.
-const ROLE_HOME: Record<string, { label: string; href: string }> = {
-  sales: { label: "إدارة المبيعات (CRM)", href: "/dashboard/sales" },
-  production: { label: "إدارة الإنتاج", href: "/dashboard/production" },
-  purchasing: { label: "إدارة المشتريات", href: "/dashboard/purchasing" },
-  order_processor: { label: "صندوق وارد الطلبيات", href: "/dashboard/sales/submissions" },
-  hr: { label: "إدارة الموظفين", href: "/dashboard/staff" },
-};
-
-function SimpleHomePage({ role }: { role: string }) {
-  const primary = ROLE_HOME[role];
-  return (
-    <div className="max-w-2xl mx-auto py-16 px-4 text-center" dir="rtl">
-      <div className="mx-auto bg-indigo-50 text-indigo-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6">
-        <ListChecks className="w-8 h-8" />
-      </div>
-      <h1 className="text-2xl font-extrabold text-slate-800 mb-2">أهلاً بك 👋</h1>
-      <p className="text-slate-500 mb-8">تابع مهامك اليومية من &quot;الأجندة اليومية&quot;، أو ادخل مباشرة لقسمك.</p>
-      <div className="flex flex-col sm:flex-row gap-3 justify-center">
-        <Link href="/dashboard/agenda" className="flex items-center justify-center gap-2 bg-white border border-slate-200 shadow-sm px-5 py-3 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition">
-          <ListChecks className="h-4 w-4" /> الأجندة اليومية
-        </Link>
-        {primary && (
-          <Link href={primary.href} className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-3 rounded-xl font-bold hover:bg-indigo-700 transition">
-            {primary.label} <ArrowLeft className="h-4 w-4" />
-          </Link>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function KpiCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: React.ReactNode; icon: any; color: string }) {
+function KpiCard({ label, value, icon: Icon, color }: { label: string; value: string; icon: any; color: string }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
       <div className="flex items-center justify-between mb-2">
@@ -49,17 +19,14 @@ function KpiCard({ label, value, sub, icon: Icon, color }: { label: string; valu
         </div>
       </div>
       <div className="text-2xl font-extrabold text-slate-800">{value}</div>
-      {sub && <div className="mt-1 text-xs">{sub}</div>}
     </div>
   );
 }
 
-export default async function ExecutiveDashboardPage() {
-  const session = await getSession();
-  if (!session || session.role !== "manager") {
-    return <SimpleHomePage role={session?.role || ""} />;
-  }
-
+// اللوحة التنفيذية (بيانات تشغيلية عابرة لكل الأقسام) مناسبة لمدير النظام
+// فقط — تظهر فوق شبكة الأيقونات، وتحتها الشبكة نفسها المتاحة للجميع
+// (مفلترة حسب صلاحية كل دور)، بدل قائمة جانبية شجرية دائمة الظهور.
+async function ManagerOverview() {
   const [summary, warnings] = await Promise.all([getExecutiveSummary(), getSlaWarnings()]);
 
   const CATEGORY_LABEL: Record<string, string> = {
@@ -71,65 +38,24 @@ export default async function ExecutiveDashboardPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-8 px-4" dir="rtl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">لوحة التحكم التنفيذية</h1>
-        <p className="text-slate-500 mt-2">نظرة شاملة على أداء الشركة وحالة الطلبيات عبر جميع الأقسام.</p>
+    <div className="mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <KpiCard label="طلبيات باب بانتظار الاستكمال" value={String(summary.pendingDoorCompletionCount)} icon={DoorClosed} color="bg-sky-50 text-sky-600" />
+        <KpiCard label="طلبات شراء قيد الانتظار" value={String(summary.pendingPurchaseRequestsCount)} icon={ShoppingCart} color="bg-amber-50 text-amber-600" />
+        <KpiCard label="تذاكر صيانة قيد الانتظار" value={String(summary.pendingMaintenanceCount)} icon={Wrench} color="bg-orange-50 text-orange-600" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <KpiCard label="صندوق وارد الطلبيات (بانتظار المعالجة)" value={String(summary.pendingSubmissionsCount)} icon={Inbox} color="bg-indigo-50 text-indigo-600" />
+        <KpiCard label="طلبيات جاهزة بانتظار إخراج التركيب" value={String(summary.pendingInstallationDispatchCount)} icon={Truck} color="bg-sky-50 text-sky-600" />
+        <KpiCard label="تركيبات جارية (قيد التنفيذ / بانتظار تأكيد العميل)" value={String(summary.installationInProgressCount)} icon={Truck} color="bg-violet-50 text-violet-600" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <KpiCard
-          label="طلبيات باب بانتظار الاستكمال"
-          value={String(summary.pendingDoorCompletionCount)}
-          icon={DoorClosed}
-          color="bg-sky-50 text-sky-600"
-        />
-        <KpiCard
-          label="طلبات شراء قيد الانتظار"
-          value={String(summary.pendingPurchaseRequestsCount)}
-          icon={ShoppingCart}
-          color="bg-amber-50 text-amber-600"
-        />
-        <KpiCard
-          label="تذاكر صيانة قيد الانتظار"
-          value={String(summary.pendingMaintenanceCount)}
-          icon={Wrench}
-          color="bg-orange-50 text-orange-600"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <KpiCard
-          label="صندوق وارد الطلبيات (بانتظار المعالجة)"
-          value={String(summary.pendingSubmissionsCount)}
-          icon={Inbox}
-          color="bg-indigo-50 text-indigo-600"
-        />
-        <KpiCard
-          label="طلبيات جاهزة بانتظار إخراج التركيب"
-          value={String(summary.pendingInstallationDispatchCount)}
-          icon={Truck}
-          color="bg-sky-50 text-sky-600"
-        />
-        <KpiCard
-          label="تركيبات جارية (قيد التنفيذ / بانتظار تأكيد العميل)"
-          value={String(summary.installationInProgressCount)}
-          icon={Truck}
-          color="bg-violet-50 text-violet-600"
-        />
-      </div>
-
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-        <h2 className="font-bold text-slate-800 mb-4 text-lg border-b border-slate-100 pb-3 flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5 text-amber-500" />
-          تنبيهات التأخير (SLA)
-        </h2>
-        {warnings.length === 0 ? (
-          <div className="text-center text-slate-400 py-8 flex flex-col items-center gap-2">
-            <ClipboardList className="h-8 w-8 text-slate-300" />
-            لا توجد عناصر متأخرة حالياً — كل شيء تحت السيطرة.
-          </div>
-        ) : (
+      {warnings.length > 0 && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+          <h2 className="font-bold text-slate-800 mb-4 text-lg border-b border-slate-100 pb-3 flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            تنبيهات التأخير (SLA)
+          </h2>
           <div className="space-y-2">
             {warnings.map((w) => (
               <Link
@@ -149,7 +75,59 @@ export default async function ExecutiveDashboardPage() {
               </Link>
             ))}
           </div>
-        )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default async function DashboardHomePage() {
+  const session = await getSession();
+  const role = session?.role || "";
+  const extraAccess = session?.extraAccess || [];
+  const counts = await getDashboardNotificationCounts();
+
+  const visibleGroups = NAV_GROUPS
+    .map((g) => ({ group: g.group, items: g.items.filter((item) => canAccessPath(role, item.path, extraAccess)) }))
+    .filter((g) => g.items.length > 0);
+
+  return (
+    <div className="max-w-6xl mx-auto py-4" dir="rtl">
+      <div className="mb-8">
+        <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">أهلاً بك، {session?.name || ""} 👋</h1>
+        <p className="text-slate-500 mt-1">اختر القسم اللي تريد العمل عليه.</p>
+      </div>
+
+      {role === "manager" && <ManagerOverview />}
+
+      <div className="flex flex-col gap-8">
+        {visibleGroups.map((g) => (
+          <div key={g.group}>
+            <h2 className="text-sm font-bold text-slate-400 mb-3">{g.group}</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {g.items.map((item) => {
+                const badge = item.badgeKey ? counts[item.badgeKey] : 0;
+                return (
+                  <Link
+                    key={item.path}
+                    href={item.path}
+                    className="relative bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col items-center gap-2 text-center hover:border-indigo-300 hover:shadow-md transition"
+                  >
+                    {!!badge && (
+                      <span className="absolute top-2 left-2 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                        {badge}
+                      </span>
+                    )}
+                    <div className="bg-indigo-50 text-indigo-600 w-11 h-11 rounded-xl flex items-center justify-center">
+                      <item.icon className="h-5 w-5" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-700 leading-tight">{item.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
