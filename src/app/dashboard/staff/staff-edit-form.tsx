@@ -58,6 +58,28 @@ export function StaffEditForm({ staff, allStaff, onCancel, onSaved }: { staff: S
         placeholder="معرف تليجرام Chat ID"
         className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition dir-ltr text-left text-sm"
       />
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <label className="block text-[11px] font-bold text-slate-500 mb-1">تاريخ التعيين</label>
+          <input
+            name="hire_date"
+            type="date"
+            defaultValue={staff.hire_date || ""}
+            className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition text-sm"
+          />
+        </div>
+        <div className="flex-1">
+          <label className="block text-[11px] font-bold text-slate-500 mb-1">رصيد الإجازات (يوم)</label>
+          <input
+            name="vacation_balance_days"
+            type="number"
+            min={0}
+            step={1}
+            defaultValue={staff.vacation_balance_days}
+            className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition text-sm"
+          />
+        </div>
+      </div>
       <select
         name="supervisor_id"
         defaultValue={staff.supervisor_id || ""}

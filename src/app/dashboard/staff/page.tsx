@@ -12,6 +12,7 @@ import { PrintButton } from "@/components/PrintButton";
 import { MessagesLog } from "./messages-log";
 import { getBroadcastMessagesLog } from "@/lib/broadcast";
 import { ROLE_LABELS } from "@/lib/role-labels";
+import { OrgChart } from "./org-chart";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ const STAFF_PAGE_SIZE = 10;
 const TABS = [
   { key: "list", label: "الموظفين المسجلين" },
   { key: "add", label: "إضافة موظف جديد" },
+  { key: "orgchart", label: "الهيكل التنظيمي" },
   { key: "broadcast", label: "إرسال رسالة" },
   { key: "messages", label: "سجل الرسائل" },
 ] as const;
@@ -150,6 +152,10 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
         </div>
       )}
 
+      {activeTab === "orgchart" && (
+        <OrgChart staff={staffList} />
+      )}
+
       {activeTab === "broadcast" && (
         <div className="max-w-xl">
           <BroadcastForm staff={staffList} />
@@ -163,7 +169,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
         />
       )}
 
-      {activeTab !== "add" && activeTab !== "broadcast" && activeTab !== "messages" && (
+      {activeTab !== "add" && activeTab !== "orgchart" && activeTab !== "broadcast" && activeTab !== "messages" && (
         <div className="space-y-4">
           <div className="print:hidden flex items-center justify-between flex-wrap gap-3">
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">

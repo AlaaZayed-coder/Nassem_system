@@ -60,7 +60,11 @@ export default async function StaffProfilePage({ params }: { params: { id: strin
             <p className="text-slate-700">{staff.vacation_balance_days} يوم</p>
           </div>
           <div>
-            <p className="text-slate-400 font-bold mb-1">تاريخ الانضمام</p>
+            <p className="text-slate-400 font-bold mb-1">تاريخ التعيين</p>
+            <p className="text-slate-700">{staff.hire_date ? new Date(staff.hire_date).toLocaleDateString("en-GB") : "—"}</p>
+          </div>
+          <div>
+            <p className="text-slate-400 font-bold mb-1">تاريخ الإضافة للنظام</p>
             <p className="text-slate-700">{new Date(staff.created_at).toLocaleDateString("en-GB")}</p>
           </div>
           <div>

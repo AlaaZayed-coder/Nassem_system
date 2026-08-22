@@ -28,6 +28,7 @@ export async function createStaffAction(formData: FormData) {
   const username = (formData.get("username") as string || "").trim();
   const password = (formData.get("password") as string || "");
   const supervisor_id = (formData.get("supervisor_id") as string || "").trim();
+  const hire_date = (formData.get("hire_date") as string || "").trim();
 
   if (!name || !role) throw new Error("الاسم والدور مطلوبان");
   if (username && !password) throw new Error("الرجاء إدخال كلمة مرور مع اسم المستخدم");
@@ -44,6 +45,7 @@ export async function createStaffAction(formData: FormData) {
       username: username || null,
       password_hash: password ? await hashPassword(password) : null,
       supervisor_id: supervisor_id || null,
+      hire_date: hire_date || null,
     }])
     .select()
     .single();
@@ -65,13 +67,19 @@ export async function updateStaffAction(id: string, formData: FormData) {
   const supervisor_id = (formData.get("supervisor_id") as string || "").trim();
   const extra_access = formData.getAll("extra_access") as string[];
   const is_active = formData.get("is_active") === "on";
+  const hire_date = (formData.get("hire_date") as string || "").trim();
+  const vacation_balance_raw = (formData.get("vacation_balance_days") as string || "").trim();
+  const vacation_balance_days = vacation_balance_raw === "" ? null : Number(vacation_balance_raw);
 
   if (!name || !role) throw new Error("الاسم والدور مطلوبان");
   if (supervisor_id === id) throw new Error("لا يمكن أن يكون الموظف مسؤوله المباشر عن نفسه");
+  if (vacation_balance_days !== null && (!Number.isFinite(vacation_balance_days) || vacation_balance_days < 0)) {
+    throw new Error("رصيد الإجازات يجب أن يكون رقماً صحيحاً موجباً");
+  }
   const contactError = validateContactFields(phone, telegram_chat_id);
   if (contactError) throw new Error(contactError);
 
-  const { data: before } = await supabase.from("erp_staff").select("name, role").eq("id", id).maybeSingle();
+  const { data: before } = await supabase.from("erp_staff").select("name, role, vacation_balance_days").eq("id", id).maybeSingle();
 
   const { error } = await supabase
     .from("erp_staff")
@@ -83,14 +91,17 @@ export async function updateStaffAction(id: string, formData: FormData) {
       supervisor_id: supervisor_id || null,
       extra_access,
       is_active,
+      hire_date: hire_date || null,
+      ...(vacation_balance_days !== null ? { vacation_balance_days } : {}),
     })
     .eq("id", id);
 
   if (error) throw new Error(error.message);
 
+  const session = await getSession();
+
   // سجل تدقيق فقط لما يتغيّر الدور فعلاً — تغيير صلاحيات موظف حدث يستحق أثراً.
   if (before && before.role !== role) {
-    const session = await getSession();
     await addAuditEntry({
       user: session?.name || "—",
       action: "تغيير دور موظف",
@@ -98,6 +109,19 @@ export async function updateStaffAction(id: string, formData: FormData) {
       field: "role",
       old_value: ROLE_LABELS[before.role] || before.role,
       new_value: ROLE_LABELS[role] || role,
+    });
+  }
+
+  // تعديل رصيد الإجازات يدوياً من الإدارة (خارج آلية الخصم التلقائي عند
+  // الموافقة على طلب) حدث يستحق أثراً أيضاً — يمنع خلافاً لاحقاً حول "مين غيّر الرصيد".
+  if (before && vacation_balance_days !== null && before.vacation_balance_days !== vacation_balance_days) {
+    await addAuditEntry({
+      user: session?.name || "—",
+      action: "تعديل رصيد إجازات يدوياً",
+      item_code: before.name || name,
+      field: "vacation_balance_days",
+      old_value: String(before.vacation_balance_days),
+      new_value: String(vacation_balance_days),
     });
   }
 
