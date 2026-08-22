@@ -101,7 +101,10 @@ function buildCalendar(year: number, month: number): { text: string; callback_da
   const rows: { text: string; callback_data: string }[][] = [];
 
   rows.push([{ text: `${MONTH_NAMES[month - 1]} ${year}`, callback_data: "noop" }]);
-  rows.push(WEEKDAY_LABELS.map((l) => ({ text: l, callback_data: "noop" })));
+  // اسم واحد بالسطر عوضاً عن سبعة أزرار متجاورة — تيليجرام يبتر نص الأزرار
+  // الضيقة في صف من 7 عناصر (جُرِّب: "الأربعاء"/"الخميس" تظهر مقصوصة)،
+  // فسطر نصي واحد عريض يضمن ظهور كل الأسماء كاملة وواضحة.
+  rows.push([{ text: WEEKDAY_LABELS.join("   "), callback_data: "noop" }]);
 
   let week: { text: string; callback_data: string }[] = [];
   for (let i = 0; i < startWeekday; i++) week.push({ text: " ", callback_data: "noop" });
