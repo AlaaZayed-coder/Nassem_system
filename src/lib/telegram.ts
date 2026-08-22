@@ -32,6 +32,22 @@ export async function sendTelegramMessage(chatId: string, text: string, withMini
   } catch (err) {}
 }
 
+// يرسل صورة (برابط عام يقدر تيليجرام يجلبه، مثل شعار مستضاف تحت public/)
+// مع نص توضيحي (caption) بنفس تنسيق HTML — مستخدَمة لتحية الصباح/المساء
+// المرفقة بشعار الشركة.
+export async function sendTelegramPhoto(chatId: string, photoUrl: string, caption: string) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) return;
+
+  try {
+    await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption, parse_mode: "HTML" }),
+    });
+  } catch (err) {}
+}
+
 // نفس sendTelegramMessage لكن مع زر شفاف "↩️ رد" + "🔙 القائمة الرئيسية"
 // ملتصقين بالرسالة دائماً معاً — عند الضغط على "رد" يدخل الموظف بوضع كتابة
 // رد يُوجَّه تلقائياً لمُرسِل الرسالة الأصلي (انظر معالجة bmsg_reply: بملف

@@ -1,12 +1,34 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { sendTelegramMessage } from "@/lib/telegram";
+import { sendTelegramPhoto, bold } from "@/lib/telegram";
 
 const TIMEZONE = "Asia/Hebron";
 
-const MORNING_MESSAGE = "☀️ صباح الخير!\n\nنتمنى لك يوم جميل ومثمر 🌿";
-const EVENING_MESSAGE = "🌆 مساء الخير!\n\nنتمنى لك بقية يوم هادئة، ونشوفك بكرة بإذن الله.";
-const FRIDAY_MESSAGE = "🌙 اللهم صلِّ وسلّم وبارك على سيدنا محمد ﷺ\n\nجمعة مباركة على الجميع 🌸";
+// يُستضاف تحت public/ فيُخدَّم من نفس نطاق النشر على Vercel — تيليجرام يجلبه
+// كرابط عام عند كل إرسال، بلا حاجة لرفعه يدوياً كل مرة.
+const LOGO_URL = "https://nassem-system.vercel.app/nasseem-logo.png";
+
+const SIGNATURE = `\n\n${bold("بتوفيق مجلس الإدارة")} 🌿`;
+
+// جمل صباحية/مسائية متنوعة — تُختار عشوائياً في كل إرسال حتى لا تتكرر
+// الرسالة نفسها كل يوم بنفس الصياغة.
+const MORNING_MESSAGES = [
+  `☀️ ${bold("صباح الخير")}!\n\nيوم جديد مليء بالفرص، فلنبدأه بهمّة ونشاط 💪`,
+  `🌅 ${bold("صباح النشاط")}!\n\nكل يوم فرصة جديدة للتميّز والإنجاز، بالتوفيق للجميع 🌟`,
+  `☕ ${bold("صباح الخير")}!\n\nنتمنى لكم يوم عمل مثمر مليء بالإنجازات 🚀`,
+  `🌞 ${bold("صباح الإبداع")}!\n\nابدأ يومك بابتسامة وعزيمة، فريق النسيم يقدر جهودكم 🌿`,
+  `✨ ${bold("صباح الخير")}!\n\nطاقة إيجابية ليوم موفّق بإذن الله لكل فريق العمل 🙌`,
+];
+
+const EVENING_MESSAGES = [
+  `🌆 ${bold("مساء الخير")}!\n\nشكراً لجهودكم اليوم، نتمنى لكم راحة تستحقونها ونشوفكم بكرة بإذن الله 🌙`,
+  `🌇 ${bold("مساء الطيب")}!\n\nيوم آخر من العطاء ينتهي بخير، دمتم بصحة ونشاط 🌟`,
+  `🌃 ${bold("مساء الخير")}!\n\nنقدّر كل جهد بذلتموه اليوم، إلى لقاء قريب بإذن الله 🌿`,
+  `🌙 ${bold("مساء الهدوء")}!\n\nراحة طيبة لكم جميعاً، ونستقبلكم غداً بنشاط جديد 🙏`,
+];
+
+const FRIDAY_MESSAGE =
+  `🌙 ${bold("اللهم صلِّ وسلِّم وبارك على نبينا محمد وعلى آله وصحبه أجمعين")}\n\n${bold("جمعة مباركة")} على الجميع 🌸`;
 
 function isFriday(): boolean {
   const weekday = new Intl.DateTimeFormat("en-US", { timeZone: TIMEZONE, weekday: "long" }).format(new Date());
@@ -15,6 +37,10 @@ function isFriday(): boolean {
 
 function todayDateString(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE }).format(new Date());
+}
+
+function pickRandom(options: string[]): string {
+  return options[Math.floor(Math.random() * options.length)];
 }
 
 // مهمة مجدولة (Vercel Cron) — تُستدعى مرتين يومياً (صباحاً ومساءً، انظر
@@ -48,7 +74,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, skipped: "already-sent-today" });
   }
 
-  const text = type === "morning" ? (friday ? FRIDAY_MESSAGE : MORNING_MESSAGE) : EVENING_MESSAGE;
+  const body = friday ? FRIDAY_MESSAGE : type === "morning" ? pickRandom(MORNING_MESSAGES) : pickRandom(EVENING_MESSAGES);
+  const caption = body + SIGNATURE;
 
   const { data: staffList } = await supabase
     .from("erp_staff")
@@ -59,7 +86,7 @@ export async function GET(req: Request) {
   let sent = 0;
   for (const s of staffList || []) {
     if (s.telegram_chat_id) {
-      await sendTelegramMessage(s.telegram_chat_id, text);
+      await sendTelegramPhoto(s.telegram_chat_id, LOGO_URL, caption);
       sent++;
     }
   }
