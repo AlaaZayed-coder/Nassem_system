@@ -343,6 +343,13 @@ async function askTeamRequests(chatId: string, supervisorId: string) {
   for (const r of pending) {
     const text = formatRequestLine(r, { showName: true });
     const ackOnly = REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY[r.request_type];
+    // بالتسلسل الثلاثي، لو الطلب لسا مو بدور المسؤول المباشر (مثلاً لسا
+    // بمرحلة الموارد البشرية)، يشوفه بلا أزرار — حتى ما يوافق/يرفض قبل دوره.
+    const isMyTurn = !r.approval_stage || r.current_approver_id === supervisorId;
+    if (!isMyTurn) {
+      await sendTelegramMessage(chatId, text);
+      continue;
+    }
     const buttons = ackOnly
       ? [[{ text: "✅ تم الاستلام", callback_data: `emp_ack:${r.id}` }]]
       : [[
@@ -384,7 +391,7 @@ async function askAdminToolsMenu(chatId: string) {
 // "كل الطلبات المعلّقة" — عرض شامل لكل طلبات الموظفين المعلّقة بالشركة (لا
 // يقتصر على فريق مباشر)، فمدير النظام هو المعتمِد الافتراضي لأي طلب بغض
 // النظر عن التسلسل الإداري. نفس أزرار الموافقة/الرفض/الاستلام المعتادة.
-async function askAllPendingRequests(chatId: string) {
+async function askAllPendingRequests(chatId: string, viewerId: string) {
   const pending = await getEmployeeRequests("قيد الانتظار");
   if (pending.length === 0) {
     await sendTelegramInlineKeyboard(chatId, "لا توجد طلبات معلّقة حالياً ✅", withBack([]));
@@ -395,6 +402,13 @@ async function askAllPendingRequests(chatId: string) {
   for (const r of pending) {
     const text = formatRequestLine(r, { showName: true });
     const ackOnly = REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY[r.request_type];
+    // بالتسلسل الثلاثي، لو الطلب لسا مو دور هذا المشاهد تحديداً (مثلاً مدير
+    // النظام يستعرض طلباً لسا بمرحلة الموارد البشرية)، يشوفه بلا أزرار.
+    const isMyTurn = !r.approval_stage || r.current_approver_id === viewerId;
+    if (!isMyTurn) {
+      await sendTelegramMessage(chatId, text);
+      continue;
+    }
     const buttons = ackOnly
       ? [[{ text: "✅ تم الاستلام", callback_data: `emp_ack:${r.id}` }]]
       : [[
@@ -729,6 +743,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    if (pending?.stage?.startsWith("emp_approve_notes:")) {
+      const requestId = pending.stage.replace("emp_approve_notes:", "");
+      if (!message.text) {
+        await sendTelegramMessage(chatId, "الرجاء إرسال الملاحظة نصاً.");
+        return NextResponse.json({ ok: true });
+      }
+      const result = await resolveEmployeeRequest(requestId, "موافق عليه", staff.id, message.text);
+      await clearPendingTelegramSubmission(chatId);
+      await sendTelegramMessage(chatId, result.error ? `تعذّرت الموافقة: ${result.error}` : "تمت الموافقة على الطلب مع ملاحظتك ✅");
+      return NextResponse.json({ ok: true });
+    }
+
     if (pending?.stage?.startsWith("emp_reject_custom:")) {
       const requestId = pending.stage.replace("emp_reject_custom:", "");
       if (!message.text) {
@@ -1059,7 +1085,7 @@ async function handleCallbackQuery(callbackQuery: any) {
     const staff = await getStaffByTelegramChatId(chatId);
     if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
     await answerCallbackQuery(callbackQuery.id);
-    await askAllPendingRequests(chatId);
+    await askAllPendingRequests(chatId, staff.id);
     return;
   }
 
@@ -1228,11 +1254,29 @@ async function handleCallbackQuery(callbackQuery: any) {
 
   if (data.startsWith("emp_approve:")) {
     const requestId = data.replace("emp_approve:", "");
+    await answerCallbackQuery(callbackQuery.id);
+    await sendTelegramInlineKeyboard(chatId, "هل تريد إضافة ملاحظة مع الموافقة؟", [
+      [{ text: "✅ موافقة بدون ملاحظة", callback_data: `emp_approve_now:${requestId}` }],
+      [{ text: "📝 كتابة ملاحظة أولاً", callback_data: `emp_approve_custom:${requestId}` }],
+    ]);
+    return;
+  }
+
+  if (data.startsWith("emp_approve_now:")) {
+    const requestId = data.replace("emp_approve_now:", "");
     const staff = await getStaffByTelegramChatId(chatId);
     if (!staff) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
     const result = await resolveEmployeeRequest(requestId, "موافق عليه", staff.id);
     await answerCallbackQuery(callbackQuery.id, result.error ? "فشل" : "تمت الموافقة");
-    await sendTelegramMessage(chatId, result.error ? `تعذّرت الموافقة: ${result.error}` : "تمت الموافقة على الطلب وتنفيذ أثره تلقائياً ✅");
+    await sendTelegramMessage(chatId, result.error ? `تعذّرت الموافقة: ${result.error}` : "تمت الموافقة على الطلب ✅");
+    return;
+  }
+
+  if (data.startsWith("emp_approve_custom:")) {
+    const requestId = data.replace("emp_approve_custom:", "");
+    await supabase.from("erp_telegram_pending_submissions").upsert([{ chat_id: chatId, stage: `emp_approve_notes:${requestId}` }]);
+    await answerCallbackQuery(callbackQuery.id);
+    await sendTelegramMessage(chatId, "✍️ اكتب ملاحظتك:");
     return;
   }
 

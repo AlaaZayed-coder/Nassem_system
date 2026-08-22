@@ -61,8 +61,8 @@ export async function acknowledgeEmployeeRequestAction(id: string, staffId: stri
   return result;
 }
 
-export async function approveEmployeeRequestAction(id: string, managerId: string): Promise<{ error?: string }> {
-  const result = await resolveEmployeeRequest(id, "موافق عليه", managerId);
+export async function approveEmployeeRequestAction(id: string, managerId: string, notes?: string): Promise<{ error?: string }> {
+  const result = await resolveEmployeeRequest(id, "موافق عليه", managerId, notes);
   revalidatePath("/dashboard/staff/requests");
   return result;
 }

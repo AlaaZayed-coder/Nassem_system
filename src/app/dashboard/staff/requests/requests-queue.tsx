@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { EmployeeRequest, REQUEST_TYPE_LABEL, REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY } from "@/lib/employee-requests-data";
+import { EmployeeRequest, REQUEST_TYPE_LABEL, REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY, STAGE_LABEL } from "@/lib/employee-requests-data";
 import { approveEmployeeRequestAction, rejectEmployeeRequestAction, cancelEmployeeRequestAction, acknowledgeEmployeeRequestAction, deleteEmployeeRequestAction } from "./actions";
 import { CheckCircle2, XCircle, Ban, UserCircle2, Trash2, Filter, ChevronRight, ChevronLeft, X } from "lucide-react";
 import { ExportRequestsCsvButton } from "./export-csv-button";
@@ -185,17 +185,38 @@ const STATUS_COLOR: Record<string, string> = {
   "تم الاستلام": "bg-sky-100 text-sky-700",
 };
 
+// سجل كل إجراء تمّ بأي مرحلة (موافقة/رفض + ملاحظته الاختيارية) — يظهر
+// بالويب لكل من الطلبات المعلّقة (تسلسل حتى الآن) والمُعالَجة (السجل كامل).
+function ApprovalLogList({ log }: { log: EmployeeRequest["approval_log"] }) {
+  if (!log || log.length === 0) return null;
+  return (
+    <div className="mt-1.5 flex flex-col gap-1">
+      {log.map((entry, i) => (
+        <p key={i} className="text-[11px] text-slate-400">
+          <span className={entry.decision === "موافقة" ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>{entry.decision}</span>
+          {" "}({STAGE_LABEL[entry.stage]} — {entry.staff_name}){entry.notes ? `: ${entry.notes}` : ""}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 function PendingRow({ request, managerId, onDone }: { request: EmployeeRequest; managerId: string; onDone: () => void }) {
   const [isPending, startTransition] = useTransition();
   const [showReject, setShowReject] = useState(false);
+  const [showApproveNotes, setShowApproveNotes] = useState(false);
   const [reason, setReason] = useState("");
+  const [approveNotes, setApproveNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const ackOnly = REQUEST_TYPE_IS_ACKNOWLEDGMENT_ONLY[request.request_type];
+  // بالتسلسل الثلاثي (سلفة/إجازة/مغادرة) لا يقدر يتصرف إلا معتمِد المرحلة
+  // الحالية فعلياً — غيره يشوف الطلب لكن بلا أزرار حتى لا يقفز الدور.
+  const canAct = !request.approval_stage || request.current_approver_id === managerId;
 
   const handleApprove = () => {
     setError(null);
     startTransition(async () => {
-      const result = await approveEmployeeRequestAction(request.id, managerId);
+      const result = await approveEmployeeRequestAction(request.id, managerId, approveNotes || undefined);
       if (result.error) setError(result.error);
       else onDone();
     });
@@ -229,24 +250,40 @@ function PendingRow({ request, managerId, onDone }: { request: EmployeeRequest; 
       </td>
       <td className="px-4 py-3 text-sm text-slate-700 max-w-sm">
         <DetailLine request={request} />
+        {request.approval_stage && (
+          <p className="text-[11px] font-bold text-indigo-600 mt-1">⏳ بانتظار: {STAGE_LABEL[request.approval_stage]}</p>
+        )}
+        <ApprovalLogList log={request.approval_log} />
         {error && <p className="text-xs font-bold text-rose-600 mt-1">{error}</p>}
       </td>
       <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{new Date(request.created_at).toLocaleDateString("en-GB")}</td>
       <td className="px-4 py-3">
         <div className="flex items-start gap-2">
           <div className="flex-1">
-            {ackOnly ? (
+            {!canAct ? (
+              <span className="text-[11px] font-bold text-slate-400 whitespace-nowrap">بانتظار {STAGE_LABEL[request.approval_stage!]}</span>
+            ) : ackOnly ? (
               <button disabled={isPending} onClick={handleAcknowledge} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-600 text-white text-xs font-bold hover:bg-sky-700 transition disabled:opacity-50 whitespace-nowrap">
                 <CheckCircle2 className="h-3.5 w-3.5" /> تم الاستلام
               </button>
-            ) : !showReject ? (
+            ) : !showReject && !showApproveNotes ? (
               <div className="flex gap-2">
-                <button disabled={isPending} onClick={handleApprove} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition disabled:opacity-50 whitespace-nowrap">
+                <button disabled={isPending} onClick={() => setShowApproveNotes(true)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition disabled:opacity-50 whitespace-nowrap">
                   <CheckCircle2 className="h-3.5 w-3.5" /> موافقة
                 </button>
                 <button disabled={isPending} onClick={() => setShowReject(true)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-xs font-bold hover:bg-rose-100 transition disabled:opacity-50 whitespace-nowrap">
                   <XCircle className="h-3.5 w-3.5" /> رفض
                 </button>
+              </div>
+            ) : showApproveNotes ? (
+              <div className="flex flex-col gap-2 min-w-[180px]">
+                <input value={approveNotes} onChange={(e) => setApproveNotes(e.target.value)} placeholder="ملاحظة (اختياري)..." className="px-3 py-1.5 rounded-lg border border-slate-300 outline-none text-xs" />
+                <div className="flex gap-2">
+                  <button disabled={isPending} onClick={handleApprove} className="flex-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition disabled:opacity-50">
+                    تأكيد الموافقة
+                  </button>
+                  <button type="button" onClick={() => setShowApproveNotes(false)} className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold">إلغاء</button>
+                </div>
               </div>
             ) : (
               <div className="flex flex-col gap-2 min-w-[180px]">
@@ -290,6 +327,7 @@ function ResolvedRow({ request }: { request: EmployeeRequest }) {
       <td className="px-4 py-3 text-sm text-slate-600 max-w-sm">
         <DetailLine request={request} />
         {request.action_notes && <p className="text-xs text-slate-400 mt-1">ملاحظة: {request.action_notes}</p>}
+        <ApprovalLogList log={request.approval_log} />
         {error && <p className="text-xs font-bold text-rose-600 mt-1">{error}</p>}
       </td>
       <td className="px-4 py-3 whitespace-nowrap">

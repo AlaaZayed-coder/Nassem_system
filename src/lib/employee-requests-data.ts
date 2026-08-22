@@ -3,6 +3,17 @@ import { sendTelegramMessage, sendTelegramInlineKeyboard, sendTelegramVoice } fr
 
 export type EmployeeRequestType = "loan" | "vacation" | "permission" | "complaint" | "attendance_fix" | "injury_report" | "work_report";
 
+export type ApprovalStage = "hr" | "supervisor" | "manager";
+
+export type ApprovalLogEntry = {
+  stage: ApprovalStage;
+  staff_id: string;
+  staff_name: string;
+  decision: "موافقة" | "رفض";
+  notes: string | null;
+  at: string;
+};
+
 export type EmployeeRequest = {
   id: string;
   staff_id: string;
@@ -16,7 +27,20 @@ export type EmployeeRequest = {
   resolved_at: string | null;
   created_at: string;
   updated_at: string;
+  approval_stage: ApprovalStage | null;
+  approval_log: ApprovalLogEntry[];
   erp_staff?: { name: string } | null;
+};
+
+// الأنواع اللي فيها بُعد قابل للفحص (مبلغ/رصيد/مدة) تمر بتسلسل ثلاثي:
+// الموارد البشرية (فحص الرصيد/السقف) ← المسؤول المباشر ← مدير النظام. أي
+// رفض بأي مرحلة ينهي الطلب فوراً. بقية الأنواع تبقى بمعتمِد واحد كالسابق.
+export const STAGED_REQUEST_TYPES: EmployeeRequestType[] = ["loan", "vacation", "permission"];
+
+export const STAGE_LABEL: Record<ApprovalStage, string> = {
+  hr: "الموارد البشرية",
+  supervisor: "المسؤول المباشر",
+  manager: "مدير النظام",
 };
 
 // خريطة توجيه بسيطة في الكود بدل جدول قاعدة بيانات — الفريق صغير وقواعد
@@ -94,7 +118,8 @@ export function formatRequestLine(request: EmployeeRequest, opts?: { showName?: 
   const statusEmoji = STATUS_EMOJI[request.status] || "";
   const name = opts?.showName && request.erp_staff?.name ? ` (${request.erp_staff.name})` : "";
   const date = new Date(request.created_at).toLocaleDateString("en-GB");
-  return `${statusEmoji} ${typeLabel}${name} — ${request.status}\n${formatRequestDetail(request)}\n${date}`;
+  const stageLine = request.status === "قيد الانتظار" && request.approval_stage ? `\n⏳ بانتظار: ${STAGE_LABEL[request.approval_stage]}` : "";
+  return `${statusEmoji} ${typeLabel}${name} — ${request.status}${stageLine}\n${formatRequestDetail(request)}\n${date}`;
 }
 
 export type AttendanceSummary = { present: number; absent: number; justified: number };
@@ -150,6 +175,72 @@ async function getPrimaryManagerId(): Promise<string | null> {
     .limit(1)
     .maybeSingle();
   return data?.id || null;
+}
+
+async function getPrimaryHRId(): Promise<string | null> {
+  const { data } = await supabase
+    .from("erp_staff")
+    .select("id")
+    .eq("role", "hr")
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
+  return data?.id || null;
+}
+
+async function getActiveStaffByRole(role: string): Promise<{ id: string; telegram_chat_id: string | null }[]> {
+  const { data } = await supabase
+    .from("erp_staff")
+    .select("id, telegram_chat_id")
+    .eq("role", role)
+    .eq("is_active", true);
+  return data || [];
+}
+
+// يحدّد نقطة انطلاق التسلسل الثلاثي: الموارد البشرية إن وُجد أحد بهذا
+// الدور، وإلا يتخطاها للمسؤول المباشر، وإلا مدير النظام مباشرة — حتى لا
+// يعلق الطلب بلا معتمِد لو نقص أحد الأدوار بالنظام.
+async function resolveInitialStagedRouting(staffId: string): Promise<{ stage: ApprovalStage; approverId: string | null }> {
+  const hrId = await getPrimaryHRId();
+  if (hrId) return { stage: "hr", approverId: hrId };
+
+  const { data: staff } = await supabase.from("erp_staff").select("supervisor_id").eq("id", staffId).maybeSingle();
+  if (staff?.supervisor_id) return { stage: "supervisor", approverId: staff.supervisor_id };
+
+  return { stage: "manager", approverId: await getPrimaryManagerId() };
+}
+
+// المرحلة التالية بعد موافقة مرحلة حالية — null يعني إن المرحلة الحالية
+// كانت الأخيرة (مدير النظام) فالطلب يُعتمد نهائياً.
+async function nextStagedApprover(currentStage: ApprovalStage, staffId: string): Promise<{ stage: ApprovalStage; approverId: string | null } | null> {
+  if (currentStage === "hr") {
+    const { data: staff } = await supabase.from("erp_staff").select("supervisor_id").eq("id", staffId).maybeSingle();
+    if (staff?.supervisor_id) return { stage: "supervisor", approverId: staff.supervisor_id };
+    return { stage: "manager", approverId: await getPrimaryManagerId() };
+  }
+  if (currentStage === "supervisor") {
+    return { stage: "manager", approverId: await getPrimaryManagerId() };
+  }
+  return null;
+}
+
+// كل من له علاقة بطلب متسلسل (كل الموارد البشرية، المسؤول المباشر إن
+// وُجد، وكل مدراء النظام) — يُستخدم لإرسال تحديثات الحالة للجميع، بغض
+// النظر عن مين صاحب الدور بهذه اللحظة تحديداً.
+async function getStagedAudienceContacts(staffId: string): Promise<{ id: string; telegram_chat_id: string | null }[]> {
+  const [hrList, managerList, submitter] = await Promise.all([
+    getActiveStaffByRole("hr"),
+    getActiveStaffByRole("manager"),
+    supabase.from("erp_staff").select("supervisor_id").eq("id", staffId).maybeSingle(),
+  ]);
+
+  const contacts = [...hrList, ...managerList];
+  const supervisorId = submitter.data?.supervisor_id;
+  if (supervisorId && !contacts.some((c) => c.id === supervisorId)) {
+    const { data: sup } = await supabase.from("erp_staff").select("id, telegram_chat_id").eq("id", supervisorId).maybeSingle();
+    if (sup) contacts.push(sup);
+  }
+  return contacts;
 }
 
 // كل الأنواع تُوجَّه لنفس المكان حالياً (لا تسلسل إداري بعد) — نُبقيها كدالة
@@ -343,7 +434,10 @@ export async function createEmployeeRequest(input: CreateEmployeeRequestInput): 
   const validation = await validateEmployeeRequest(input);
   if (validation.error) return { error: validation.error };
 
-  const approverId = await resolveApproverForRequestType(input.request_type);
+  const isStaged = STAGED_REQUEST_TYPES.includes(input.request_type);
+  const routing = isStaged
+    ? await resolveInitialStagedRouting(input.staff_id)
+    : { stage: null as ApprovalStage | null, approverId: await resolveApproverForRequestType(input.request_type) };
 
   const { data, error } = await supabase
     .from("erp_employee_requests")
@@ -352,7 +446,8 @@ export async function createEmployeeRequest(input: CreateEmployeeRequestInput): 
       request_type: input.request_type,
       details: input.details,
       source: input.source,
-      current_approver_id: approverId,
+      current_approver_id: routing.approverId,
+      approval_stage: routing.stage,
     }])
     .select("*, erp_staff!erp_employee_requests_staff_id_fkey(name)")
     .single();
@@ -410,6 +505,11 @@ export async function notifyApproverWithContext(requestId: string) {
   const request = await getEmployeeRequestById(requestId);
   if (!request) return;
 
+  if (request.approval_stage) {
+    await notifyStagedStageStart(request);
+    return;
+  }
+
   const text = await buildApprovalContextText(request);
   if (!text) return;
 
@@ -435,6 +535,50 @@ export async function notifyApproverWithContext(requestId: string) {
 
   for (const r of recipients || []) {
     if (r.telegram_chat_id) await sendTelegramInlineKeyboard(r.telegram_chat_id, text, buttons);
+  }
+}
+
+// يُرسل عند إنشاء طلب متسلسل أو تقدّمه لمرحلة تالية: رسالة فعّالة (بأزرار
+// موافقة/رفض) لمعتمِد المرحلة الحالية فقط، ورسالة معلوماتية بلا أزرار
+// لبقية الأطراف الثلاثة (الموارد البشرية/المسؤول المباشر/مدير النظام) —
+// حتى يعرف الجميع أين وصل الطلب، بدون أن يقدر أحد يتصرف بدوره.
+async function notifyStagedStageStart(request: EmployeeRequest) {
+  if (!request.approval_stage) return;
+  const contextText = await buildApprovalContextText(request);
+  if (!contextText) return;
+
+  const stageText = `${contextText}\n\n⏳ بانتظار: ${STAGE_LABEL[request.approval_stage]}`;
+  const buttons = [[
+    { text: "✅ موافقة", callback_data: `emp_approve:${request.id}` },
+    { text: "❌ رفض", callback_data: `emp_reject:${request.id}` },
+  ]];
+
+  const contacts = await getStagedAudienceContacts(request.staff_id);
+  for (const c of contacts) {
+    if (!c.telegram_chat_id) continue;
+    if (c.id === request.current_approver_id) {
+      await sendTelegramInlineKeyboard(c.telegram_chat_id, stageText, buttons);
+    } else {
+      await sendTelegramMessage(c.telegram_chat_id, stageText);
+    }
+  }
+}
+
+// يُرسل عند إغلاق الطلب نهائياً (اعتماد كامل من مدير النظام، أو رفض بأي
+// مرحلة): القرار النهائي يصل للموظف كالمعتاد، وتأكيد إغلاق (بلا أزرار)
+// يصل للثلاثة أطراف اللي تابعوا الطلب طوال مراحله.
+async function notifyStagedClosure(request: EmployeeRequest, decision: "موافق عليه" | "مرفوض", lastStage: ApprovalStage, actionNotes?: string) {
+  await notifyStaffOfDecision(request, decision, actionNotes);
+
+  const staffName = request.erp_staff?.name || "الموظف";
+  const typeLabel = REQUEST_TYPE_LABEL[request.request_type];
+  const resultText = decision === "موافق عليه"
+    ? `✅ تم الاعتماد النهائي لطلب ${typeLabel} الخاص بـ"${staffName}".`
+    : `❌ تم رفض طلب ${typeLabel} الخاص بـ"${staffName}" بمرحلة ${STAGE_LABEL[lastStage]}${actionNotes ? ` — الملاحظة: ${actionNotes}` : ""}.`;
+
+  const contacts = await getStagedAudienceContacts(request.staff_id);
+  for (const c of contacts) {
+    if (c.telegram_chat_id) await sendTelegramMessage(c.telegram_chat_id, resultText);
   }
 }
 
@@ -552,6 +696,10 @@ export async function resolveEmployeeRequest(
   if (!request) return { error: "الطلب غير موجود" };
   if (request.status !== "قيد الانتظار") return { error: "تمت معالجة هذا الطلب مسبقاً" };
 
+  if (request.approval_stage) {
+    return resolveStagedRequest(request, decision, managerId, actionNotes);
+  }
+
   const { error } = await supabase
     .from("erp_employee_requests")
     .update({
@@ -571,6 +719,90 @@ export async function resolveEmployeeRequest(
 
   await notifyStaffOfDecision(request, decision, actionNotes);
 
+  return {};
+}
+
+// يعالج الموافقة/الرفض لطلب متسلسل (سلفة/إجازة/مغادرة). لازم يكون الفاعل
+// فعلاً معتمِد المرحلة الحالية (current_approver_id) — رفض أي مرحلة ينهي
+// الطلب فوراً، والموافقة إما تُقدّمه للمرحلة التالية أو تعتمده نهائياً لو
+// كانت مرحلة مدير النظام. كل إجراء (بملاحظته الاختيارية) يُسجَّل بـ
+// approval_log ليبقى ظاهراً بالويب حتى بعد إغلاق الطلب.
+async function resolveStagedRequest(
+  request: EmployeeRequest,
+  decision: "موافق عليه" | "مرفوض",
+  actorStaffId: string,
+  actionNotes?: string
+): Promise<{ error?: string }> {
+  const stage = request.approval_stage as ApprovalStage;
+
+  if (request.current_approver_id !== actorStaffId) {
+    return { error: "هذا الطلب ليس بانتظار موافقتك حالياً" };
+  }
+
+  const { data: actor } = await supabase.from("erp_staff").select("name").eq("id", actorStaffId).maybeSingle();
+  const logEntry: ApprovalLogEntry = {
+    stage,
+    staff_id: actorStaffId,
+    staff_name: actor?.name || "—",
+    decision: decision === "موافق عليه" ? "موافقة" : "رفض",
+    notes: actionNotes || null,
+    at: new Date().toISOString(),
+  };
+  const newLog = [...(request.approval_log || []), logEntry];
+
+  if (decision === "مرفوض") {
+    const { error } = await supabase
+      .from("erp_employee_requests")
+      .update({
+        status: "مرفوض",
+        manager_id: actorStaffId,
+        action_notes: actionNotes || null,
+        approval_log: newLog,
+        resolved_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", request.id);
+    if (error) return { error: error.message };
+
+    await notifyStagedClosure(request, "مرفوض", stage, actionNotes);
+    return {};
+  }
+
+  const next = await nextStagedApprover(stage, request.staff_id);
+
+  if (!next) {
+    // مرحلة مدير النظام كانت الأخيرة — اعتماد نهائي وتنفيذ الأثر.
+    const { error } = await supabase
+      .from("erp_employee_requests")
+      .update({
+        status: "موافق عليه",
+        manager_id: actorStaffId,
+        action_notes: actionNotes || null,
+        approval_log: newLog,
+        resolved_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", request.id);
+    if (error) return { error: error.message };
+
+    await applyApprovalSideEffect(request);
+    await notifyStagedClosure(request, "موافق عليه", stage, actionNotes);
+    return {};
+  }
+
+  const { error } = await supabase
+    .from("erp_employee_requests")
+    .update({
+      approval_stage: next.stage,
+      current_approver_id: next.approverId,
+      approval_log: newLog,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", request.id);
+  if (error) return { error: error.message };
+
+  const updatedRequest: EmployeeRequest = { ...request, approval_stage: next.stage, current_approver_id: next.approverId, approval_log: newLog };
+  await notifyStagedStageStart(updatedRequest);
   return {};
 }
 
