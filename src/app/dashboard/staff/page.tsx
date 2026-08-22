@@ -4,7 +4,7 @@ import { getOngoingVacationStaffIds } from "@/lib/employee-requests-data";
 import { getSession } from "@/lib/auth";
 import { Users, UserPlus, ShieldCheck } from "lucide-react";
 import { StaffForm } from "./staff-form";
-import { StaffCard } from "./staff-card";
+import { StaffRow } from "./staff-card";
 import { BroadcastForm } from "./broadcast-form";
 import { StaffFilters } from "./staff-filters";
 import { ExportCsvButton } from "./export-csv-button";
@@ -138,17 +138,32 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
 
           <StaffFilters q={q} role={roleFilter} status={statusFilter} />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredList.map(staff => (
-              <StaffCard key={staff.id} staff={staff} allStaff={staffList} viewerRole={session?.role} />
-            ))}
-
-            {filteredList.length === 0 && (
-              <div className="col-span-full py-12 text-center text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
-                {staffList.length === 0 ? "لا يوجد موظفين مسجلين حالياً." : "لا يوجد موظفين مطابقين لعوامل التصفية."}
-              </div>
-            )}
-          </div>
+          {filteredList.length === 0 ? (
+            <div className="py-12 text-center text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+              {staffList.length === 0 ? "لا يوجد موظفين مسجلين حالياً." : "لا يوجد موظفين مطابقين لعوامل التصفية."}
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+              <table className="w-full text-right min-w-[860px]">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500">
+                    <th className="px-4 py-3 font-bold">الاسم</th>
+                    <th className="px-4 py-3 font-bold">الدور</th>
+                    <th className="px-4 py-3 font-bold">الحالة</th>
+                    <th className="px-4 py-3 font-bold">الهاتف</th>
+                    <th className="px-4 py-3 font-bold">تيليجرام</th>
+                    <th className="px-4 py-3 font-bold">بيانات الدخول</th>
+                    <th className="px-4 py-3 font-bold print:hidden">إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredList.map((staff) => (
+                    <StaffRow key={staff.id} staff={staff} allStaff={staffList} viewerRole={session?.role} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>
