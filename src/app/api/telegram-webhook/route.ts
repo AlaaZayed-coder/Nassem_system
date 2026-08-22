@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { sendTelegramMessage, sendTelegramInlineKeyboard, sendTelegramReplyKeyboard, sendTelegramVoice, getTelegramFileUrl } from "@/lib/telegram";
+import { sendTelegramMessage, sendTelegramInlineKeyboard, sendTelegramReplyKeyboard, sendTelegramVoice, getTelegramFileUrl, bold, escapeHtml } from "@/lib/telegram";
 import {
   getStaffByTelegramChatId,
   createOrderSubmission,
@@ -33,8 +33,7 @@ import {
 } from "@/lib/employee-requests-data";
 import { startEmployeeRequestDraft, updateEmployeeRequestDraft } from "@/lib/order-submissions-data";
 import { getDirectReports, searchStaffByName } from "@/lib/staff-data";
-import { getSlaWarnings } from "@/lib/sla-data";
-import { getDashboardNotificationCounts, ROLE_NOTIFICATION_SCOPE } from "@/lib/dashboard-notifications";
+import { getDashboardNotificationCounts } from "@/lib/dashboard-notifications";
 import { ROLE_LABELS } from "@/lib/role-labels";
 import { sendBroadcastMessage, sendTrackedMessage, type BroadcastTarget } from "@/lib/broadcast";
 
@@ -361,20 +360,13 @@ async function askTeamRequests(chatId: string, supervisorId: string) {
   await sendTelegramInlineKeyboard(chatId, "انتهت القائمة.", withBack([]));
 }
 
-const OPS_NOTIFICATION_LABELS: Record<string, string> = {
-  pendingSubmissions: "طلبيات واردة قيد المراجعة",
-  pendingMaintenance: "تذاكر صيانة معلّقة",
-  pendingPurchases: "طلبات شراء معلّقة",
-  pendingInstallations: "طلبيات بانتظار إخراج التركيب",
-};
-
 // قائمة أدوات الإدارة — نقطة دخول واحدة على القائمة الرئيسية لمدير النظام
 // ومسؤول الموارد البشرية، تجمع كل أدوات الإدارة بدل تكديسها كأزرار منفصلة.
 async function askAdminToolsMenu(chatId: string) {
   await sendTelegramInlineKeyboard(chatId, "⚙️ أدوات الإدارة:", withBack([
     [
       { text: "🔍 بحث عن موظف", callback_data: "emp_search_staff" },
-      { text: "📊 ملخص اليوم", callback_data: "emp_daily_summary" },
+      { text: "📊 الملخص", callback_data: "emp_daily_summary" },
     ],
     [
       { text: "📢 إرسال رسالة", callback_data: "bmsg_menu" },
@@ -432,9 +424,9 @@ async function askRecentWorkReports(chatId: string) {
   for (const r of reports) {
     const name = r.erp_staff?.name || "—";
     const date = new Date(r.created_at).toLocaleDateString("en-GB");
-    await sendTelegramMessage(chatId, `📝 تقرير عمل من ${name} — ${date}`);
+    await sendTelegramMessage(chatId, `📝 تقرير عمل من ${bold(name)} — ${date}`);
     if (r.details?.content) {
-      await sendTelegramMessage(chatId, r.details.content);
+      await sendTelegramMessage(chatId, escapeHtml(r.details.content));
     } else if (r.details?.voice_url) {
       await sendTelegramVoice(chatId, r.details.voice_url);
     }
@@ -469,20 +461,13 @@ async function handleToggleStaffSearch(chatId: string, query: string) {
   await sendTelegramInlineKeyboard(chatId, "اختر الموظف:", withBack(rows));
 }
 
-// "ملخص اليوم" — لمدير النظام ومسؤول الموارد البشرية فقط: التنبيهات
-// التشغيلية اللي تخص دوره + طلبات الموظفين المعلّقة + تنبيهات SLA المتأخرة.
+// "الملخص" — لمدير النظام ومسؤول الموارد البشرية فقط: عدد طلبات الموظفين
+// المعلّقة بانتظار قرارهم. باقي التنبيهات التشغيلية (طلبيات/صيانة/شراء/SLA)
+// مُعطّلة مؤقتاً هنا لحين اكتمال اختبارها.
 async function askDailySummary(chatId: string, role: string) {
-  const [warnings, counts] = await Promise.all([getSlaWarnings(), getDashboardNotificationCounts()]);
-  const scope = ROLE_NOTIFICATION_SCOPE[role] || [];
-
-  const lines = ["📊 ملخص اليوم:", ""];
-  for (const key of scope) {
-    lines.push(`${OPS_NOTIFICATION_LABELS[key]}: ${counts[key]}`);
-  }
-  lines.push(`طلبات موظفين معلّقة: ${counts.pendingEmployeeRequests}`);
-  lines.push("", `⚠️ عناصر متأخرة (SLA): ${warnings.length}`);
-
-  await sendTelegramInlineKeyboard(chatId, lines.join("\n"), withBack([]));
+  const counts = await getDashboardNotificationCounts();
+  const text = `📊 ${bold("الملخص")}\n\nطلبات الموظفين المعلّقة: ${bold(String(counts.pendingEmployeeRequests))}`;
+  await sendTelegramInlineKeyboard(chatId, text, withBack([]));
 }
 
 // "إرسال رسالة" — لمدير النظام ومسؤول الموارد البشرية فقط: يختار الجهة
@@ -662,7 +647,7 @@ export async function POST(req: Request) {
           senderStaffId: staff.id,
           recipientStaffId: sender.id,
           recipientChatId: sender.telegram_chat_id,
-          text: `↩️ رد من ${staff.name}:\n\n${message.text}`,
+          text: `↩️ رد من ${staff.name}:\n\n${message.text}`, // يُهرَّب لاحقاً داخل sendTrackedMessage قبل إرساله لتيليجرام
         });
         await sendTelegramInlineKeyboard(chatId, "✅ تم إرسال ردك.", withBack([]));
       } else {
@@ -929,9 +914,9 @@ export async function POST(req: Request) {
     if (submission) {
       const matchNote = pending.matched_customer_id ? " (عميل مسجَّل مسبقاً)" : "";
       if (pending.needs_site_visit) {
-        await sendTelegramMessage(chatId, `تم تسجيل طلبية العميل "${pending.customer_name}"${matchNote} كـ"بانتظار كشف الموقع" — بعد الزيارة الميدانية ستصل تلقائياً لمعالج الطلبيات.`);
+        await sendTelegramMessage(chatId, `تم تسجيل طلبية العميل ${bold(pending.customer_name || "غير محدد")}${matchNote} كـ"بانتظار كشف الموقع" — بعد الزيارة الميدانية ستصل تلقائياً لمعالج الطلبيات.`);
       } else {
-        await sendTelegramMessage(chatId, `تم استلام طلبية العميل "${pending.customer_name}"${matchNote} بنجاح، وستصل إلى معالج الطلبيات للمراجعة والإدخال.`);
+        await sendTelegramMessage(chatId, `تم استلام طلبية العميل ${bold(pending.customer_name || "غير محدد")}${matchNote} بنجاح، وستصل إلى معالج الطلبيات للمراجعة والإدخال.`);
         await notifyOrderProcessors(staff.name, pending.customer_name || "غير محدد");
       }
     }
@@ -1377,7 +1362,7 @@ async function notifyOrderProcessors(senderName: string, customerName: string) {
   if (!processors) return;
   for (const p of processors) {
     if (p.telegram_chat_id) {
-      await sendTelegramMessage(p.telegram_chat_id, `طلبية جديدة من ${senderName} للعميل "${customerName}" بانتظار المراجعة والإدخال.`, true);
+      await sendTelegramMessage(p.telegram_chat_id, `طلبية جديدة من ${bold(senderName)} للعميل ${bold(customerName)} بانتظار المراجعة والإدخال.`, true);
     }
   }
 }

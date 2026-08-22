@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { sendTelegramMessage, sendTelegramMessageWithReplyButton } from "@/lib/telegram";
+import { sendTelegramMessage, sendTelegramMessageWithReplyButton, escapeHtml } from "@/lib/telegram";
 
 export type BroadcastTarget = "all" | "managers" | "hr" | "specific";
 
@@ -27,14 +27,18 @@ export async function sendTrackedMessage(params: {
     .select("id")
     .single();
 
+  // النص يُخزَّن خام بسجل الرسائل (يظهر كما كُتب بالضبط بتبويب "سجل الرسائل")،
+  // ويُهرَّب فقط عند إرساله لتيليجرام (parse_mode HTML مفعّل على كل الرسائل).
+  const escapedText = escapeHtml(text);
+
   if (logRow) {
-    const messageId = await sendTelegramMessageWithReplyButton(recipientChatId, text, `bmsg_reply:${logRow.id}`);
+    const messageId = await sendTelegramMessageWithReplyButton(recipientChatId, escapedText, `bmsg_reply:${logRow.id}`);
     if (messageId) {
       await supabase.from("erp_broadcast_messages").update({ telegram_message_id: messageId }).eq("id", logRow.id);
     }
   } else {
     // تعذّر تسجيل الرسالة (مثلاً الجدول غير محدث) — أرسلها بلا زر رد بدل ما تُفقد بالكامل.
-    await sendTelegramMessage(recipientChatId, text);
+    await sendTelegramMessage(recipientChatId, escapedText);
   }
 }
 
@@ -96,7 +100,7 @@ export async function sendBroadcastMessage(params: {
       await sendTrackedMessage({ senderStaffId, recipientStaffId: r.id, recipientChatId: r.telegram_chat_id, text });
     } else {
       // المُرسِل نفسه بدون حساب تيليجرام مرتبط — ما فيه وين يرجع الرد، رسالة عادية بلا تتبع.
-      await sendTelegramMessage(r.telegram_chat_id, text);
+      await sendTelegramMessage(r.telegram_chat_id, escapeHtml(text));
     }
     sent++;
   }

@@ -1,5 +1,17 @@
 export const TELEGRAM_MINI_APP_URL = "https://nassem-system.vercel.app/telegram-app";
 
+// نُفعِّل HTML على كل رسائل البوت للسماح بالخط العريض (<b>) على المعلومات
+// المهمة (اسم الموظف، القيم الحساسة...). أي نص حر يُدرَج داخل رسالة يجب أن
+// يمر بـ escapeHtml أولاً وإلا كسر تنسيق تيليجرام (أو سبّب رفض الإرسال
+// بصمت لو احتوى على "<" أو "&" أو ">" غير مقصودة).
+export function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+export function bold(value: string): string {
+  return `<b>${escapeHtml(value)}</b>`;
+}
+
 export async function sendTelegramMessage(chatId: string, text: string, withMiniAppButton = false) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!botToken) return;
@@ -11,6 +23,7 @@ export async function sendTelegramMessage(chatId: string, text: string, withMini
       body: JSON.stringify({
         chat_id: chatId,
         text,
+        parse_mode: "HTML",
         ...(withMiniAppButton
           ? { reply_markup: { inline_keyboard: [[{ text: "Business hub", web_app: { url: TELEGRAM_MINI_APP_URL } }]] } }
           : {}),
@@ -39,6 +52,7 @@ export async function sendTelegramMessageWithReplyButton(
       body: JSON.stringify({
         chat_id: chatId,
         text,
+        parse_mode: "HTML",
         reply_markup: {
           inline_keyboard: [[
             { text: "↩️ رد", callback_data: callbackData },
@@ -66,7 +80,7 @@ export async function sendTelegramInlineKeyboard(
     await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, reply_markup: { inline_keyboard: buttons } }),
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", reply_markup: { inline_keyboard: buttons } }),
     });
   } catch (err) {}
 }
@@ -85,6 +99,7 @@ export async function sendTelegramReplyKeyboard(chatId: string, text: string, bu
       body: JSON.stringify({
         chat_id: chatId,
         text,
+        parse_mode: "HTML",
         reply_markup: {
           keyboard: buttonLabels.map((label) => [{ text: label }]),
           resize_keyboard: true,

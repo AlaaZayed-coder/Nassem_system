@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { sendTelegramMessage, sendTelegramInlineKeyboard, sendTelegramVoice } from "./telegram";
+import { sendTelegramMessage, sendTelegramInlineKeyboard, sendTelegramVoice, bold, escapeHtml } from "./telegram";
 
 export type EmployeeRequestType = "loan" | "vacation" | "permission" | "complaint" | "attendance_fix" | "injury_report" | "work_report";
 
@@ -573,8 +573,8 @@ async function notifyStagedClosure(request: EmployeeRequest, decision: "مواف
   const staffName = request.erp_staff?.name || "الموظف";
   const typeLabel = REQUEST_TYPE_LABEL[request.request_type];
   const resultText = decision === "موافق عليه"
-    ? `✅ تم الاعتماد النهائي لطلب ${typeLabel} الخاص بـ"${staffName}".`
-    : `❌ تم رفض طلب ${typeLabel} الخاص بـ"${staffName}" بمرحلة ${STAGE_LABEL[lastStage]}${actionNotes ? ` — الملاحظة: ${actionNotes}` : ""}.`;
+    ? `✅ تم الاعتماد النهائي لطلب ${typeLabel} الخاص بالموظف ${bold(staffName)}.`
+    : `❌ تم رفض طلب ${typeLabel} الخاص بالموظف ${bold(staffName)} بمرحلة ${STAGE_LABEL[lastStage]}${actionNotes ? ` — الملاحظة: ${escapeHtml(actionNotes)}` : ""}.`;
 
   const contacts = await getStagedAudienceContacts(request.staff_id);
   for (const c of contacts) {
@@ -590,37 +590,38 @@ async function buildApprovalContextText(request: EmployeeRequest): Promise<strin
 
   if (request.request_type === "loan") {
     const outstanding = await getOutstandingLoanTotalCents(request.staff_id);
-    detailLines.push(`المبلغ المطلوب: ${request.details.amount} ₪`);
-    if (request.details.repayment_method) detailLines.push(`طريقة السداد المقترحة: ${request.details.repayment_method}`);
-    contextLines.push(`💰 إجمالي السلف القائمة على الموظف حالياً: ${(outstanding / 100).toFixed(2)} ₪`);
+    detailLines.push(`المبلغ المطلوب: ${bold(`${request.details.amount} ₪`)}`);
+    if (request.details.repayment_method) detailLines.push(`طريقة السداد المقترحة: ${escapeHtml(request.details.repayment_method)}`);
+    contextLines.push(`💰 إجمالي السلف القائمة على الموظف حالياً: ${bold(`${(outstanding / 100).toFixed(2)} ₪`)}`);
   } else if (request.request_type === "vacation") {
     const balance = await getVacationBalance(request.staff_id);
     const requestedDays = daysBetween(request.details.start_date, request.details.end_date);
     const overlapping = await getOverlappingApprovedVacations(request.details.start_date, request.details.end_date, request.staff_id);
-    detailLines.push(`من ${request.details.start_date} إلى ${request.details.end_date} (${requestedDays} يوم)`);
+    detailLines.push(`من ${request.details.start_date} إلى ${request.details.end_date} (${bold(`${requestedDays} يوم`)})`);
     if (requestedDays > balance) {
-      contextLines.push(`⚠️ الرصيد غير كافٍ: المتاح ${balance} يوم فقط مقابل ${requestedDays} يوم مطلوبة`);
+      contextLines.push(`⚠️ الرصيد غير كافٍ: المتاح ${bold(`${balance} يوم`)} فقط مقابل ${requestedDays} يوم مطلوبة`);
     } else {
-      contextLines.push(`📅 رصيد الإجازات المتاح: ${balance} يوم`);
+      contextLines.push(`📅 رصيد الإجازات المتاح: ${bold(`${balance} يوم`)}`);
     }
     if (overlapping.length > 0) {
-      contextLines.push(`⚠️ موظفون آخرون مجازون في نفس الفترة تقريباً: ${overlapping.map((o) => o.name).join("، ")}`);
+      contextLines.push(`⚠️ موظفون آخرون مجازون في نفس الفترة تقريباً: ${escapeHtml(overlapping.map((o) => o.name).join("، "))}`);
     }
   } else if (request.request_type === "permission") {
     detailLines.push(`تاريخ: ${request.details.date} — من ${request.details.from_time || "—"} إلى ${request.details.to_time || "—"}`);
-    if (request.details.reason) detailLines.push(`السبب: ${request.details.reason}`);
+    if (request.details.reason) detailLines.push(`السبب: ${escapeHtml(request.details.reason)}`);
   } else if (request.request_type === "complaint") {
-    detailLines.push(`الموضوع: ${request.details.subject || "—"}`);
-    detailLines.push(`التفاصيل: ${request.details.description}`);
+    detailLines.push(`الموضوع: ${escapeHtml(request.details.subject || "—")}`);
+    detailLines.push(`التفاصيل: ${escapeHtml(request.details.description)}`);
   } else if (request.request_type === "attendance_fix") {
     if (request.details.period) detailLines.push(`النوع: إثبات دوام ${request.details.period}`);
     detailLines.push(`تاريخ الدوام: ${request.details.date}`);
     if (request.details.time) detailLines.push(`الوقت: ${request.details.time}`);
-    if (request.details.reason) detailLines.push(`السبب: ${request.details.reason}`);
+    if (request.details.reason) detailLines.push(`السبب: ${escapeHtml(request.details.reason)}`);
   }
 
   return [
-    `📋 طلب ${typeLabel} جديد من "${staffName}"`,
+    `📋 ${bold(`طلب ${typeLabel} جديد`)}`,
+    `الموظف: ${bold(staffName)}`,
     ...detailLines,
     ...(contextLines.length > 0 ? ["", ...contextLines] : []),
   ].join("\n");
@@ -641,13 +642,13 @@ export async function notifyRecipientsWithContext(requestId: string) {
 
   if (request.request_type === "injury_report") {
     detailLines.push(`تاريخ الحادثة: ${request.details.date || "—"}`);
-    detailLines.push(`الوصف: ${request.details.description || "—"}`);
+    detailLines.push(`الوصف: ${escapeHtml(request.details.description || "—")}`);
   } else if (request.request_type === "work_report") {
-    if (request.details.content) detailLines.push(request.details.content);
+    if (request.details.content) detailLines.push(escapeHtml(request.details.content));
     if (request.details.voice_url) detailLines.push("🎤 تقرير صوتي مرفق (يصلك كملف صوت منفصل)");
   }
 
-  const text = [`🔔 ${typeLabel} جديد من "${staffName}"`, ...detailLines].join("\n");
+  const text = [`🔔 ${bold(`${typeLabel} جديد`)}`, `الموظف: ${bold(staffName)}`, ...detailLines].join("\n");
 
   for (const r of recipients) {
     if (!r.telegram_chat_id) continue;
@@ -814,7 +815,7 @@ async function notifyStaffOfDecision(request: EmployeeRequest, decision: "موا
   const typeLabel = REQUEST_TYPE_LABEL[request.request_type];
   const text = decision === "موافق عليه"
     ? `✅ تمت الموافقة على طلب ${typeLabel} الخاص بك.`
-    : `❌ تم رفض طلب ${typeLabel} الخاص بك.${actionNotes ? ` السبب: ${actionNotes}` : ""}`;
+    : `❌ تم رفض طلب ${typeLabel} الخاص بك.${actionNotes ? ` السبب: ${escapeHtml(actionNotes)}` : ""}`;
 
   await sendTelegramMessage(requester.telegram_chat_id, text);
 }
