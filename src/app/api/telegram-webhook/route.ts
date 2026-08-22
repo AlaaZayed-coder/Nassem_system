@@ -91,7 +91,9 @@ const EMP_FIELDS: Record<string, EmpField[]> = {
 };
 
 const MONTH_NAMES = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
-const WEEKDAY_LABELS = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+// أسماء مختصرة (بادئة "ال" + أول 3 أحرف) بنفس الطول تقريباً — الأسماء
+// الكاملة تُقص من تيليجرام لما تكون بصف من 7 أزرار متجاورة على الجوال.
+const WEEKDAY_LABELS = ["الأحد", "الإثن", "الثلا", "الأرب", "الخمي", "الجمع", "السبت"];
 
 // يبني تقويماً شهرياً كأزرار inline (تنقل بين الشهور + اختيار يوم)، لتفادي
 // إدخال التواريخ يدوياً في كل حقل تاريخ عبر البوت.
@@ -101,10 +103,7 @@ function buildCalendar(year: number, month: number): { text: string; callback_da
   const rows: { text: string; callback_data: string }[][] = [];
 
   rows.push([{ text: `${MONTH_NAMES[month - 1]} ${year}`, callback_data: "noop" }]);
-  // اسم واحد بالسطر عوضاً عن سبعة أزرار متجاورة — تيليجرام يبتر نص الأزرار
-  // الضيقة في صف من 7 عناصر (جُرِّب: "الأربعاء"/"الخميس" تظهر مقصوصة)،
-  // فسطر نصي واحد عريض يضمن ظهور كل الأسماء كاملة وواضحة.
-  rows.push([{ text: WEEKDAY_LABELS.join("   "), callback_data: "noop" }]);
+  rows.push(WEEKDAY_LABELS.map((l) => ({ text: l, callback_data: "noop" })));
 
   let week: { text: string; callback_data: string }[] = [];
   for (let i = 0; i < startWeekday; i++) week.push({ text: " ", callback_data: "noop" });
