@@ -3,20 +3,36 @@
 import { supabase } from "@/lib/supabase";
 import { hashPassword } from "@/lib/password";
 import { getSession } from "@/lib/auth";
+import { addAuditEntry } from "@/lib/audit-data";
+import { ROLE_LABELS } from "@/lib/role-labels";
 import { revalidatePath } from "next/cache";
 import { sendBroadcastMessage, type BroadcastTarget } from "@/lib/broadcast";
+
+// أرقام هاتف بصيغ فلسطينية/دولية شائعة (أرقام، +، مسافات، شرطات) — تحقق
+// شكلي بسيط يمنع إدخال نص عشوائي بالخطأ، وليس تحققاً كاملاً من صحة الرقم.
+const PHONE_PATTERN = /^[0-9+\-\s()]{7,20}$/;
+// معرّف شات تيليجرام للأفراد رقم صحيح موجب فقط.
+const TELEGRAM_ID_PATTERN = /^\d{5,15}$/;
+
+function validateContactFields(phone: string, telegramChatId: string): string | null {
+  if (phone && !PHONE_PATTERN.test(phone)) return "رقم الهاتف غير صالح — أرقام فقط (يمكن +/-/مسافات)";
+  if (telegramChatId && !TELEGRAM_ID_PATTERN.test(telegramChatId)) return "معرّف تليجرام غير صالح — أرقام فقط";
+  return null;
+}
 
 export async function createStaffAction(formData: FormData) {
   const name = formData.get("name") as string;
   const role = formData.get("role") as string;
-  const phone = formData.get("phone") as string;
-  const telegram_chat_id = formData.get("telegram_chat_id") as string;
+  const phone = ((formData.get("phone") as string) || "").trim();
+  const telegram_chat_id = ((formData.get("telegram_chat_id") as string) || "").trim();
   const username = (formData.get("username") as string || "").trim();
   const password = (formData.get("password") as string || "");
   const supervisor_id = (formData.get("supervisor_id") as string || "").trim();
 
   if (!name || !role) throw new Error("الاسم والدور مطلوبان");
   if (username && !password) throw new Error("الرجاء إدخال كلمة مرور مع اسم المستخدم");
+  const contactError = validateContactFields(phone, telegram_chat_id);
+  if (contactError) throw new Error(contactError);
 
   const { data, error } = await supabase
     .from("erp_staff")
@@ -44,14 +60,18 @@ export async function createStaffAction(formData: FormData) {
 export async function updateStaffAction(id: string, formData: FormData) {
   const name = formData.get("name") as string;
   const role = formData.get("role") as string;
-  const phone = formData.get("phone") as string;
-  const telegram_chat_id = formData.get("telegram_chat_id") as string;
+  const phone = ((formData.get("phone") as string) || "").trim();
+  const telegram_chat_id = ((formData.get("telegram_chat_id") as string) || "").trim();
   const supervisor_id = (formData.get("supervisor_id") as string || "").trim();
   const extra_access = formData.getAll("extra_access") as string[];
   const is_active = formData.get("is_active") === "on";
 
   if (!name || !role) throw new Error("الاسم والدور مطلوبان");
   if (supervisor_id === id) throw new Error("لا يمكن أن يكون الموظف مسؤوله المباشر عن نفسه");
+  const contactError = validateContactFields(phone, telegram_chat_id);
+  if (contactError) throw new Error(contactError);
+
+  const { data: before } = await supabase.from("erp_staff").select("name, role").eq("id", id).maybeSingle();
 
   const { error } = await supabase
     .from("erp_staff")
@@ -67,6 +87,20 @@ export async function updateStaffAction(id: string, formData: FormData) {
     .eq("id", id);
 
   if (error) throw new Error(error.message);
+
+  // سجل تدقيق فقط لما يتغيّر الدور فعلاً — تغيير صلاحيات موظف حدث يستحق أثراً.
+  if (before && before.role !== role) {
+    const session = await getSession();
+    await addAuditEntry({
+      user: session?.name || "—",
+      action: "تغيير دور موظف",
+      item_code: before.name || name,
+      field: "role",
+      old_value: ROLE_LABELS[before.role] || before.role,
+      new_value: ROLE_LABELS[role] || role,
+    });
+  }
+
   revalidatePath("/dashboard/staff");
 }
 
@@ -130,11 +164,15 @@ export async function broadcastMessageAction(formData: FormData): Promise<{ erro
   return sendBroadcastMessage({ senderStaffId: session.staffId, target, targetIds, message });
 }
 
+// أي شخص بصلاحية الوصول لهذه الصفحة يقدر يغيّر بيانات دخول أي موظف آخر —
+// سجل تدقيق يوثّق من فعلها ومتى (بلا تسجيل كلمة المرور نفسها أبداً).
 export async function setStaffCredentialsAction(id: string, formData: FormData) {
   const username = (formData.get("username") as string || "").trim();
   const password = (formData.get("password") as string || "");
 
   if (!username || !password) throw new Error("الرجاء إدخال اسم المستخدم وكلمة المرور");
+
+  const { data: before } = await supabase.from("erp_staff").select("name, username").eq("id", id).maybeSingle();
 
   const { error } = await supabase
     .from("erp_staff")
@@ -145,6 +183,17 @@ export async function setStaffCredentialsAction(id: string, formData: FormData) 
     if (error.code === "23505") throw new Error("اسم المستخدم مستخدم بالفعل");
     throw new Error(error.message);
   }
+
+  const session = await getSession();
+  await addAuditEntry({
+    user: session?.name || "—",
+    action: before?.username ? "تحديث بيانات دخول موظف" : "تفعيل حساب دخول موظف",
+    item_code: before?.name || "—",
+    field: "username",
+    old_value: before?.username || "—",
+    new_value: username,
+    note: "كلمة المرور غُيّرت أيضاً (غير مسجَّلة هنا لأسباب أمنية)",
+  });
 
   revalidatePath("/dashboard/staff");
 }

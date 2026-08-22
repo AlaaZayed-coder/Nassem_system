@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getStaffList, visibleStaffFor } from "@/lib/staff-data";
 import { getOngoingVacationStaffIds } from "@/lib/employee-requests-data";
 import { getSession } from "@/lib/auth";
-import { Users, UserPlus, ShieldCheck, ArrowUp, ArrowDown } from "lucide-react";
+import { Users, UserPlus, ShieldCheck, ArrowUp, ArrowDown, ChevronRight, ChevronLeft } from "lucide-react";
 import { StaffForm } from "./staff-form";
 import { StaffRow } from "./staff-card";
 import { BroadcastForm } from "./broadcast-form";
@@ -15,7 +15,9 @@ import { ROLE_LABELS } from "@/lib/role-labels";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = { tab?: string; q?: string; role?: string; status?: string; page?: string; sort?: string; dir?: string };
+type SearchParams = { tab?: string; q?: string; role?: string; status?: string; page?: string; spage?: string; sort?: string; dir?: string };
+
+const STAFF_PAGE_SIZE = 10;
 
 const TABS = [
   { key: "list", label: "الموظفين المسجلين" },
@@ -64,6 +66,22 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
     params.set("sort", field);
     params.set("dir", nextDir);
     return `?${params.toString()}`;
+  };
+
+  const totalPages = Math.max(1, Math.ceil(sortedList.length / STAFF_PAGE_SIZE));
+  const currentPage = Math.min(Math.max(1, Number(searchParams.spage) || 1), totalPages);
+  const pagedList = sortedList.slice((currentPage - 1) * STAFF_PAGE_SIZE, currentPage * STAFF_PAGE_SIZE);
+
+  const pageHref = (p: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (roleFilter) params.set("role", roleFilter);
+    if (statusFilter) params.set("status", statusFilter);
+    if (sortField !== "name") params.set("sort", sortField);
+    if (sortDir !== "asc") params.set("dir", sortDir);
+    if (p > 1) params.set("spage", String(p));
+    const qs = params.toString();
+    return qs ? `?${qs}` : "?tab=list";
   };
 
   const stats = {
@@ -194,11 +212,33 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedList.map((staff) => (
+                  {pagedList.map((staff) => (
                     <StaffRow key={staff.id} staff={staff} allStaff={staffList} viewerRole={session?.role} />
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {filteredList.length > 0 && totalPages > 1 && (
+            <div className="print:hidden flex items-center justify-between text-xs text-slate-500">
+              <span>صفحة {currentPage} من {totalPages} — {filteredList.length} موظف</span>
+              <div className="flex items-center gap-2">
+                {currentPage > 1 ? (
+                  <Link href={pageHref(currentPage - 1)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition font-bold">
+                    <ChevronRight className="h-3.5 w-3.5" /> السابق
+                  </Link>
+                ) : (
+                  <span className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-100 text-slate-300 font-bold"><ChevronRight className="h-3.5 w-3.5" /> السابق</span>
+                )}
+                {currentPage < totalPages ? (
+                  <Link href={pageHref(currentPage + 1)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition font-bold">
+                    التالي <ChevronLeft className="h-3.5 w-3.5" />
+                  </Link>
+                ) : (
+                  <span className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-100 text-slate-300 font-bold">التالي <ChevronLeft className="h-3.5 w-3.5" /></span>
+                )}
+              </div>
             </div>
           )}
         </div>
