@@ -6,7 +6,7 @@ const TIMEZONE = "Asia/Hebron";
 
 // يُستضاف تحت public/ فيُخدَّم من نفس نطاق النشر على Vercel — تيليجرام يجلبه
 // كرابط عام عند كل إرسال، بلا حاجة لرفعه يدوياً كل مرة.
-const LOGO_URL = "https://nassem-system.vercel.app/nasseem-logo.png";
+const LOGO_URL = "https://nassem-system.vercel.app/nasseem-logo.jpg";
 
 const SIGNATURE = `\n\n${bold("بتوفيق مجلس الإدارة")} 🌿`;
 
