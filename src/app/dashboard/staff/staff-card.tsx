@@ -1,13 +1,24 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Trash2, Pencil, TriangleAlert, IdCard } from "lucide-react";
+import { Trash2, Pencil, TriangleAlert, IdCard, X } from "lucide-react";
 import { deleteStaffAction, forceDeleteStaffAction } from "./actions";
 import { StaffEditForm } from "./staff-edit-form";
 import { StaffCredentialsForm } from "./staff-credentials-form";
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/role-labels";
 import type { Staff } from "@/lib/staff-data";
+
+function StaffAvatar({ name, role }: { name: string; role: string }) {
+  const initial = name.trim().charAt(0) || "؟";
+  const color = ROLE_COLORS[role] || "bg-slate-100 text-slate-800";
+  return (
+    <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${color}`}>
+      {initial}
+    </div>
+  );
+}
 
 export function StaffRow({ staff, allStaff, viewerRole }: { staff: Staff; allStaff: Staff[]; viewerRole?: string }) {
   const [editing, setEditing] = useState(false);
@@ -39,14 +50,19 @@ export function StaffRow({ staff, allStaff, viewerRole }: { staff: Staff; allSta
     });
   };
 
-  const expanded = editing || confirmingDelete || !!deleteError;
+  const expanded = confirmingDelete || !!deleteError;
 
   return (
     <>
       <tr className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70 transition align-top">
         <td className="px-4 py-3">
-          <div className="font-bold text-slate-800 text-sm whitespace-nowrap">{staff.name}</div>
-          {supervisor && <div className="text-[11px] text-indigo-600 mt-0.5 whitespace-nowrap">يتبع: {supervisor.name}</div>}
+          <div className="flex items-center gap-2.5">
+            <StaffAvatar name={staff.name} role={staff.role} />
+            <div>
+              <div className="font-bold text-slate-800 text-sm whitespace-nowrap">{staff.name}</div>
+              {supervisor && <div className="text-[11px] text-indigo-600 mt-0.5 whitespace-nowrap">يتبع: {supervisor.name}</div>}
+            </div>
+          </div>
         </td>
         <td className="px-4 py-3 whitespace-nowrap">
           <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[staff.role] || "bg-slate-100 text-slate-800"}`}>
@@ -68,11 +84,11 @@ export function StaffRow({ staff, allStaff, viewerRole }: { staff: Staff; allSta
             <span className="text-slate-300">—</span>
           )}
         </td>
-        <td className="px-4 py-3 text-xs whitespace-nowrap">
+        <td className="px-4 py-3 whitespace-nowrap">
           {staff.username ? (
-            <span className="text-slate-600">{staff.username}</span>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">{staff.username}</span>
           ) : (
-            <span className="text-slate-300 italic">بدون دخول</span>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400">بدون دخول</span>
           )}
         </td>
         <td className="px-4 py-3">
@@ -86,8 +102,8 @@ export function StaffRow({ staff, allStaff, viewerRole }: { staff: Staff; allSta
             </Link>
             <button
               type="button"
-              onClick={() => setEditing((v) => !v)}
-              className={`p-1.5 rounded-lg transition ${editing ? "text-indigo-600 bg-indigo-50" : "text-slate-400 hover:text-indigo-600 bg-slate-50"}`}
+              onClick={() => setEditing(true)}
+              className="text-slate-400 hover:text-indigo-600 p-1.5 bg-slate-50 rounded-lg transition"
               title="تعديل بيانات الموظف"
             >
               <Pencil className="h-4 w-4" />
@@ -107,16 +123,7 @@ export function StaffRow({ staff, allStaff, viewerRole }: { staff: Staff; allSta
       {expanded && (
         <tr className="border-b border-slate-100 bg-slate-50/60">
           <td colSpan={7} className="px-4 py-4">
-            {editing && (
-              <div className="max-w-xl flex flex-col gap-4">
-                <StaffEditForm staff={staff} allStaff={allStaff} onCancel={() => setEditing(false)} onSaved={() => setEditing(false)} />
-                <div className="pt-3 border-t border-slate-200">
-                  <StaffCredentialsForm staffId={staff.id} currentUsername={staff.username} />
-                </div>
-              </div>
-            )}
-
-            {!editing && deleteError && (
+            {deleteError && (
               <div className="max-w-xl p-3 rounded-xl bg-rose-50 border border-rose-200 flex flex-col gap-2">
                 <div className="flex items-start gap-1.5">
                   <TriangleAlert className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
@@ -159,7 +166,7 @@ export function StaffRow({ staff, allStaff, viewerRole }: { staff: Staff; allSta
               </div>
             )}
 
-            {!editing && !deleteError && confirmingDelete && (
+            {!deleteError && confirmingDelete && (
               <div className="max-w-xl p-3 rounded-xl bg-rose-50 border border-rose-200 flex flex-col gap-2">
                 <p className="text-sm font-bold text-rose-700 flex items-center gap-1.5">
                   <TriangleAlert className="h-4 w-4" /> متأكد من حذف {staff.name}؟ لا يمكن التراجع عن هذا الإجراء.
@@ -184,6 +191,28 @@ export function StaffRow({ staff, allStaff, viewerRole }: { staff: Staff; allSta
             )}
           </td>
         </tr>
+      )}
+
+      {/* لوحة تعديل منزلقة بدل صف موسّع يزيح الجدول كله للأسفل — تحافظ على
+          موضعك بالقائمة أثناء التعديل، خصوصاً مع نمو عدد الموظفين. تُركَّب
+          عبر Portal لخارج الجدول لأن <div> غير صالح كابن مباشر لـ <tbody>. */}
+      {editing && typeof document !== "undefined" && createPortal(
+        <>
+          <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setEditing(false)} />
+          <div className="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-50 overflow-y-auto p-6" dir="rtl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-slate-800">تعديل {staff.name}</h3>
+              <button type="button" onClick={() => setEditing(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <StaffEditForm staff={staff} allStaff={allStaff} onCancel={() => setEditing(false)} onSaved={() => setEditing(false)} />
+            <div className="pt-4 mt-4 border-t border-slate-200">
+              <StaffCredentialsForm staffId={staff.id} currentUsername={staff.username} />
+            </div>
+          </div>
+        </>,
+        document.body
       )}
     </>
   );

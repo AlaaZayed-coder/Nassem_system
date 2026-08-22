@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getStaffList, visibleStaffFor } from "@/lib/staff-data";
 import { getOngoingVacationStaffIds } from "@/lib/employee-requests-data";
 import { getSession } from "@/lib/auth";
-import { Users, UserPlus, ShieldCheck } from "lucide-react";
+import { Users, UserPlus, ShieldCheck, ArrowUp, ArrowDown } from "lucide-react";
 import { StaffForm } from "./staff-form";
 import { StaffRow } from "./staff-card";
 import { BroadcastForm } from "./broadcast-form";
@@ -11,10 +11,11 @@ import { ExportCsvButton } from "./export-csv-button";
 import { PrintButton } from "@/components/PrintButton";
 import { MessagesLog } from "./messages-log";
 import { getBroadcastMessagesLog } from "@/lib/broadcast";
+import { ROLE_LABELS } from "@/lib/role-labels";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = { tab?: string; q?: string; role?: string; status?: string; page?: string };
+type SearchParams = { tab?: string; q?: string; role?: string; status?: string; page?: string; sort?: string; dir?: string };
 
 const TABS = [
   { key: "list", label: "الموظفين المسجلين" },
@@ -43,6 +44,27 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
     if (statusFilter === "inactive" && s.is_active) return false;
     return true;
   });
+
+  const sortField = searchParams.sort === "role" || searchParams.sort === "status" ? searchParams.sort : "name";
+  const sortDir = searchParams.dir === "desc" ? "desc" : "asc";
+  const sortedList = [...filteredList].sort((a, b) => {
+    let cmp = 0;
+    if (sortField === "role") cmp = (ROLE_LABELS[a.role] || a.role).localeCompare(ROLE_LABELS[b.role] || b.role, "ar");
+    else if (sortField === "status") cmp = Number(b.is_active) - Number(a.is_active);
+    else cmp = a.name.localeCompare(b.name, "ar");
+    return sortDir === "desc" ? -cmp : cmp;
+  });
+
+  const sortHref = (field: string) => {
+    const nextDir = sortField === field && sortDir === "asc" ? "desc" : "asc";
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (roleFilter) params.set("role", roleFilter);
+    if (statusFilter) params.set("status", statusFilter);
+    params.set("sort", field);
+    params.set("dir", nextDir);
+    return `?${params.toString()}`;
+  };
 
   const stats = {
     total: staffList.length,
@@ -131,7 +153,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
               الموظفين المسجلين ({filteredList.length} من {staffList.length})
             </h2>
             <div className="flex items-center gap-2">
-              <ExportCsvButton staff={filteredList} />
+              <ExportCsvButton staff={sortedList} />
               <PrintButton />
             </div>
           </div>
@@ -147,9 +169,24 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
               <table className="w-full text-right min-w-[860px]">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500">
-                    <th className="px-4 py-3 font-bold">الاسم</th>
-                    <th className="px-4 py-3 font-bold">الدور</th>
-                    <th className="px-4 py-3 font-bold">الحالة</th>
+                    <th className="px-4 py-3 font-bold">
+                      <Link href={sortHref("name")} className="flex items-center gap-1 hover:text-indigo-600 transition">
+                        الاسم
+                        {sortField === "name" && (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                      </Link>
+                    </th>
+                    <th className="px-4 py-3 font-bold">
+                      <Link href={sortHref("role")} className="flex items-center gap-1 hover:text-indigo-600 transition">
+                        الدور
+                        {sortField === "role" && (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                      </Link>
+                    </th>
+                    <th className="px-4 py-3 font-bold">
+                      <Link href={sortHref("status")} className="flex items-center gap-1 hover:text-indigo-600 transition">
+                        الحالة
+                        {sortField === "status" && (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                      </Link>
+                    </th>
                     <th className="px-4 py-3 font-bold">الهاتف</th>
                     <th className="px-4 py-3 font-bold">تيليجرام</th>
                     <th className="px-4 py-3 font-bold">بيانات الدخول</th>
@@ -157,7 +194,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Search
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredList.map((staff) => (
+                  {sortedList.map((staff) => (
                     <StaffRow key={staff.id} staff={staff} allStaff={staffList} viewerRole={session?.role} />
                   ))}
                 </tbody>
