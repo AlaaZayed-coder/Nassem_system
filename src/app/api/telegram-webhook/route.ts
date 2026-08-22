@@ -91,15 +91,17 @@ const EMP_FIELDS: Record<string, EmpField[]> = {
 };
 
 const MONTH_NAMES = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
-// أسماء مختصرة (بادئة "ال" + أول 3 أحرف) بنفس الطول تقريباً — الأسماء
-// الكاملة تُقص من تيليجرام لما تكون بصف من 7 أزرار متجاورة على الجوال.
-const WEEKDAY_LABELS = ["الأحد", "الإثن", "الثلا", "الأرب", "الخمي", "الجمع", "السبت"];
+// الأسبوع يبدأ سبت لا أحد — الترتيب المعتاد محلياً. بلا بادئة "ال" حتى
+// تبقى الأسماء الأطول (اربعاء/ثلاثاء) قصيرة بما يكفي ولا تُقص من تيليجرام.
+const WEEKDAY_LABELS = ["سبت", "احد", "اثنين", "ثلاثاء", "اربعاء", "خميس", "جمعة"];
 
 // يبني تقويماً شهرياً كأزرار inline (تنقل بين الشهور + اختيار يوم)، لتفادي
 // إدخال التواريخ يدوياً في كل حقل تاريخ عبر البوت.
 function buildCalendar(year: number, month: number): { text: string; callback_data: string }[][] {
   const daysInMonth = new Date(year, month, 0).getDate();
-  const startWeekday = new Date(year, month - 1, 1).getDay();
+  // Date.getDay() يرجّع 0=أحد..6=سبت — نحوّله لعمود ضمن ترتيب "سبت أولاً"
+  // (0=سبت..6=جمعة) ليطابق WEEKDAY_LABELS أعلاه.
+  const startWeekday = (new Date(year, month - 1, 1).getDay() + 1) % 7;
   const rows: { text: string; callback_data: string }[][] = [];
 
   rows.push([{ text: `${MONTH_NAMES[month - 1]} ${year}`, callback_data: "noop" }]);
