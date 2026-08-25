@@ -7,6 +7,16 @@ import { addAuditEntry } from "@/lib/audit-data";
 import { ROLE_LABELS } from "@/lib/role-labels";
 import { revalidatePath } from "next/cache";
 import { sendBroadcastMessage, type BroadcastTarget } from "@/lib/broadcast";
+import { addStaffEvaluation, deleteStaffEvaluation, getEvaluationsForStaff, type StaffEvaluation } from "@/lib/staff-evaluations-data";
+import { uploadStaffDocument, deleteStaffDocument, getDocumentsForStaff, type StaffDocument } from "@/lib/staff-documents-data";
+
+export async function getStaffEvaluationsAction(staffId: string): Promise<StaffEvaluation[]> {
+  return getEvaluationsForStaff(staffId);
+}
+
+export async function getStaffDocumentsAction(staffId: string): Promise<StaffDocument[]> {
+  return getDocumentsForStaff(staffId);
+}
 
 // أرقام هاتف بصيغ فلسطينية/دولية شائعة (أرقام، +، مسافات، شرطات) — تحقق
 // شكلي بسيط يمنع إدخال نص عشوائي بالخطأ، وليس تحققاً كاملاً من صحة الرقم.
@@ -220,4 +230,53 @@ export async function setStaffCredentialsAction(id: string, formData: FormData) 
   });
 
   revalidatePath("/dashboard/staff");
+}
+
+export async function addStaffEvaluationAction(staffId: string, formData: FormData) {
+  const session = await getSession();
+  const period = (formData.get("period") as string || "").trim();
+  const rating = Number(formData.get("rating"));
+  const notes = (formData.get("notes") as string || "").trim();
+
+  const result = await addStaffEvaluation({
+    staffId,
+    evaluatorName: session?.name || "—",
+    period,
+    rating,
+    notes,
+  });
+  if (result.error) throw new Error(result.error);
+
+  revalidatePath("/dashboard/staff");
+  revalidatePath(`/dashboard/staff/${staffId}/profile`);
+}
+
+export async function deleteStaffEvaluationAction(id: string, staffId: string) {
+  const result = await deleteStaffEvaluation(id);
+  if (result.error) throw new Error(result.error);
+
+  revalidatePath("/dashboard/staff");
+  revalidatePath(`/dashboard/staff/${staffId}/profile`);
+}
+
+export async function uploadStaffDocumentAction(staffId: string, formData: FormData) {
+  const session = await getSession();
+  const file = formData.get("file") as File | null;
+  const docType = (formData.get("doc_type") as string || "other").trim();
+
+  if (!file) throw new Error("الرجاء اختيار ملف");
+
+  const result = await uploadStaffDocument({ staffId, file, docType, uploadedBy: session?.name || "—" });
+  if (result.error) throw new Error(result.error);
+
+  revalidatePath("/dashboard/staff");
+  revalidatePath(`/dashboard/staff/${staffId}/profile`);
+}
+
+export async function deleteStaffDocumentAction(id: string, staffId: string) {
+  const result = await deleteStaffDocument(id);
+  if (result.error) throw new Error(result.error);
+
+  revalidatePath("/dashboard/staff");
+  revalidatePath(`/dashboard/staff/${staffId}/profile`);
 }

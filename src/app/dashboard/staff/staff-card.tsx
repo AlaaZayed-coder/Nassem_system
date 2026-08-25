@@ -7,6 +7,7 @@ import { Trash2, Pencil, TriangleAlert, IdCard, X } from "lucide-react";
 import { deleteStaffAction, forceDeleteStaffAction } from "./actions";
 import { StaffEditForm } from "./staff-edit-form";
 import { StaffCredentialsForm } from "./staff-credentials-form";
+import { StaffEvaluationsDocuments } from "./staff-evaluations-documents";
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/role-labels";
 import type { Staff } from "@/lib/staff-data";
 
@@ -209,6 +210,9 @@ export function StaffRow({ staff, allStaff, viewerRole }: { staff: Staff; allSta
             <StaffEditForm staff={staff} allStaff={allStaff} onCancel={() => setEditing(false)} onSaved={() => setEditing(false)} />
             <div className="pt-4 mt-4 border-t border-slate-200">
               <StaffCredentialsForm staffId={staff.id} currentUsername={staff.username} />
+            </div>
+            <div className="pt-4 mt-4 border-t border-slate-200">
+              <StaffEvaluationsDocuments staffId={staff.id} />
             </div>
           </div>
         </>,

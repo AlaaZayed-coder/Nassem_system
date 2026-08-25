@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { sendTelegramMessage, sendTelegramInlineKeyboard, sendTelegramReplyKeyboard, sendTelegramVoice, getTelegramFileUrl, bold, escapeHtml } from "@/lib/telegram";
+import { sendTelegramMessage, sendTelegramInlineKeyboard, sendTelegramReplyKeyboard, sendTelegramVoice, sendTelegramDocument, getTelegramFileUrl, bold, escapeHtml } from "@/lib/telegram";
+import { getEvaluationsForStaff } from "@/lib/staff-evaluations-data";
+import { buildStaffReportPdf } from "@/lib/pdf-staff-report";
 import {
   getStaffByTelegramChatId,
   createOrderSubmission,
@@ -32,7 +34,7 @@ import {
   EmployeeRequestType,
 } from "@/lib/employee-requests-data";
 import { startEmployeeRequestDraft, updateEmployeeRequestDraft } from "@/lib/order-submissions-data";
-import { getDirectReports, searchStaffByName } from "@/lib/staff-data";
+import { getDirectReports, searchStaffByName, getStaffById } from "@/lib/staff-data";
 import { getDashboardNotificationCounts } from "@/lib/dashboard-notifications";
 import { ROLE_LABELS } from "@/lib/role-labels";
 import { sendBroadcastMessage, sendTrackedMessage, type BroadcastTarget } from "@/lib/broadcast";
@@ -380,7 +382,10 @@ async function askAdminToolsMenu(chatId: string) {
       { text: "📝 آخر تقارير العمل", callback_data: "admin_work_reports" },
       { text: "➕ إضافة موظف", callback_data: "admin_add_staff" },
     ],
-    [{ text: "🚫 تعطيل/تفعيل موظف", callback_data: "admin_toggle_staff" }],
+    [
+      { text: "🚫 تعطيل/تفعيل موظف", callback_data: "admin_toggle_staff" },
+      { text: "📄 تقرير موظف PDF", callback_data: "admin_pdf_report" },
+    ],
   ]));
 }
 
@@ -463,6 +468,44 @@ async function handleToggleStaffSearch(chatId: string, query: string) {
   }
   const rows = results.slice(0, 8).map((s) => [{ text: `${s.name} ${s.is_active ? "🟢" : "🔴"}`, callback_data: `admin_toggle_pick:${s.id}` }]);
   await sendTelegramInlineKeyboard(chatId, "اختر الموظف:", withBack(rows));
+}
+
+// "تقرير موظف PDF" — بحث بالاسم ثم توليد بطاقة PDF (بيانات + تقييمات أداء
+// + آخر الطلبات) وإرسالها كملف مباشرة داخل المحادثة.
+async function askPdfReportSearch(chatId: string) {
+  await sendTelegramInlineKeyboard(chatId, "🔍 اكتب اسم الموظف لإصدار تقريره:", withBack([]));
+}
+
+async function handlePdfReportSearch(chatId: string, query: string) {
+  const results = await searchStaffByName(query);
+  if (results.length === 0) {
+    await sendTelegramInlineKeyboard(chatId, "لا يوجد موظف مطابق.", withBack([]));
+    return;
+  }
+  const rows = results.slice(0, 8).map((s) => [{ text: s.name, callback_data: `admin_pdf_pick:${s.id}` }]);
+  await sendTelegramInlineKeyboard(chatId, "اختر الموظف:", withBack(rows));
+}
+
+async function sendStaffPdfReport(chatId: string, staffId: string) {
+  const staff = await getStaffById(staffId);
+  if (!staff) {
+    await sendTelegramMessage(chatId, "تعذّر إيجاد الموظف.");
+    return;
+  }
+  const [supervisor, evaluations, requests] = await Promise.all([
+    staff.supervisor_id ? getStaffById(staff.supervisor_id) : Promise.resolve(null),
+    getEvaluationsForStaff(staff.id),
+    getEmployeeRequestsForStaff(staff.id),
+  ]);
+
+  const pdfBuffer = await buildStaffReportPdf({
+    staff,
+    supervisorName: supervisor?.name || null,
+    evaluations,
+    recentRequests: requests,
+  });
+
+  await sendTelegramDocument(chatId, pdfBuffer, `${staff.name}.pdf`, `📄 تقرير ${bold(staff.name)}`);
 }
 
 // "الملخص" — لمدير النظام ومسؤول الموارد البشرية فقط: عدد طلبات الموظفين
@@ -672,6 +715,20 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true });
       }
       await handleToggleStaffSearch(chatId, message.text);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (pending?.stage === "admin_pdf_search") {
+      if (!message.text || message.text.startsWith("/")) {
+        await sendTelegramInlineKeyboard(chatId, "اكتب اسم الموظف نصاً.", withBack([]));
+        return NextResponse.json({ ok: true });
+      }
+      if (staff.role !== "manager" && staff.role !== "hr") {
+        await clearPendingTelegramSubmission(chatId);
+        await sendTelegramMessage(chatId, "غير مصرح.");
+        return NextResponse.json({ ok: true });
+      }
+      await handlePdfReportSearch(chatId, message.text);
       return NextResponse.json({ ok: true });
     }
 
@@ -1113,6 +1170,25 @@ async function handleCallbackQuery(callbackQuery: any) {
     await supabase.from("erp_telegram_pending_submissions").upsert([{ chat_id: chatId, stage: "admin_toggle_search" }]);
     await answerCallbackQuery(callbackQuery.id);
     await askToggleStaffSearch(chatId);
+    return;
+  }
+
+  if (data === "admin_pdf_report") {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    await supabase.from("erp_telegram_pending_submissions").upsert([{ chat_id: chatId, stage: "admin_pdf_search" }]);
+    await answerCallbackQuery(callbackQuery.id);
+    await askPdfReportSearch(chatId);
+    return;
+  }
+
+  if (data.startsWith("admin_pdf_pick:")) {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    const targetId = data.replace("admin_pdf_pick:", "");
+    await answerCallbackQuery(callbackQuery.id, "جاري إصدار التقرير...");
+    await clearPendingTelegramSubmission(chatId);
+    await sendStaffPdfReport(chatId, targetId);
     return;
   }
 

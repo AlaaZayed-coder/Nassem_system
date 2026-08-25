@@ -101,6 +101,28 @@ export async function sendTelegramInlineKeyboard(
   } catch (err) {}
 }
 
+// يرسل ملفاً مولَّداً (مثل تقرير PDF) كبايتات مباشرة بدل رابط عام — Blob +
+// FormData مدعومة أصلاً في بيئة Node على Vercel بلا أي مكتبة إضافية.
+export async function sendTelegramDocument(chatId: string, buffer: Buffer, filename: string, caption?: string) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) return;
+
+  try {
+    const form = new FormData();
+    form.append("chat_id", chatId);
+    if (caption) {
+      form.append("caption", caption);
+      form.append("parse_mode", "HTML");
+    }
+    form.append("document", new Blob([new Uint8Array(buffer)], { type: "application/pdf" }), filename);
+
+    await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
+      method: "POST",
+      body: form,
+    });
+  } catch (err) {}
+}
+
 // لوحة مفاتيح ثابتة تبقى ظاهرة أسفل شاشة تيليجرام بعد أي رسالة (وليست
 // inline)، بحيث يستطيع الموظف الوصول لبوابته في أي وقت بغض النظر عن مرحلة
 // أي محادثة أخرى جارية.

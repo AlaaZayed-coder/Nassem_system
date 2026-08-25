@@ -3,9 +3,12 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { getStaffById, getDirectReports, type Staff } from "@/lib/staff-data";
 import { getEmployeeRequestsForStaff, formatRequestLine } from "@/lib/employee-requests-data";
+import { getEvaluationsForStaff } from "@/lib/staff-evaluations-data";
+import { getDocumentsForStaff, DOC_TYPE_LABELS } from "@/lib/staff-documents-data";
 import { ROLE_LABELS } from "@/lib/role-labels";
 import { GRANTABLE_PATHS } from "@/lib/access-control";
 import { PrintButton } from "@/components/PrintButton";
+import { Star, FileText } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +16,12 @@ export default async function StaffProfilePage({ params }: { params: { id: strin
   const staff = await getStaffById(params.id);
   if (!staff) notFound();
 
-  const [supervisor, directReports, requests] = await Promise.all([
+  const [supervisor, directReports, requests, evaluations, documents] = await Promise.all([
     staff.supervisor_id ? getStaffById(staff.supervisor_id) : Promise.resolve<Staff | null>(null),
     getDirectReports(staff.id),
     getEmployeeRequestsForStaff(staff.id),
+    getEvaluationsForStaff(staff.id),
+    getDocumentsForStaff(staff.id),
   ]);
 
   const recentRequests = requests.slice(0, 10);
@@ -90,6 +95,48 @@ export default async function StaffProfilePage({ params }: { params: { id: strin
             <div className="flex flex-wrap gap-1.5">
               {grantedLabels.map((label) => (
                 <span key={label} className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700">{label}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {evaluations.length > 0 && (
+          <div>
+            <p className="text-slate-400 font-bold mb-2 text-sm">تقييمات الأداء ({evaluations.length})</p>
+            <div className="flex flex-col gap-2">
+              {evaluations.map((ev) => (
+                <div key={ev.id} className="text-sm bg-slate-50 rounded-xl p-3 flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-bold text-slate-700">{ev.period}</p>
+                    {ev.notes && <p className="text-slate-500 text-xs mt-1">{ev.notes}</p>}
+                    <p className="text-[11px] text-slate-400 mt-1">بواسطة {ev.evaluator_name} — {new Date(ev.created_at).toLocaleDateString("en-GB")}</p>
+                  </div>
+                  <div className="flex gap-0.5 shrink-0">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <Star key={n} className={`h-3.5 w-3.5 ${n <= ev.rating ? "fill-amber-400 text-amber-400" : "text-slate-200"}`} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {documents.length > 0 && (
+          <div>
+            <p className="text-slate-400 font-bold mb-2 text-sm">المرفقات ({documents.length})</p>
+            <div className="flex flex-wrap gap-1.5 print:hidden">
+              {documents.map((doc) => (
+                <a
+                  key={doc.id}
+                  href={doc.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  {DOC_TYPE_LABELS[doc.doc_type] || doc.doc_type}
+                </a>
               ))}
             </div>
           </div>
