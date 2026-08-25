@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { sendTelegramMessage, sendTelegramInlineKeyboard, sendTelegramReplyKeyboard, sendTelegramVoice, sendTelegramDocument, getTelegramFileUrl, bold, escapeHtml } from "@/lib/telegram";
 import { getEvaluationsForStaff } from "@/lib/staff-evaluations-data";
 import { buildStaffReportPdf } from "@/lib/pdf-staff-report";
+import { buildRequestsReportPdf } from "@/lib/pdf-requests-report";
 import {
   getStaffByTelegramChatId,
   createOrderSubmission,
@@ -386,7 +387,50 @@ async function askAdminToolsMenu(chatId: string) {
       { text: "🚫 تعطيل/تفعيل موظف", callback_data: "admin_toggle_staff" },
       { text: "📄 تقرير موظف PDF", callback_data: "admin_pdf_report" },
     ],
+    [
+      { text: "📄 تقرير الطلبات المعلّقة", callback_data: "admin_report:pending" },
+      { text: "📄 تقرير الطلبات المنجزة", callback_data: "admin_report:done" },
+    ],
   ]));
+}
+
+const REPORT_RANGE_LABEL: Record<string, string> = {
+  month: "الشهر الحالي",
+  quarter: "آخر 3 أشهر",
+  all: "كل الفترة",
+};
+
+async function askReportRange(chatId: string, kind: "pending" | "done") {
+  const title = kind === "pending" ? "تقرير الطلبات المعلّقة" : "تقرير الطلبات المنجزة";
+  await sendTelegramInlineKeyboard(chatId, `📄 ${title} — اختر المدى الزمني:`, withBack([
+    [
+      { text: "📅 الشهر الحالي", callback_data: `admin_report_range:${kind}:month` },
+      { text: "📅 آخر 3 أشهر", callback_data: `admin_report_range:${kind}:quarter` },
+    ],
+    [{ text: "📅 كل الفترة", callback_data: `admin_report_range:${kind}:all` }],
+  ]));
+}
+
+// يبني ويرسل تقرير PDF للطلبات المعلّقة أو المنجزة ضمن مدى زمني — "منجزة"
+// تعني أي حالة غير "قيد الانتظار" (موافق عليه/مرفوض/تم الاستلام/ملغى...).
+async function sendRequestsReport(chatId: string, kind: "pending" | "done", range: "month" | "quarter" | "all") {
+  const all = await getEmployeeRequests();
+  const byStatus = all.filter((r) => (kind === "pending" ? r.status === "قيد الانتظار" : r.status !== "قيد الانتظار"));
+
+  let cutoff: Date | null = null;
+  if (range === "month") {
+    const now = new Date();
+    cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if (range === "quarter") {
+    const now = new Date();
+    cutoff = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+  }
+  const filtered = cutoff ? byStatus.filter((r) => new Date(r.created_at) >= (cutoff as Date)) : byStatus;
+
+  const title = kind === "pending" ? "تقرير الطلبات المعلّقة" : "تقرير الطلبات المنجزة";
+  const pdfBuffer = await buildRequestsReportPdf({ title, rangeLabel: REPORT_RANGE_LABEL[range], requests: filtered });
+
+  await sendTelegramDocument(chatId, pdfBuffer, `${title}.pdf`, `📄 ${bold(title)} — ${REPORT_RANGE_LABEL[range]}`);
 }
 
 // "كل الطلبات المعلّقة" — عرض شامل لكل طلبات الموظفين المعلّقة بالشركة (لا
@@ -1170,6 +1214,24 @@ async function handleCallbackQuery(callbackQuery: any) {
     await supabase.from("erp_telegram_pending_submissions").upsert([{ chat_id: chatId, stage: "admin_toggle_search" }]);
     await answerCallbackQuery(callbackQuery.id);
     await askToggleStaffSearch(chatId);
+    return;
+  }
+
+  if (data === "admin_report:pending" || data === "admin_report:done") {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    const kind = data.replace("admin_report:", "") as "pending" | "done";
+    await answerCallbackQuery(callbackQuery.id);
+    await askReportRange(chatId, kind);
+    return;
+  }
+
+  if (data.startsWith("admin_report_range:")) {
+    const staff = await getStaffByTelegramChatId(chatId);
+    if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
+    const [, kind, range] = data.split(":");
+    await answerCallbackQuery(callbackQuery.id, "جاري إصدار التقرير...");
+    await sendRequestsReport(chatId, kind as "pending" | "done", range as "month" | "quarter" | "all");
     return;
   }
 
