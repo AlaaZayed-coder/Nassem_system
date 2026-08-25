@@ -8,12 +8,17 @@ import { deleteStaffAction, forceDeleteStaffAction } from "./actions";
 import { StaffEditForm } from "./staff-edit-form";
 import { StaffCredentialsForm } from "./staff-credentials-form";
 import { StaffEvaluationsDocuments } from "./staff-evaluations-documents";
+import { StaffPhotoForm } from "./staff-photo-form";
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/role-labels";
 import type { Staff } from "@/lib/staff-data";
 
-function StaffAvatar({ name, role }: { name: string; role: string }) {
+function StaffAvatar({ name, role, photoUrl }: { name: string; role: string; photoUrl?: string | null }) {
   const initial = name.trim().charAt(0) || "؟";
   const color = ROLE_COLORS[role] || "bg-slate-100 text-slate-800";
+  if (photoUrl) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={photoUrl} alt={name} className="shrink-0 w-8 h-8 rounded-full object-cover" />;
+  }
   return (
     <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${color}`}>
       {initial}
@@ -58,7 +63,7 @@ export function StaffRow({ staff, allStaff, viewerRole }: { staff: Staff; allSta
       <tr className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70 transition align-top">
         <td className="px-4 py-3">
           <div className="flex items-center gap-2.5">
-            <StaffAvatar name={staff.name} role={staff.role} />
+            <StaffAvatar name={staff.name} role={staff.role} photoUrl={staff.photo_url} />
             <div>
               <div className="font-bold text-slate-800 text-sm whitespace-nowrap">{staff.name}</div>
               {supervisor && <div className="text-[11px] text-indigo-600 mt-0.5 whitespace-nowrap">يتبع: {supervisor.name}</div>}
@@ -207,6 +212,7 @@ export function StaffRow({ staff, allStaff, viewerRole }: { staff: Staff; allSta
                 <X className="h-5 w-5" />
               </button>
             </div>
+            <StaffPhotoForm staffId={staff.id} name={staff.name} photoUrl={staff.photo_url} />
             <StaffEditForm staff={staff} allStaff={allStaff} onCancel={() => setEditing(false)} onSaved={() => setEditing(false)} />
             <div className="pt-4 mt-4 border-t border-slate-200">
               <StaffCredentialsForm staffId={staff.id} currentUsername={staff.username} />

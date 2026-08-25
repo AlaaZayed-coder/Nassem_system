@@ -38,9 +38,19 @@ export default async function StaffProfilePage({ params }: { params: { id: strin
 
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 print:shadow-none print:border-none flex flex-col gap-6">
         <div className="flex items-start justify-between border-b border-slate-100 pb-4">
-          <div>
-            <h1 className="text-3xl font-extrabold text-slate-800">{staff.name}</h1>
-            <p className="text-slate-500 mt-1">{ROLE_LABELS[staff.role] || staff.role}</p>
+          <div className="flex items-center gap-4">
+            {staff.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={staff.photo_url} alt={staff.name} className="w-16 h-16 rounded-full object-cover border border-slate-200" />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-2xl">
+                {staff.name.trim().charAt(0) || "؟"}
+              </div>
+            )}
+            <div>
+              <h1 className="text-3xl font-extrabold text-slate-800">{staff.name}</h1>
+              <p className="text-slate-500 mt-1">{ROLE_LABELS[staff.role] || staff.role}</p>
+            </div>
           </div>
           <span className={`px-3 py-1 rounded-full text-xs font-bold ${staff.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>
             {staff.is_active ? "نشط" : "معطّل"}

@@ -18,6 +18,40 @@ export async function getStaffDocumentsAction(staffId: string): Promise<StaffDoc
   return getDocumentsForStaff(staffId);
 }
 
+// نفس دلو order-submissions المستخدَم أصلاً لمرفقات البوت والموظفين — مسار
+// staff-photos/ فرعي خاص بالصور الشخصية.
+export async function updateStaffPhotoAction(staffId: string, formData: FormData) {
+  const file = formData.get("file") as File | null;
+  if (!file || file.size === 0) throw new Error("الرجاء اختيار صورة");
+  if (!file.type.startsWith("image/")) throw new Error("الملف يجب أن يكون صورة");
+  if (file.size > 5 * 1024 * 1024) throw new Error("الصورة أكبر من الحد المسموح (5 ميجابايت)");
+
+  const arrayBuffer = await file.arrayBuffer();
+  const ext = file.type === "image/png" ? "png" : "jpg";
+  const path = `staff-photos/${staffId}-${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("order-submissions")
+    .upload(path, arrayBuffer, { contentType: file.type });
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data } = supabase.storage.from("order-submissions").getPublicUrl(path);
+
+  const { error } = await supabase.from("erp_staff").update({ photo_url: data.publicUrl }).eq("id", staffId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dashboard/staff");
+  revalidatePath(`/dashboard/staff/${staffId}/profile`);
+}
+
+export async function removeStaffPhotoAction(staffId: string) {
+  const { error } = await supabase.from("erp_staff").update({ photo_url: null }).eq("id", staffId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dashboard/staff");
+  revalidatePath(`/dashboard/staff/${staffId}/profile`);
+}
+
 // أرقام هاتف بصيغ فلسطينية/دولية شائعة (أرقام، +، مسافات، شرطات) — تحقق
 // شكلي بسيط يمنع إدخال نص عشوائي بالخطأ، وليس تحققاً كاملاً من صحة الرقم.
 const PHONE_PATTERN = /^[0-9+\-\s()]{7,20}$/;

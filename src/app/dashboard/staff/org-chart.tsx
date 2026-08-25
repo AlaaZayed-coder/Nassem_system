@@ -29,9 +29,14 @@ function TreeNode({ staff, childrenMap, depth }: { staff: Staff; childrenMap: Ma
         href={`/dashboard/staff/${staff.id}/profile`}
         className="inline-flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm hover:border-indigo-300 hover:shadow transition"
       >
-        <span className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${ROLE_COLORS[staff.role] || "bg-slate-100 text-slate-800"}`}>
-          {staff.name.trim().charAt(0) || "؟"}
-        </span>
+        {staff.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={staff.photo_url} alt={staff.name} className="w-7 h-7 rounded-full object-cover shrink-0" />
+        ) : (
+          <span className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${ROLE_COLORS[staff.role] || "bg-slate-100 text-slate-800"}`}>
+            {staff.name.trim().charAt(0) || "؟"}
+          </span>
+        )}
         <span className="flex flex-col">
           <span className="text-sm font-bold text-slate-800">{staff.name}</span>
           <span className="text-[11px] text-slate-400">{ROLE_LABELS[staff.role] || staff.role}{reports.length > 0 ? ` · ${reports.length} تابع` : ""}</span>

@@ -13,10 +13,11 @@ export type Staff = {
   is_active: boolean;
   is_hidden: boolean;
   hire_date: string | null;
+  photo_url: string | null;
   created_at: string;
 };
 
-const STAFF_COLUMNS = "id, name, role, telegram_chat_id, phone, username, supervisor_id, extra_access, vacation_balance_days, is_active, is_hidden, hire_date, created_at";
+const STAFF_COLUMNS = "id, name, role, telegram_chat_id, phone, username, supervisor_id, extra_access, vacation_balance_days, is_active, is_hidden, hire_date, photo_url, created_at";
 
 export async function getStaffList(): Promise<Staff[]> {
   const { data, error } = await supabase
