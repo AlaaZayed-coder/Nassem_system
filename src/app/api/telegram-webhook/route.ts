@@ -1231,7 +1231,12 @@ async function handleCallbackQuery(callbackQuery: any) {
     if (!staff || (staff.role !== "manager" && staff.role !== "hr")) { await answerCallbackQuery(callbackQuery.id, "غير مصرح"); return; }
     const [, kind, range] = data.split(":");
     await answerCallbackQuery(callbackQuery.id, "جاري إصدار التقرير...");
-    await sendRequestsReport(chatId, kind as "pending" | "done", range as "month" | "quarter" | "all");
+    try {
+      await sendRequestsReport(chatId, kind as "pending" | "done", range as "month" | "quarter" | "all");
+    } catch (err) {
+      console.error("sendRequestsReport failed", err);
+      await sendTelegramMessage(chatId, "⚠️ تعذّر إصدار التقرير، حاول مجدداً أو راجع الدعم الفني.");
+    }
     return;
   }
 
@@ -1250,7 +1255,12 @@ async function handleCallbackQuery(callbackQuery: any) {
     const targetId = data.replace("admin_pdf_pick:", "");
     await answerCallbackQuery(callbackQuery.id, "جاري إصدار التقرير...");
     await clearPendingTelegramSubmission(chatId);
-    await sendStaffPdfReport(chatId, targetId);
+    try {
+      await sendStaffPdfReport(chatId, targetId);
+    } catch (err) {
+      console.error("sendStaffPdfReport failed", err);
+      await sendTelegramMessage(chatId, "⚠️ تعذّر إصدار التقرير، حاول مجدداً أو راجع الدعم الفني.");
+    }
     return;
   }
 
