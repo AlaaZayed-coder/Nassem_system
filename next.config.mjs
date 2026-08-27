@@ -7,7 +7,7 @@ const nextConfig = {
     // Vercel لأنها ليست imports — بدونها يفشل بناء PDF بصمت في الإنتاج
     // فقط (يعمل محلياً لوجود node_modules كاملة).
     outputFileTracingIncludes: {
-      '/api/telegram-webhook/route': ['./node_modules/pdfkit/js/data/**'],
+      '/api/telegram-webhook': ['./node_modules/pdfkit/js/data/**'],
     },
   },
 };
